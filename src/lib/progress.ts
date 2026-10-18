@@ -15,6 +15,8 @@ export interface Progress {
   hearts: number;
   /** Timestamp the heart refill clock counts from. */
   heartsUpdatedAt: number;
+  /** Daily XP goal chosen in onboarding. Missing in older saves – fall back to DAILY_GOAL_XP. */
+  dailyGoal?: number;
 }
 
 export function initialProgress(now = Date.now()): Progress {
