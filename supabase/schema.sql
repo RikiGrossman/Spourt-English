@@ -87,3 +87,142 @@ as $$
 $$;
 
 grant execute on function public.weekly_leaderboard() to anon, authenticated;
+
+-- ============================================================================================
+-- v2 additions (docs/spec/v2.md §6.6). Idempotent like everything above.
+-- ============================================================================================
+
+-- (1) Keeps lesson ids that newer clients wrote when an older client saves progress without them.
+create or replace function public.keep_completed_lessons()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if jsonb_typeof(old.data -> 'completed') = 'object' then
+    new.data := jsonb_set(new.data, '{completed}',
+      (old.data -> 'completed') || coalesce(new.data -> 'completed', '{}'::jsonb));
+  end if;
+  return new;
+end; $$;
+drop trigger if exists progress_keep_completed on public.progress;
+create trigger progress_keep_completed before update on public.progress
+  for each row execute function public.keep_completed_lessons();
+
+-- (2) Spaced-repetition state (Should – F14). One row per learner and item key.
+create table if not exists public.srs_state (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  item_key text not null check (char_length(item_key) between 3 and 80),
+  box smallint not null check (box between 0 and 5),
+  due date not null,
+  seen integer not null default 0 check (seen >= 0),
+  wrong integer not null default 0 check (wrong >= 0),
+  last bigint not null check (last >= 0),
+  primary key (user_id, item_key)
+);
+alter table public.srs_state enable row level security;
+drop policy if exists "own srs" on public.srs_state;
+create policy "own srs" on public.srs_state
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Merges uploaded items into the caller's state and returns the full state; the same rules as
+-- PUT /api/srs (shared/srs-merge.ts): the newer `last` wins box/due (equal `last` → lower box),
+-- seen/wrong take the maximum. Invalid items are skipped, `last` is capped at now, and keys
+-- new to the learner are only added while the total stays within 3000 (in key order).
+create or replace function public.merge_srs(items jsonb)
+returns setof public.srs_state
+language plpgsql security invoker set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  now_ms bigint := (extract(epoch from now()) * 1000)::bigint;
+  room integer;
+begin
+  if me is null then raise exception 'not_signed_in'; end if;
+  if items is null or jsonb_typeof(items) <> 'object' then raise exception 'invalid_srs'; end if;
+  if (select count(*) from jsonb_object_keys(items)) > 1000 then raise exception 'too_many_items'; end if;
+  room := greatest(0, 3000 - (select count(*) from public.srs_state where user_id = me));
+
+  insert into public.srs_state as s (user_id, item_key, box, due, seen, wrong, last)
+  select me, v.key, v.box, v.due, v.seen, v.wrong, v.last
+  from (
+    select e.key,
+           (e.value->>'box')::smallint as box,
+           (e.value->>'due')::date as due,
+           (e.value->>'seen')::int as seen,
+           (e.value->>'wrong')::int as wrong,
+           least((e.value->>'last')::bigint, now_ms) as last,
+           exists (select 1 from public.srs_state x where x.user_id = me and x.item_key = e.key) as known
+    from jsonb_each(items) e
+    where jsonb_typeof(e.value) = 'object'
+      and e.key ~ '^(w:[^\s].{0,77}|s:u\d{1,2}l\d{1,2}:\d{1,2})$'
+      and coalesce(e.value->>'box', '') ~ '^[0-5]$'
+      and coalesce(e.value->>'due', '') ~ '^\d{4}-\d{2}-\d{2}$'
+      and coalesce(e.value->>'seen', '') ~ '^\d{1,9}$'
+      and coalesce(e.value->>'wrong', '') ~ '^\d{1,9}$'
+      and coalesce(e.value->>'last', '') ~ '^\d{1,15}$'
+  ) v
+  where v.due <= current_date + 401
+    and (v.known or v.key in (
+      select n.key from jsonb_each(items) n
+      where not exists (select 1 from public.srs_state x where x.user_id = me and x.item_key = n.key)
+      order by n.key collate "C"
+      limit room))
+  on conflict (user_id, item_key) do update set
+    box   = case when excluded.last > s.last or (excluded.last = s.last and excluded.box < s.box) then excluded.box else s.box end,
+    due   = case when excluded.last > s.last or (excluded.last = s.last and excluded.box < s.box) then excluded.due else s.due end,
+    last  = greatest(s.last, excluded.last),
+    seen  = greatest(s.seen, excluded.seen),
+    wrong = greatest(s.wrong, excluded.wrong);
+
+  return query select * from public.srs_state where user_id = me;
+end; $$;
+revoke execute on function public.merge_srs(jsonb) from public, anon;
+grant execute on function public.merge_srs(jsonb) to authenticated;
+
+-- (3) Anonymous analytics events (Must – F11). Insert-only; dashboards read with the service role.
+create table if not exists public.events (
+  id bigint generated always as identity primary key,
+  anon_id uuid not null,
+  user_id uuid default auth.uid() references auth.users (id) on delete cascade,
+  name text not null check (name in ('app_open','onboarding_complete','lesson_start','exercise_answer',
+    'lesson_complete','lesson_abandon','hearts_out','review_start','review_complete','unit_intro_shown',
+    'signup_prompt_shown','signup_prompt_accepted','signup_prompt_dismissed','signup_complete','identify')),
+  lesson_id text check (char_length(lesson_id) <= 12),
+  item_key text check (char_length(item_key) <= 80),
+  ex_type text check (ex_type in ('choice-en','choice-he','match','build-en','build-he','listen')),
+  correct boolean, first_try boolean,
+  duration_ms integer check (duration_ms between 0 and 3600000),
+  props jsonb not null default '{}' check (pg_column_size(props) < 1024),
+  client_ts timestamptz not null,
+  local_date date not null,
+  local_hour smallint not null check (local_hour between 0 and 23),
+  app_version text check (char_length(app_version) <= 20),
+  platform text check (platform in ('web','pwa','android')),
+  created_at timestamptz not null default now()
+);
+create index if not exists events_created_at on public.events (created_at);
+create index if not exists events_anon on public.events (anon_id, created_at);
+alter table public.events enable row level security;
+drop policy if exists "insert events" on public.events;
+create policy "insert events" on public.events
+  for insert to anon, authenticated with check (user_id is null or user_id = auth.uid());
+-- No select/update/delete policy: clients can never read events.
+
+-- (Should) drop floods: more than 600 events per anon_id in one hour are silently skipped.
+create or replace function public.events_rate_limit()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if (select count(*) from public.events
+      where anon_id = new.anon_id and created_at > now() - interval '1 hour') >= 600 then
+    return null;
+  end if;
+  return new;
+end; $$;
+drop trigger if exists events_rate_limit on public.events;
+create trigger events_rate_limit before insert on public.events
+  for each row execute function public.events_rate_limit();
+
+-- Raw events are kept 180 days. Run daily, e.g. with pg_cron (see docs/supabase.md):
+--   select cron.schedule('purge-old-events', '17 3 * * *', 'select public.purge_old_events()');
+create or replace function public.purge_old_events()
+returns void language sql security definer set search_path = '' as $$
+  delete from public.events where created_at < now() - interval '180 days';
+$$;
+revoke execute on function public.purge_old_events() from public, anon, authenticated;
