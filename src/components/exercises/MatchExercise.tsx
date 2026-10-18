@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Exercise } from '../../types';
 import { shuffle } from '../../lib/random';
+import { sounds } from '../../lib/sound';
 import { speak } from '../../lib/speech';
 
 interface Props {
@@ -22,12 +23,14 @@ export function MatchExercise({ exercise, locked, onCheck }: Props) {
     if (en === null || he === null) return;
     const ok = exercise.pairs.some((p) => p.en === en && p.he === he);
     if (ok) {
+      sounds.tap();
       setMatched((m) => [...m, en]);
       setEn(null);
       setHe(null);
       return;
     }
     setWrong(true);
+    sounds.wrong();
     const timer = setTimeout(() => {
       setWrong(false);
       setEn(null);

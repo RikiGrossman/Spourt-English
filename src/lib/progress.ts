@@ -15,6 +15,8 @@ export interface Progress {
   hearts: number;
   /** Timestamp the heart refill clock counts from. */
   heartsUpdatedAt: number;
+  /** Daily XP goal chosen in onboarding. Missing in older saves – fall back to DAILY_GOAL_XP. */
+  dailyGoal?: number;
 }
 
 export function initialProgress(now = Date.now()): Progress {
@@ -35,14 +37,21 @@ export function dateKey(time: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function previousDateKey(time: number): string {
-  const d = new Date(time);
-  d.setDate(d.getDate() - 1);
-  return dateKey(d.getTime());
+/** Moves a `YYYY-MM-DD` key by whole days (calendar arithmetic, independent of time zone). */
+export function shiftDateKey(key: string, days: number): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-/** Applies hearts that refilled over time and resets the daily XP on a new day. */
-export function refresh(p: Progress, now = Date.now()): Progress {
+function previousDateKey(time: number): string {
+  return shiftDateKey(dateKey(time), -1);
+}
+
+/**
+ * Applies hearts that refilled over time and resets the daily XP on a new day.
+ * `today` is the learner's local date; the server passes the date the client reported.
+ */
+export function refresh(p: Progress, now = Date.now(), today = dateKey(now)): Progress {
   let next = p;
   if (p.hearts < MAX_HEARTS) {
     const gained = Math.floor((now - p.heartsUpdatedAt) / HEART_REFILL_MS);
@@ -51,7 +60,7 @@ export function refresh(p: Progress, now = Date.now()): Progress {
       next = { ...next, hearts, heartsUpdatedAt: p.heartsUpdatedAt + gained * HEART_REFILL_MS };
     }
   }
-  if (p.lastActiveDate !== dateKey(now) && p.xpToday !== 0) {
+  if (p.lastActiveDate !== today && p.xpToday !== 0) {
     next = { ...next, xpToday: 0 };
   }
   return next;
@@ -79,12 +88,17 @@ export function loseHeart(p: Progress, now = Date.now()): Progress {
   };
 }
 
-export function completeLesson(p: Progress, lessonId: string, xp: number, now = Date.now()): Progress {
-  const current = refresh(p, now);
-  const today = dateKey(now);
+export function completeLesson(
+  p: Progress,
+  lessonId: string,
+  xp: number,
+  now = Date.now(),
+  today = dateKey(now),
+): Progress {
+  const current = refresh(p, now, today);
   let streak = current.streak;
   if (current.lastActiveDate !== today) {
-    streak = current.lastActiveDate === previousDateKey(now) ? streak + 1 : 1;
+    streak = current.lastActiveDate === shiftDateKey(today, -1) ? streak + 1 : 1;
   }
   return {
     ...current,

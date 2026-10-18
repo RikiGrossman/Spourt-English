@@ -1,0 +1,163 @@
+import { expect, type Page } from '@playwright/test';
+import { allLessons } from '../src/data/course';
+import { tokenize } from '../src/lib/answer';
+import type { Progress } from '../src/lib/progress';
+import type { Lesson } from '../src/types';
+
+export const PROGRESS_KEY = 'spourt-english:progress:v1';
+export const AUTH_KEY = 'spourt-english:auth:v1';
+
+export const lesson = (id: string): Lesson => {
+  const found = allLessons.find((l) => l.id === id);
+  if (!found) throw new Error(`no lesson ${id}`);
+  return found;
+};
+
+/**
+ * Replaces speech synthesis with a recorder, so listening exercises can be
+ * solved from what the app "said" (and headless runs stay silent).
+ */
+export async function recordSpeech(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __spoken: string[] };
+    w.__spoken = [];
+    const synth = {
+      speak: (u: { text: string }) => w.__spoken.push(u.text),
+      cancel: () => {},
+      getVoices: () => [],
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
+    if (!('SpeechSynthesisUtterance' in window)) {
+      (window as unknown as Record<string, unknown>).SpeechSynthesisUtterance = class {
+        constructor(public text: string) {}
+      };
+    }
+  });
+}
+
+/** Opens the app as a brand-new visitor and gets past onboarding. */
+export async function openFresh(page: Page) {
+  await recordSpeech(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'בואו נתחיל' }).click();
+  await page.getByRole('button', { name: 'המשך' }).click();
+  await expect(page.locator('.path')).toBeVisible();
+}
+
+/** Seeds local progress before the app loads (the page must not be open yet). */
+export async function seedProgress(page: Page, patch: Partial<Progress>) {
+  await page.addInitScript(
+    ([key, value]) => {
+      if (!sessionStorage.getItem('e2e-seeded')) {
+        localStorage.setItem(key, value);
+        sessionStorage.setItem('e2e-seeded', '1');
+      }
+    },
+    [
+      PROGRESS_KEY,
+      JSON.stringify({
+        xp: 0,
+        completed: {},
+        streak: 0,
+        lastActiveDate: null,
+        xpToday: 0,
+        hearts: 5,
+        heartsUpdatedAt: Date.now(),
+        dailyGoal: 30,
+        ...patch,
+      }),
+    ] as const,
+  );
+}
+
+/** The path bubble of a lesson; its accessible name is the title plus (הושלם)/(נעול). */
+export const lessonButton = (page: Page, id: string) => page.locator(`.node-btn[aria-label^="${lesson(id).title}"]`);
+
+export async function localProgress(page: Page): Promise<Progress> {
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), PROGRESS_KEY);
+}
+
+export async function token(page: Page): Promise<string | null> {
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null')?.token ?? null, AUTH_KEY);
+}
+
+type Kind = 'choice' | 'build' | 'listen' | 'match';
+
+/** Identifies the exercise on screen and the prompt that identifies it. */
+async function current(page: Page): Promise<{ kind: Kind; prompt: string }> {
+  const title = page.locator('.exercise-title');
+  await expect(title).toBeVisible();
+  if (await page.locator('.match-grid').count()) return { kind: 'match', prompt: 'match' };
+  if (await page.locator('.prompt-word').count()) {
+    return { kind: 'choice', prompt: (await page.locator('.prompt-word').textContent())!.trim() };
+  }
+  if (await page.locator('.prompt-bubble').count()) {
+    return { kind: 'build', prompt: (await page.locator('.prompt-bubble').textContent())!.trim() };
+  }
+  // Listening: the prompt is only spoken – read it back from the recorder.
+  const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken.at(-1) ?? '');
+  return { kind: 'listen', prompt: `listen:${spoken}` };
+}
+
+async function clickTiles(page: Page, words: string[]) {
+  for (const word of words) {
+    await page
+      .locator('.bank')
+      .getByRole('button', { name: word, exact: true })
+      .and(page.locator(':enabled'))
+      .first()
+      .click();
+  }
+}
+
+/** Answers the exercise on screen (right or deliberately wrong) and returns its prompt. */
+export async function answer(page: Page, l: Lesson, correct = true): Promise<string> {
+  const ex = await current(page);
+  if (ex.kind === 'match') {
+    for (const pair of l.words) {
+      const en = page.locator('.match-col[dir=ltr]').getByRole('button', { name: pair.en, exact: true });
+      if (!(await en.count()) || (await en.isDisabled())) continue;
+      await en.click();
+      await page.locator('.match-col:not([dir])').getByRole('button', { name: pair.he, exact: true }).click();
+    }
+  } else if (ex.kind === 'choice') {
+    const word = l.words.find((w) => w.he === ex.prompt || w.en === ex.prompt)!;
+    const right = word.he === ex.prompt ? word.en : word.he;
+    const options = page.locator('.option');
+    const texts = (await options.allTextContents()).map((t) => t.replace(/^\d/, '').trim());
+    const pick = correct ? right : texts.find((t) => t !== right)!;
+    await options.nth(texts.indexOf(pick)).click();
+    await page.getByRole('button', { name: 'בדיקה' }).click();
+  } else {
+    const title = (await page.locator('.exercise-title').textContent()) ?? '';
+    const lang = title.includes('לעברית') ? 'he' : 'en';
+    const text = ex.prompt.replace(/^listen:/, '');
+    const sentence = l.sentences.find((s) => s.en === text || s.he === text)!;
+    expect(sentence, `sentence for "${text}"`).toBeTruthy();
+    const words = tokenize(sentence[lang]);
+    // A wrong answer: only the first word (every course sentence has at least two).
+    await clickTiles(page, correct ? words : words.slice(0, 1));
+    await page.getByRole('button', { name: 'בדיקה' }).click();
+  }
+  return ex.prompt;
+}
+
+/** Presses "continue" on the feedback bar. */
+export async function next(page: Page) {
+  await page.locator('.lesson-footer.feedback').getByRole('button', { name: 'המשך' }).click();
+}
+
+/** Answers everything correctly until the completion screen; returns the prompts seen in order. */
+export async function finishLesson(page: Page, l: Lesson): Promise<string[]> {
+  const seen: string[] = [];
+  for (let i = 0; i < 40; i++) {
+    if (await page.locator('.lesson-complete').isVisible()) return seen;
+    seen.push(await answer(page, l));
+    await expect(page.locator('.lesson-footer.feedback.good')).toBeVisible();
+    await next(page);
+    await expect(page.locator('.lesson-complete, .lesson-body').first()).toBeVisible();
+  }
+  throw new Error('lesson did not finish');
+}
