@@ -174,9 +174,21 @@ describe('seedFromProgress (US-R5 AC3)', () => {
     expect(again).toBe(s);
   });
 
-  it('marks a learner with nothing completed as seeded', () => {
-    const s = seedFromProgress(emptySrs(), initialProgress(NOW), NOW);
-    expect(s).toMatchObject({ items: {}, seeded: true });
+  it('leaves a learner with nothing completed unseeded, so progress that arrives later is seeded', () => {
+    const empty = emptySrs();
+    expect(seedFromProgress(empty, initialProgress(NOW), NOW)).toBe(empty);
+    // Regression: signing in on a fresh install pulls the old progress after start-up; it used to
+    // find the store already marked as seeded and never created the review items.
+    const s = seedFromProgress(empty, progress, NOW, seededRng(3));
+    expect(Object.keys(s.items)).toHaveLength(wordKeys.size + sentenceKeys.length);
+    expect(s.seeded).toBe(true);
+  });
+
+  it('only marks a store that already holds real answers as seeded (a learner of this release)', () => {
+    const answered = applyAnswers(emptySrs(), [ans(sentenceKey('u1l1', 0), true)], 'lesson', NOW);
+    const s = seedFromProgress(answered, { ...initialProgress(NOW), completed: { u1l1: 1 } }, NOW);
+    expect(s.seeded).toBe(true);
+    expect(s.items).toEqual(answered.items);
   });
 
   it('ignores unknown lesson ids', () => {

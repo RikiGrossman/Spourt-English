@@ -144,7 +144,7 @@ export const unit4: Unit = {
         {
           en: 'Is it late?',
           he: 'כבר מאוחר?',
-          alt: ['Is it too late', 'Is it late already'],
+          alt: ['Is it late already'],
           errors: ['E1', 'E8'],
         },
       ],

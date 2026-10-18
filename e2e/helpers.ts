@@ -181,3 +181,47 @@ export async function finishLesson(page: Page, l: Lesson): Promise<string[]> {
   }
   throw new Error('lesson did not finish');
 }
+
+export const SRS_KEY = 'spourt-english:srs:v1';
+export const EVENTS_KEY = 'spourt-english:events:v1';
+
+/**
+ * Seeds the spaced-repetition store before the app loads: every key gets `box`, due `dueInDays`
+ * after the browser's local date. Like seedProgress, only on the first load of the test.
+ */
+export async function seedSrs(page: Page, keys: string[], opts: { box?: number; dueInDays?: number } = {}) {
+  await page.addInitScript(
+    ([storageKey, itemKeys, box, dueInDays]) => {
+      if (sessionStorage.getItem('e2e-srs-seeded')) return;
+      const d = new Date();
+      d.setDate(d.getDate() + dueInDays);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const due = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const items = Object.fromEntries(itemKeys.map((k) => [k, { box, due, seen: 1, wrong: 0, last: 1000 }]));
+      localStorage.setItem(storageKey, JSON.stringify({ v: 1, items, seeded: true, dirty: [] }));
+      sessionStorage.setItem('e2e-srs-seeded', '1');
+    },
+    [SRS_KEY, keys, opts.box ?? 1, opts.dueInDays ?? 0] as const,
+  );
+}
+
+export interface StoredSrs {
+  v: 1;
+  items: Record<string, { box: number; due: string; seen: number; wrong: number; last: number }>;
+  seeded: boolean;
+  dirty: string[];
+}
+
+export async function localSrs(page: Page): Promise<StoredSrs | null> {
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SRS_KEY);
+}
+
+/** The browser's local date, shifted by `days` (YYYY-MM-DD). */
+export async function browserDate(page: Page, days = 0): Promise<string> {
+  return page.evaluate((n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const pad = (x: number) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, days);
+}

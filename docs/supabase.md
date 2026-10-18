@@ -52,6 +52,12 @@
 2. עם ה־anon key: `insert` ל־`events` מצליח, `select` מחזיר 0 שורות.
 3. משתמש אחד לא רואה שורות `srs_state` של משתמש אחר.
 
+**בדיקה אוטומטית מול PostgreSQL מקומי:** `supabase/tests/run.sh` מריץ את `schema.sql` (פעמיים, לבדיקת אידמפוטנטיות), את `analytics-views.sql` ואת `analytics-seed.sql` על מסד ריק, עם תחליף קטן לסכמת `auth` ולתפקידים של Supabase, ואז בודק את שלוש הנקודות שלמעלה, את `merge_srs` ואת כל ה־views (US-T1 AC7). מריצים על מסד ריק שנועד לזה בלבד:
+
+```bash
+DATABASE_URL=postgres://postgres@localhost:5432/scratch npm run test:supabase
+```
+
 ## פיתוח מקומי מול Supabase
 
 ```bash

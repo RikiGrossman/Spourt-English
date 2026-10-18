@@ -18,7 +18,7 @@ export const unit9: Unit = {
     {
       id: 'u9l1',
       title: 'הגוף',
-      tip: '״כואב לי הראש״ = [[I have a headache]] או [[My head hurts]]. עם [[he / she]]: [[My leg hurts]], [[She has]].',
+      tip: '״כואב לי הראש״ = [[I have a headache]] או [[My head hurts]]. איבר אחד הוא כמו [[it]], ולכן הפועל מקבל [[s]]: [[My leg hurts]]. ועם [[he / she]] אומרים [[has]]: [[She has a headache]].',
       words: [
         { en: 'head', he: 'ראש', sound: 'הֶד' },
         { en: 'hand', he: 'יד', sound: 'הֶנְד' },

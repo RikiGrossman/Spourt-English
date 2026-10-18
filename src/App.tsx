@@ -324,7 +324,10 @@ export default function App() {
             onSignIn={ACCOUNTS_ENABLED ? goAuth : undefined}
             onSignOut={account.signOut}
             onSync={() => void account.sync()}
-            onReset={reset}
+            onReset={() => {
+              reset();
+              srs.reset();
+            }}
           />
         )}
       </main>

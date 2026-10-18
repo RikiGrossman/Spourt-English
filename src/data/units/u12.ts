@@ -97,7 +97,7 @@ export const unit12: Unit = {
     {
       id: 'u12l4',
       title: 'הכי טוב',
-      tip: 'הכי = [[the]] + [[est]]: [[the hottest]]. במילים ארוכות [[the most]]: [[the most beautiful]]. ו־good הופך ל־[[the best]].',
+      tip: 'הכי = [[the]] + [[est]]: [[the hottest]]. במילים ארוכות [[the most]]: [[the most beautiful]]. ו־[[good]] הופך ל־[[the best]].',
       words: [
         { en: 'best', he: 'הכי טוב', sound: 'בֶּסְט' },
         { en: 'most', he: 'הכי', sound: 'מוֹסְט' },

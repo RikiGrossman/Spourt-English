@@ -79,6 +79,11 @@ export function saveSrs(store: SrsStore): void {
  * Sets `seeded`. Returns the store unchanged if it is already seeded.
  * Seeded items have `last: 0`, so any real state from the server wins a merge, and they are
  * not marked dirty.
+ *
+ * With nothing completed there is nothing to seed yet, so `seeded` stays false: progress can
+ * still arrive later (signing in on a fresh install pulls it from the server). A store that
+ * already holds real answers (`last > 0`) belongs to a learner of this release and is only
+ * marked as seeded.
  */
 export function seedFromProgress(
   store: SrsStore,
@@ -87,6 +92,8 @@ export function seedFromProgress(
   rng: Rng = Math.random,
 ): SrsStore {
   if (store.seeded) return store;
+  if (Object.values(store.items).some((s) => s.last > 0)) return { ...store, seeded: true };
+  if (!allLessons.some((l) => (progress.completed[l.id] ?? 0) >= 1)) return store;
   const today = dateKey(now);
   const items: ItemStates = { ...store.items };
   const seed = (key: string) => {
@@ -229,6 +236,8 @@ export interface SrsApi {
   due: number;
   /** Records a finished lesson or review session and persists it. */
   record: (answers: ItemAnswer[], mode: AnswerMode) => void;
+  /** Forgets all review state on this device (Profile → reset progress). */
+  reset: () => void;
 }
 
 /**
@@ -246,6 +255,11 @@ export function useSrs(progress: Progress, signedIn = false, client: SrsClient =
     storeRef.current = store;
     saveSrs(store);
   }, [store]);
+
+  // Progress that arrives after start-up (pulled from the server on sign-in) is seeded too.
+  useEffect(() => {
+    setStore((s) => seedFromProgress(s, progress));
+  }, [progress]);
 
   const push = useCallback(async () => {
     const delta = dirtyDelta(storeRef.current);
@@ -292,5 +306,7 @@ export function useSrs(progress: Progress, signedIn = false, client: SrsClient =
     setStore((s) => applyAnswers(s, answers, mode));
   }, []);
 
-  return { store, due: dueCount(store), record };
+  const reset = useCallback(() => setStore(emptySrs()), []);
+
+  return { store, due: dueCount(store), record, reset };
 }
