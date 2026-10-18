@@ -12,6 +12,7 @@
     "dev:server": "node tools/if-server.mjs run dev",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "android:sync": "VITE_ENABLE_ACCOUNTS=false npm run build && cap sync android",
     "start": "node tools/if-server.mjs start",
     "test": "vitest run && node tools/if-server.mjs test",
     "test:web": "vitest run",
@@ -25,10 +26,14 @@
     "postinstall": "node tools/if-server.mjs install"
   },
   "dependencies": {
+    "@capacitor-community/text-to-speech": "^8.0.2",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.56.1",
     "@types/node": "^22.20.5",

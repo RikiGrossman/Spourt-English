@@ -6,7 +6,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', '**/node_modules', 'server/dist', 'data', '.claude/worktrees', 'test-results', 'playwright-report'] },
+  { ignores: ['dist', 'coverage', '**/node_modules', 'server/dist', 'data', '.claude/worktrees', 'test-results', 'playwright-report', 'android'] },
   {
     files: ['**/*.{js,mjs,cjs,ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
