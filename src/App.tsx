@@ -9,6 +9,7 @@ import { LessonScreen, type LessonResult } from './components/LessonScreen';
 import { Onboarding } from './components/Onboarding';
 import { Profile } from './components/Profile';
 import { TopBar } from './components/TopBar';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises } from './lib/exercises';
@@ -18,6 +19,7 @@ import { completeLesson, loseHeart, visibleStreak } from './lib/progress';
 import { setSoundEnabled } from './lib/sound';
 import { useSettings } from './lib/settings';
 import { useProgress } from './lib/store';
+import { useAppUpdate } from './lib/update';
 import type { Exercise } from './types';
 
 type Tab = 'path' | 'league' | 'profile';
@@ -39,6 +41,16 @@ const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
 const TABS = ACCOUNTS_ENABLED ? ALL_TABS : ALL_TABS.filter((tab) => tab.name !== 'league');
 
 export default function App() {
+  const update = useAppUpdate();
+  return (
+    <>
+      <Screens />
+      <UpdatePrompt state={update.state} onInstall={() => void update.install()} onDismiss={update.dismiss} />
+    </>
+  );
+}
+
+function Screens() {
   const { progress, update, reset } = useProgress();
   const { settings, change: changeSettings } = useSettings();
   const account = useAccount(progress, update);
