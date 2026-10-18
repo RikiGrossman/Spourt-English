@@ -4,9 +4,9 @@
  * Set CONTENT_REPORT=1 to print sentences that use words not taught yet (a warning, not a failure).
  */
 import { describe, expect, it } from 'vitest';
-import { wordId } from '../../shared/item-keys';
+import { isItemKey, sentenceKey, wordId, wordKey } from '../../shared/item-keys';
 import { tokenize } from '../lib/answer';
-import type { ErrorCode } from '../types';
+import type { CefrLevel, ErrorCode } from '../types';
 import { allLessons, allUnits, course } from './course';
 
 /** Lessons learners may have saved progress for: they must exist, in this relative order. */
@@ -100,5 +100,49 @@ describe('content: words and sentences', () => {
     const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
     if (env?.CONTENT_REPORT) console.info(`Untaught words:\n${report.join('\n')}`);
     expect(Array.isArray(report)).toBe(true);
+  });
+});
+
+/** CEFR levels in course order: a unit never drops below the level of the unit before it. */
+const LEVEL_ORDER: CefrLevel[] = ['Pre-A1', 'A1', 'A1+', 'A2'];
+
+describe('content: keys for spaced repetition and analytics (BI)', () => {
+  it('gives every word and sentence a valid, unique item key (w:<wordId> / s:<lessonId>:<index>)', () => {
+    const keys = new Set<string>();
+    for (const lesson of allLessons) {
+      const lessonKeys = [...lesson.words.map(wordKey), ...lesson.sentences.map((_, i) => sentenceKey(lesson.id, i))];
+      for (const key of lessonKeys) {
+        // Keys go into srs_state.item_key and events.item_key (at most 80 characters).
+        expect(isItemKey(key), `${lesson.id} ${key}`).toBe(true);
+        expect(keys.has(key), `${lesson.id} ${key} duplicated`).toBe(false);
+        keys.add(key);
+      }
+    }
+  });
+
+  it('uses lesson ids the events table and the lesson funnel can store and sort', () => {
+    for (const lesson of allLessons) {
+      // events.lesson_id is at most 12 characters; v_lesson_funnel parses unit and lesson number from the id.
+      expect(lesson.id.length, lesson.id).toBeLessThanOrEqual(12);
+      expect(lesson.id, lesson.id).toMatch(/^u\d{1,2}l\d{1,2}$/);
+    }
+  });
+
+  it('raises the CEFR level along the course, never lowering it', () => {
+    let previous = 0;
+    for (const unit of allUnits) {
+      const level = LEVEL_ORDER.indexOf(unit.level as CefrLevel);
+      expect(level, `${unit.id} level ${unit.level}`).toBeGreaterThanOrEqual(previous);
+      previous = level;
+    }
+  });
+
+  it('tags each sentence with an error code at most once (keeps per-code accuracy honest)', () => {
+    for (const lesson of allLessons) {
+      for (const s of lesson.sentences) {
+        const codes = s.errors ?? [];
+        expect(new Set(codes).size, `${lesson.id} "${s.en}" ${codes.join(',')}`).toBe(codes.length);
+      }
+    }
   });
 });
