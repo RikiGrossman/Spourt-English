@@ -26,6 +26,9 @@ import {
 } from './progress';
 import { seededRng } from './random';
 import { mergeProgress } from './sync';
+import { REVIEW_XP } from '../../shared/srs';
+import { wordKey } from '../../shared/item-keys';
+import { buildSentence } from './exercises';
 
 const at = (d: number, hour = 12, min = 0) => new Date(2026, 9, d, hour, min).getTime();
 const MIN = 60 * 1000;
@@ -58,11 +61,17 @@ describe('lesson structure (US-L1 … US-L4)', () => {
     }
   });
 
-  it('US-L3 AC1: the bank holds every answer tile plus 2–4 distractors', () => {
+  it('US-L3 AC1: the bank holds every answer tile plus 2–4 distractors (+ the words of heAlt)', () => {
     for (const lesson of allLessons) {
       for (const ex of generateExercises(lesson, seededRng(9))) {
         if (ex.kind !== 'build') continue;
-        const extra = ex.bank.length - tokenize(ex.answers[0]).length;
+        const tiles = tokenize(ex.answers[0]);
+        // v2 §7.5: words of the first Hebrew alternative are added on top of the distractors.
+        const altWords =
+          ex.answerLang === 'he' && ex.answers.length > 1
+            ? new Set(tokenize(ex.answers[1]).filter((t) => !tiles.includes(t))).size
+            : 0;
+        const extra = ex.bank.length - tiles.length - altWords;
         expect(extra).toBeGreaterThanOrEqual(2);
         expect(extra).toBeLessThanOrEqual(4);
       }
@@ -251,9 +260,10 @@ describe('client merge (US-A3)', () => {
 });
 
 describe('content (US-C1)', () => {
-  it('US-C1 AC3: 6 units, 16 lessons, each with 5 words and 3–4 sentences', () => {
-    expect(course).toHaveLength(6);
-    expect(allLessons).toHaveLength(16);
+  // v2 (docs/spec/v2.md §4): the course grows unit by unit towards 12 units / 64 lessons.
+  it('US-C1 AC3: at least 6 units and 16 lessons, each with 5 words and 3–4 sentences', () => {
+    expect(course.length).toBeGreaterThanOrEqual(6);
+    expect(allLessons.length).toBeGreaterThanOrEqual(16);
     for (const lesson of allLessons) {
       expect(lesson.words).toHaveLength(5);
       expect(lesson.sentences.length).toBeGreaterThanOrEqual(3);
@@ -266,5 +276,33 @@ describe('content (US-C1)', () => {
     expect(ids.slice(0, 3)).toEqual(['u1l1', 'u1l2', 'u1l3']);
     expect(ids).toContain('u2l1');
     expect(ids).toContain('u3l1');
+  });
+});
+
+describe('v2 – review reward and gendered answers (docs/spec/v2.md §9)', () => {
+  it('US-R4 AC2: a review gives +10 XP, counts for goal and streak, and leaves completed alone', () => {
+    const p = completeLesson(initialProgress(at(1)), 'u1l1', 10, at(1));
+    const after = completePractice(p, REVIEW_XP, at(2));
+    expect(REVIEW_XP).toBe(10);
+    expect(after).toMatchObject({ xp: 20, xpToday: 10, streak: 2, completed: { u1l1: 1 } });
+  });
+
+  it('US-C2 AC4: every gendered Hebrew build accepts the feminine form', () => {
+    for (const lesson of allLessons) {
+      lesson.sentences.forEach((s, i) => {
+        if (!s.heAlt) return;
+        const ex = buildSentence(lesson, i, 'he', seededRng(i));
+        if (ex.kind !== 'build') return;
+        for (const alt of s.heAlt) expect(isCorrect(alt, ex.answers)).toBe(true);
+      });
+    }
+  });
+
+  it('US-C2 AC5: "you" is shown as אתה/את in the choice exercise', () => {
+    const lesson = allLessons.find((l) => l.words.some((w) => w.en === 'you'))!;
+    const you = generateExercises(lesson, seededRng(1)).find(
+      (e) => e.kind === 'choice' && e.itemKey === wordKey({ en: 'you' }),
+    );
+    expect(you && you.kind === 'choice' && [you.prompt, you.answer]).toContain('אתה/את');
   });
 });

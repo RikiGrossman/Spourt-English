@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { sounds } from '../lib/sound';
 import type { LessonResult } from './LessonScreen';
 
@@ -7,13 +7,26 @@ interface Props {
   streak: number;
   /** True when this lesson took today's XP across the daily goal. */
   goalReached?: boolean;
-  practice?: boolean;
+  /** A lesson, a spaced-repetition review, or a review made of random practice. */
+  kind?: 'lesson' | 'review' | 'practice';
+  /** Optional sign-up card (guests only, docs/spec/v2.md §7.4). */
+  signupPrompt?: ReactNode;
   onContinue: () => void;
 }
 
+const TITLES = { lesson: 'השיעור הושלם!', review: 'החזרה הושלמה!', practice: 'התרגול הושלם!' };
+const EMOJIS = { lesson: '🎉', review: '🧠', practice: '💪' };
+
 const CONFETTI_COLORS = ['#1f7cf2', '#00a99d', '#ffc21a', '#ff4b4b', '#ce82ff', '#ff9600'];
 
-export function LessonComplete({ result, streak, goalReached = false, practice = false, onContinue }: Props) {
+export function LessonComplete({
+  result,
+  streak,
+  goalReached = false,
+  kind = 'lesson',
+  signupPrompt,
+  onContinue,
+}: Props) {
   useEffect(() => {
     sounds.complete();
   }, []);
@@ -34,10 +47,10 @@ export function LessonComplete({ result, streak, goalReached = false, practice =
         ))}
       </div>
       <div className="big-emoji pop" aria-hidden="true">
-        {practice ? '💪' : '🎉'}
+        {EMOJIS[kind]}
       </div>
       <h2 className="pop" role="status">
-        {practice ? 'התרגול הושלם!' : 'השיעור הושלם!'}
+        {TITLES[kind]}
       </h2>
       {goalReached && <p className="goal-banner pop">🎯 עמדתם ביעד היומי! כל הכבוד!</p>}
       <div className="stat-cards">
@@ -54,6 +67,7 @@ export function LessonComplete({ result, streak, goalReached = false, practice =
           <span className="value">🔥 {streak}</span>
         </div>
       </div>
+      {signupPrompt}
       <button type="button" className="btn primary" onClick={onContinue} autoFocus>
         המשך
       </button>

@@ -172,6 +172,19 @@ export function Profile(props: Props) {
             <span className="switch-knob" />
           </button>
         </div>
+        <div className="setting-row">
+          <span id="analytics-label">שליחת נתוני שימוש אנונימיים</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.analytics}
+            aria-labelledby="analytics-label"
+            className={`switch${settings.analytics ? ' on' : ''}`}
+            onClick={() => props.onSettings({ analytics: !settings.analytics })}
+          >
+            <span className="switch-knob" />
+          </button>
+        </div>
       </section>
 
       <button

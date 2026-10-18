@@ -1238,6 +1238,270 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* ---------- v2: review, unit intro, tips, sign-up prompt ---------- */
+
+.unit-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.unit-banner-text {
+  min-width: 0;
+}
+
+.unit-banner-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.level-chip {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  background: var(--soft);
+  border: 2px solid var(--border);
+  color: var(--muted);
+}
+
+.level-chip.on-color {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+
+.intro-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-bottom-width: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 1.3rem;
+  transition: transform 0.08s;
+}
+
+.intro-btn:active {
+  transform: translateY(2px);
+}
+
+.new-chip {
+  position: absolute;
+  /* Top-left corner of the bubble, whatever the width of the title below it. */
+  top: -6px;
+  left: calc(50% - 64px);
+  background: var(--red);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 0 2px 0 var(--red-dark);
+  white-space: nowrap;
+  animation: pop 0.45s cubic-bezier(0.3, 1.6, 0.6, 1) both;
+}
+
+.review-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid var(--select-border);
+  background: var(--select-bg);
+  color: var(--select-text);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  animation: rise 0.4s ease both;
+}
+
+.review-card p {
+  flex: 1;
+  margin: 0;
+  font-weight: 700;
+}
+
+.review-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.review-go {
+  min-width: 0;
+  padding: 10px 18px;
+  white-space: nowrap;
+}
+
+.practice-btn,
+.review-go,
+.signup-actions .btn,
+.sheet .btn {
+  min-height: 44px;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  animation: fade-in 0.2s ease;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border-top: 6px solid var(--brand);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  animation: slide-up 0.25s ease-out;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 8px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-inline-end: 40px;
+}
+
+.sheet-head h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+
+.intro-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 1.6rem;
+}
+
+.unit-intro h3 {
+  margin: 8px 0;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.intro-goals {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.intro-goals li {
+  font-weight: 600;
+}
+
+.intro-goals li::before {
+  content: '✓';
+  color: var(--brand);
+  font-weight: 800;
+  margin-inline-end: 8px;
+}
+
+.tip-box {
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: var(--soft);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.tip-label {
+  display: block;
+  font-weight: 800;
+  color: var(--orange);
+  margin-bottom: 4px;
+}
+
+.rich-tip {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.rich-tip .en,
+.intro-goals .en {
+  font-weight: 700;
+  color: var(--select-text);
+}
+
+.en.nowrap {
+  white-space: nowrap;
+}
+
+.tip-card .tip-box {
+  margin-top: 8px;
+}
+
+.signup-prompt {
+  width: 100%;
+  max-width: 420px;
+  border: 2px solid var(--select-border);
+  background: var(--select-bg);
+  border-radius: 16px;
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.signup-prompt h3 {
+  margin: 0 0 4px;
+  color: var(--select-text);
+}
+
+.signup-prompt p {
+  margin: 0 0 12px;
+}
+
+.signup-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.signup-actions .btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 16px;
+}
+
+.privacy-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 /* ---------- Animations ---------- */
 
 .pop {

@@ -18,6 +18,7 @@
     "test:web": "vitest run",
     "test:server": "node tools/if-server.mjs test",
     "test:e2e": "playwright test",
+    "test:supabase": "sh supabase/tests/run.sh",
     "typecheck": "tsc -b && node tools/if-server.mjs run typecheck --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",

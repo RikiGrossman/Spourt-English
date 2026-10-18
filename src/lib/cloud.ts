@@ -2,13 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AuthResponse,
   CompleteLessonRequest,
+  ItemStates,
   LeaderboardResponse,
   LoginRequest,
   ProgressResponse,
   RegisterRequest,
+  SrsResponse,
   User,
 } from '../../shared/api';
 import { MAX_LESSON_XP, mergeProgress, plausibleLocalDate, sanitizeProgress } from '../../shared/progress-merge';
+import { MAX_ITEMS_PER_REQUEST } from '../../shared/srs';
+import { sanitizeItemStates } from '../../shared/srs-merge';
 import { findLesson } from '../data/course';
 import { completeLesson, dateKey, initialProgress, isUnlocked, type Progress } from './progress';
 import { ApiRequestError, OFFLINE_MESSAGE } from './api-error';
@@ -24,6 +28,32 @@ import { authRedirectUrl } from './config';
 export const CLOUD_TOKEN = 'supabase';
 
 const NOT_SIGNED_IN = 'צריך להתחבר כדי לעשות את זה.';
+const INVALID_SRS = 'נתוני החזרה אינם תקינים';
+
+/** A row of public.srs_state (supabase/schema.sql). */
+interface SrsRow {
+  item_key: string;
+  box: number;
+  due: string;
+  seen: number;
+  wrong: number;
+  last: number | string;
+}
+
+/** Rows → ItemStates, validated like an upload (bigint `last` may arrive as a string). */
+function rowsToItems(rows: SrsRow[] | null | undefined): ItemStates {
+  const raw: Record<string, unknown> = {};
+  for (const r of rows ?? []) {
+    raw[r.item_key] = {
+      box: Number(r.box),
+      due: String(r.due).slice(0, 10),
+      seen: Number(r.seen),
+      wrong: Number(r.wrong),
+      last: Number(r.last),
+    };
+  }
+  return sanitizeItemStates(raw, Date.now(), Number.POSITIVE_INFINITY) ?? {};
+}
 
 /** Maps Supabase/network failures to ApiRequestError with a Hebrew message. */
 export function cloudError(
@@ -155,6 +185,40 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       const progress = completeLesson(current, lessonId, xp, now, today);
       await save(client, id, progress, xp);
       return { progress };
+    },
+
+    /** The learner's spaced-repetition state (same as GET /api/srs; RLS keeps it to their rows). */
+    async getSrs(): Promise<SrsResponse> {
+      const client = await getClient();
+      const id = await userId(client);
+      const { data, error } = await client
+        .from('srs_state')
+        .select('item_key, box, due, seen, wrong, last')
+        .eq('user_id', id);
+      if (error) throw cloudError(error);
+      return { items: rowsToItems(data as SrsRow[] | null) };
+    },
+
+    /**
+     * Uploads changed items (same checks as PUT /api/srs): invalid items are dropped, the
+     * `merge_srs` RPC merges per item and returns the full state.
+     */
+    async putSrs(items: ItemStates): Promise<SrsResponse> {
+      if (!items || typeof items !== 'object' || Array.isArray(items)) {
+        throw new ApiRequestError(400, 'invalid_srs', INVALID_SRS);
+      }
+      if (Object.keys(items).length > MAX_ITEMS_PER_REQUEST) {
+        throw new ApiRequestError(413, 'too_many_items', 'יותר מדי פריטים בבקשה אחת');
+      }
+      const clean = sanitizeItemStates(items, Date.now(), MAX_ITEMS_PER_REQUEST) ?? {};
+      const client = await getClient();
+      await userId(client);
+      const { data, error } = await client.rpc('merge_srs', { items: clean });
+      if (error) {
+        if (/invalid_srs/.test(error.message ?? '')) throw new ApiRequestError(400, 'invalid_srs', INVALID_SRS);
+        throw cloudError(error);
+      }
+      return { items: rowsToItems(data as SrsRow[] | null) };
     },
 
     async leaderboard(): Promise<LeaderboardResponse> {

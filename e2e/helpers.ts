@@ -73,7 +73,27 @@ export async function seedProgress(page: Page, patch: Partial<Progress>) {
 }
 
 /** The path bubble of a lesson; its accessible name is the title plus (הושלם)/(נעול). */
-export const lessonButton = (page: Page, id: string) => page.locator(`.node-btn[aria-label^="${lesson(id).title}"]`);
+// By id: some titles are prefixes of others (e.g. "בדרך כלל" / "בדרך כלל או עכשיו?").
+export const lessonButton = (page: Page, id: string) => page.locator(`.node-btn[data-lesson-id="${lesson(id).id}"]`);
+
+/**
+ * Opens a lesson from the path, getting past the unit intro (first lesson of a new unit)
+ * and the lesson tip card when they appear. Stops on the out-of-hearts screen too.
+ */
+export async function openLesson(page: Page, id: string) {
+  await lessonButton(page, id).click();
+  await expect(page.locator('.lesson-header, .unit-intro, .out-of-hearts').first()).toBeVisible();
+  const intro = page.locator('.unit-intro');
+  if (await intro.isVisible()) {
+    await intro.getByRole('button', { name: 'יאללה, מתחילים' }).click();
+  }
+  await expect(page.locator('.lesson-header, .out-of-hearts').first()).toBeVisible();
+  const tip = page.locator('.tip-card');
+  if (await tip.isVisible()) {
+    await page.locator('.lesson-footer').getByRole('button', { name: 'הבנתי' }).click();
+    await expect(tip).toHaveCount(0);
+  }
+}
 
 export async function localProgress(page: Page): Promise<Progress> {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), PROGRESS_KEY);
@@ -160,4 +180,48 @@ export async function finishLesson(page: Page, l: Lesson): Promise<string[]> {
     await expect(page.locator('.lesson-complete, .lesson-body').first()).toBeVisible();
   }
   throw new Error('lesson did not finish');
+}
+
+export const SRS_KEY = 'spourt-english:srs:v1';
+export const EVENTS_KEY = 'spourt-english:events:v1';
+
+/**
+ * Seeds the spaced-repetition store before the app loads: every key gets `box`, due `dueInDays`
+ * after the browser's local date. Like seedProgress, only on the first load of the test.
+ */
+export async function seedSrs(page: Page, keys: string[], opts: { box?: number; dueInDays?: number } = {}) {
+  await page.addInitScript(
+    ([storageKey, itemKeys, box, dueInDays]) => {
+      if (sessionStorage.getItem('e2e-srs-seeded')) return;
+      const d = new Date();
+      d.setDate(d.getDate() + dueInDays);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const due = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const items = Object.fromEntries(itemKeys.map((k) => [k, { box, due, seen: 1, wrong: 0, last: 1000 }]));
+      localStorage.setItem(storageKey, JSON.stringify({ v: 1, items, seeded: true, dirty: [] }));
+      sessionStorage.setItem('e2e-srs-seeded', '1');
+    },
+    [SRS_KEY, keys, opts.box ?? 1, opts.dueInDays ?? 0] as const,
+  );
+}
+
+export interface StoredSrs {
+  v: 1;
+  items: Record<string, { box: number; due: string; seen: number; wrong: number; last: number }>;
+  seeded: boolean;
+  dirty: string[];
+}
+
+export async function localSrs(page: Page): Promise<StoredSrs | null> {
+  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), SRS_KEY);
+}
+
+/** The browser's local date, shifted by `days` (YYYY-MM-DD). */
+export async function browserDate(page: Page, days = 0): Promise<string> {
+  return page.evaluate((n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const pad = (x: number) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, days);
 }

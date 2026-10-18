@@ -3,12 +3,15 @@ import type {
   AuthResponse,
   CompleteLessonRequest,
   HealthResponse,
+  ItemStates,
   LeaderboardResponse,
   LoginRequest,
   MeResponse,
   Progress,
   ProgressResponse,
+  PutSrsRequest,
   RegisterRequest,
+  SrsResponse,
   User,
 } from '../../shared/api';
 import { ApiRequestError, OFFLINE_MESSAGE } from './api-error';
@@ -106,6 +109,9 @@ const restApi = {
   putProgress: (progress: Progress) => request<ProgressResponse>('PUT', '/progress', progress, true),
   completeLesson: (lessonId: string, req: CompleteLessonRequest) =>
     request<ProgressResponse>('POST', `/lessons/${encodeURIComponent(lessonId)}/complete`, req, true),
+  /** Spaced-repetition state (docs/spec/v2.md §6.4): the full state, and upload of a delta. */
+  getSrs: () => request<SrsResponse>('GET', '/srs', undefined, true),
+  putSrs: (items: ItemStates) => request<SrsResponse>('PUT', '/srs', { items } satisfies PutSrsRequest, true),
   /** Works signed out too; with a token the server marks the learner's own row (`isMe`). */
   leaderboard: () => request<LeaderboardResponse>('GET', '/leaderboard'),
   /** Tokens are stateless – signing out only forgets the stored one (see clearAuth). */

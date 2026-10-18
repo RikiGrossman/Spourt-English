@@ -5,10 +5,19 @@ describe('parseSettings', () => {
   it('falls back to defaults for missing or broken data', () => {
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings('{oops')).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings('{"theme":"neon","sound":"yes"}')).toEqual(DEFAULT_SETTINGS);
+    expect(parseSettings('{"theme":"neon","sound":"yes","analytics":"no"}')).toEqual(DEFAULT_SETTINGS);
   });
 
   it('reads saved choices', () => {
-    expect(parseSettings('{"theme":"dark","sound":false}')).toEqual({ theme: 'dark', sound: false });
+    expect(parseSettings('{"theme":"dark","sound":false,"analytics":false}')).toEqual({
+      theme: 'dark',
+      sound: false,
+      analytics: false,
+    });
+  });
+
+  it('turns analytics on for saves from before the setting existed', () => {
+    expect(DEFAULT_SETTINGS.analytics).toBe(true);
+    expect(parseSettings('{"theme":"dark","sound":false}')).toEqual({ theme: 'dark', sound: false, analytics: true });
   });
 });

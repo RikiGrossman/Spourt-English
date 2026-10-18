@@ -7,8 +7,11 @@
  * non-2xx status.
  */
 import type { Progress } from '../src/lib/progress';
+import type { ItemStates } from './srs';
 
 export type { Progress };
+export type { ItemState, ItemStates } from './srs';
+export type { AnalyticsEvent, EventsRequest } from './analytics';
 
 export interface User {
   id: string;
@@ -88,4 +91,22 @@ export interface LeaderboardResponse {
 export interface HealthResponse {
   ok: true;
   version: string;
+  /** Optional (Could, v2): oldest client version that keeps unknown lesson ids safely. */
+  minClientVersion?: string;
+}
+
+// ---- v2 additions (docs/spec/v2.md §6.4) ----
+
+/** GET /api/srs (auth) – the learner's full spaced-repetition state. */
+export interface SrsResponse {
+  items: ItemStates;
+}
+
+/**
+ * PUT /api/srs (auth) – uploads changed items only (a delta, ≤ MAX_ITEMS_PER_REQUEST).
+ * The server sanitizes, merges per item (shared/srs-merge.ts) and responds with the full
+ * merged state as SrsResponse.
+ */
+export interface PutSrsRequest {
+  items: ItemStates;
 }

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { LeaderboardEntry, User } from '../../shared/api';
+import type { AnalyticsEvent } from '../../shared/analytics';
+import type { ItemStates, LeaderboardEntry, User } from '../../shared/api';
+import type { Box } from '../../shared/srs';
 import { initialProgress, type Progress } from '../../src/lib/progress';
 import type { Db } from './db';
 
@@ -30,6 +32,15 @@ export const publicUser = ({ id, email, displayName, createdAt }: StoredUser): U
   createdAt,
 });
 
+interface SrsRow {
+  item_key: string;
+  box: number;
+  due: string;
+  seen: number;
+  wrong: number;
+  last: number;
+}
+
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Data access for the API, kept in one place so routes stay small. */
@@ -55,7 +66,31 @@ export function createRepo(db: Db) {
        ORDER BY weeklyXp DESC, lastAt ASC
        LIMIT ?`,
     ),
+    getSrs: db.prepare('SELECT item_key, box, due, seen, wrong, last FROM srs_state WHERE user_id = ?'),
+    upsertSrs: db.prepare(
+      `INSERT INTO srs_state (user_id, item_key, box, due, seen, wrong, last) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, item_key) DO UPDATE SET
+         box = excluded.box, due = excluded.due, seen = excluded.seen, wrong = excluded.wrong, last = excluded.last`,
+    ),
+    insertEvent: db.prepare(
+      `INSERT INTO events (anon_id, user_id, name, lesson_id, item_key, ex_type, correct, first_try, duration_ms,
+         props, client_ts, local_date, local_hour, app_version, platform, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ),
   };
+
+  const bool = (v: boolean | undefined) => (v === undefined ? null : v ? 1 : 0);
+
+  function transaction(fn: () => void): void {
+    db.exec('BEGIN');
+    try {
+      fn();
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  }
 
   return {
     findUserById(id: string): StoredUser | undefined {
@@ -100,6 +135,53 @@ export function createRepo(db: Db) {
         db.exec('ROLLBACK');
         throw err;
       }
+    },
+    /** The learner's full spaced-repetition state. */
+    getSrs(userId: string): ItemStates {
+      const items: ItemStates = {};
+      for (const r of q.getSrs.all(userId) as unknown as SrsRow[]) {
+        items[r.item_key] = {
+          box: Number(r.box) as Box,
+          due: r.due,
+          seen: Number(r.seen),
+          wrong: Number(r.wrong),
+          last: Number(r.last),
+        };
+      }
+      return items;
+    },
+    /** Writes changed spaced-repetition items in one transaction. */
+    saveSrs(userId: string, changed: ItemStates): void {
+      transaction(() => {
+        for (const [key, s] of Object.entries(changed)) {
+          q.upsertSrs.run(userId, key, s.box, s.due, s.seen, s.wrong, s.last);
+        }
+      });
+    },
+    /** Stores validated analytics events; `userId` comes from the token, never the body. */
+    insertEvents(events: AnalyticsEvent[], userId: string | null, now = Date.now()): void {
+      transaction(() => {
+        for (const e of events) {
+          q.insertEvent.run(
+            e.anonId,
+            userId,
+            e.name,
+            e.lessonId ?? null,
+            e.itemKey ?? null,
+            e.exType ?? null,
+            bool(e.correct),
+            bool(e.firstTry),
+            e.durationMs ?? null,
+            JSON.stringify(e.props ?? {}),
+            e.ts,
+            e.localDate,
+            e.localHour,
+            e.appVersion,
+            e.platform,
+            now,
+          );
+        }
+      });
     },
     leaderboard(meId: string | undefined, now = Date.now(), limit = 20): LeaderboardEntry[] {
       const rows = q.leaderboard.all(now - WEEK_MS, limit) as { id: string; displayName: string; weeklyXp: number }[];

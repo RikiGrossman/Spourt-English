@@ -9,7 +9,24 @@ export const MAX_TOTAL_XP = 10_000_000;
 /** Upper bound for XP from a single lesson (the client awards 10–15). */
 export const MAX_LESSON_XP = 50;
 const MAX_COUNT = 100_000;
+/** At most this many entries are kept in `completed` (docs/spec/v2.md §6.7.2). */
+export const MAX_COMPLETED_KEYS = 500;
+/** Shape of lesson and checkpoint ids (`u7l1`, `u12cp`), also those of newer course versions. */
+export const LESSON_ID_RE = /^u\d{1,2}(l\d{1,2}|cp)$/;
 const lessonIds = new Set(allLessons.map((l) => l.id));
+
+/** True for ids kept in `completed`: known lessons, or ids shaped like a lesson of a newer client. */
+export function isKeepableLessonId(id: string): boolean {
+  return lessonIds.has(id) || LESSON_ID_RE.test(id);
+}
+
+/** Keeps at most MAX_COMPLETED_KEYS entries; known lessons first, so only foreign ids are dropped. */
+function capCompleted(completed: Record<string, number>): Record<string, number> {
+  const ids = Object.keys(completed);
+  if (ids.length <= MAX_COMPLETED_KEYS) return completed;
+  const ordered = [...ids.filter((id) => lessonIds.has(id)), ...ids.filter((id) => !lessonIds.has(id))];
+  return Object.fromEntries(ordered.slice(0, MAX_COMPLETED_KEYS).map((id) => [id, completed[id]]));
+}
 
 const isNonNegNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
 const clampInt = (v: number, max: number) => Math.min(max, Math.floor(v));
@@ -29,7 +46,9 @@ export function plausibleLocalDate(value: unknown, now = Date.now()): string | n
 
 /**
  * Validates an untrusted Progress (e.g. from PUT /api/progress) and clamps it
- * to sane values. Unknown lesson ids are dropped. Returns null if malformed.
+ * to sane values. Lesson ids unknown to this version are kept when they look like lesson
+ * ids (a newer client wrote them – docs/spec/v2.md §6.7.2), up to MAX_COMPLETED_KEYS
+ * entries; anything else (e.g. `__practice__`) is dropped. Returns null if malformed.
  */
 export function sanitizeProgress(input: unknown, now = Date.now()): Progress | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
@@ -45,13 +64,14 @@ export function sanitizeProgress(input: unknown, now = Date.now()): Progress | n
   const future = lastActiveDate !== null && lastActiveDate > shiftDateKey(dateKey(now), 1);
   if (!completed || typeof completed !== 'object' || Array.isArray(completed)) return null;
   const cleanCompleted: Record<string, number> = {};
-  for (const [id, count] of Object.entries(completed)) {
-    if (!isNonNegNumber(count)) return null;
-    if (lessonIds.has(id) && count >= 1) cleanCompleted[id] = clampInt(count, MAX_COUNT);
+  const entries = Object.entries(completed);
+  if (!entries.every(([, count]) => isNonNegNumber(count))) return null;
+  for (const [id, count] of entries as [string, number][]) {
+    if (count >= 1 && isKeepableLessonId(id)) cleanCompleted[id] = clampInt(count, MAX_COUNT);
   }
   return {
     xp: clampInt(xp, MAX_TOTAL_XP),
-    completed: cleanCompleted,
+    completed: capCompleted(cleanCompleted),
     streak: future ? 0 : clampInt(streak, MAX_COUNT),
     lastActiveDate: future ? null : lastActiveDate,
     xpToday: future ? 0 : clampInt(xpToday, MAX_TOTAL_XP),
@@ -101,7 +121,7 @@ export function mergeProgress(stored: Progress, incoming: Progress, now = Date.n
 
   return {
     xp: Math.max(a.xp, b.xp),
-    completed,
+    completed: capCompleted(completed),
     streak,
     lastActiveDate,
     xpToday,

@@ -6,15 +6,19 @@ import type { Db } from './db';
 import { HttpError, errorHandler } from './errors';
 import { createRepo } from './repo';
 import { authRouter } from './routes/auth';
+import { eventsRouter } from './routes/events';
 import { healthRouter } from './routes/health';
 import { leaderboardRouter } from './routes/leaderboard';
 import { progressRouter } from './routes/progress';
+import { srsRouter } from './routes/srs';
 
 export interface AppOptions {
   /** Defaults to resolveSecret() (JWT_SECRET env). */
   secret?: string;
   /** Requests per window on each auth endpoint, per IP. */
   authRateLimit?: { max: number; windowMs: number };
+  /** Requests per window on POST /api/events, per IP (default 60 per minute). */
+  eventsRateLimit?: { max: number; windowMs: number };
   /** Directory of the built web app to serve; defaults to ../dist in production. */
   staticDir?: string | false;
   /** Allow cross-origin requests from localhost (dev only by default). */
@@ -52,6 +56,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
   const requireAuth = authenticate(secret, userExists, true);
   const optionalAuth = authenticate(secret, userExists, false);
   const limiter = rateLimit(options.authRateLimit ?? { max: 20, windowMs: 15 * 60 * 1000 });
+  const eventsLimiter = rateLimit(options.eventsRateLimit ?? { max: 60, windowMs: 60 * 1000 });
 
   const app = express();
   app.disable('x-powered-by');
@@ -69,6 +74,8 @@ export function createApp(db: Db, options: AppOptions = {}) {
   api.use(authRouter(repo, secret, limiter, requireAuth));
   api.use(progressRouter(repo, requireAuth));
   api.use(leaderboardRouter(repo, optionalAuth));
+  api.use(srsRouter(repo, requireAuth));
+  api.use(eventsRouter(repo, optionalAuth, eventsLimiter));
   api.use((_req, _res, next) => next(new HttpError(404, 'not_found', 'הנתיב המבוקש לא נמצא')));
   app.use('/api', api);
 
