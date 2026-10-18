@@ -28,6 +28,7 @@ export function Onboarding({ onDone, onSignIn }: Props) {
           <li>🔊 שומעים כל מילה במבטא אמריקאי</li>
           <li>🔥 רצף ימים, נקודות XP{onSignIn && ' וליגה שבועית'}</li>
         </ul>
+        <p className="privacy-note">אנחנו אוספים נתוני שימוש אנונימיים כדי לשפר את הקורס. אפשר לכבות בפרופיל.</p>
         <div className="onboarding-actions">
           <button type="button" className="btn primary" onClick={() => setStep('goal')} autoFocus>
             בואו נתחיל

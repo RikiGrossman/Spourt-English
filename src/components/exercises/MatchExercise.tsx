@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Exercise } from '../../types';
 import { shuffle } from '../../lib/random';
 import { sounds } from '../../lib/sound';
@@ -7,7 +7,8 @@ import { speak } from '../../lib/speech';
 interface Props {
   exercise: Extract<Exercise, { kind: 'match' }>;
   locked: boolean;
-  onCheck: (correct: boolean, solution: string) => void;
+  /** `missedPairs`: indexes into `pairs` of every pair that was part of a wrong match. */
+  onCheck: (correct: boolean, solution: string, missedPairs?: number[]) => void;
 }
 
 /** Tap an English word and its Hebrew meaning. Completes by itself once every pair is found. */
@@ -18,6 +19,7 @@ export function MatchExercise({ exercise, locked, onCheck }: Props) {
   const [he, setHe] = useState<string | null>(null);
   const [matched, setMatched] = useState<string[]>([]);
   const [wrong, setWrong] = useState(false);
+  const missed = useRef(new Set<number>());
 
   useEffect(() => {
     if (en === null || he === null) return;
@@ -29,6 +31,8 @@ export function MatchExercise({ exercise, locked, onCheck }: Props) {
       setHe(null);
       return;
     }
+    missed.current.add(exercise.pairs.findIndex((p) => p.en === en));
+    missed.current.add(exercise.pairs.findIndex((p) => p.he === he));
     setWrong(true);
     sounds.wrong();
     const timer = setTimeout(() => {
@@ -40,7 +44,12 @@ export function MatchExercise({ exercise, locked, onCheck }: Props) {
   }, [en, he, exercise]);
 
   useEffect(() => {
-    if (!locked && matched.length === exercise.pairs.length) onCheck(true, '');
+    if (!locked && matched.length === exercise.pairs.length)
+      onCheck(
+        true,
+        '',
+        [...missed.current].sort((a, b) => a - b),
+      );
   }, [matched, exercise, locked, onCheck]);
 
   const isMatchedHe = (word: string) => exercise.pairs.some((p) => p.he === word && matched.includes(p.en));

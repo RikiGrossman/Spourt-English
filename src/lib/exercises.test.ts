@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
+import { isItemKey, sentenceKey, wordKey } from '../../shared/item-keys';
 import { allLessons, course } from '../data/course';
+import type { Exercise, Lesson } from '../types';
 import { isCorrect, tokenize } from './answer';
-import { generateExercises } from './exercises';
+import { buildSentence, exerciseType, generateExercises } from './exercises';
 import { seededRng } from './random';
+
+/** True when `answer` can be laid out from the bank's tiles (each tile used once). */
+function buildable(bank: readonly string[], answer: string): boolean {
+  const left = [...bank];
+  for (const tile of tokenize(answer)) {
+    const i = left.indexOf(tile);
+    if (i === -1) return false;
+    left.splice(i, 1);
+  }
+  return true;
+}
 
 describe('course data', () => {
   it('has unique lesson ids and enough words for every lesson', () => {
@@ -46,5 +59,81 @@ describe('generateExercises', () => {
   it('is deterministic with a seeded rng', () => {
     const lesson = allLessons[0];
     expect(generateExercises(lesson, seededRng(7))).toEqual(generateExercises(lesson, seededRng(7)));
+  });
+});
+
+describe('item keys and heAlt (v2 §7.5)', () => {
+  it('every generated exercise in every lesson carries valid item keys', () => {
+    for (const lesson of allLessons) {
+      for (const ex of generateExercises(lesson, seededRng(13))) {
+        if (ex.kind === 'match') {
+          expect(ex.itemKeys).toHaveLength(ex.pairs.length);
+          ex.pairs.forEach((pair, i) => expect(ex.itemKeys![i]).toBe(wordKey(pair)));
+          for (const key of ex.itemKeys!) expect(isItemKey(key), key).toBe(true);
+        } else {
+          expect(isItemKey(ex.itemKey), `${lesson.id}: ${ex.itemKey}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('choice keys point at the word, build keys at the sentence index, with its error codes', () => {
+    const lesson = allLessons.find((l) => l.sentences.some((s) => s.errors?.length)) ?? allLessons[0];
+    for (const ex of generateExercises(lesson, seededRng(3))) {
+      if (ex.kind === 'choice') {
+        const word = lesson.words.find((w) => w.en === ex.answer || w.he === ex.answer)!;
+        expect(ex.itemKey).toBe(wordKey(word));
+      }
+      if (ex.kind === 'build') {
+        const index = lesson.sentences.findIndex((s) => s.en === ex.prompt || s.he === ex.prompt);
+        expect(ex.itemKey).toBe(sentenceKey(lesson.id, index));
+        expect(ex.errors).toEqual(lesson.sentences[index].errors?.length ? lesson.sentences[index].errors : undefined);
+      }
+    }
+  });
+
+  it('US-G1: a Hebrew build accepts every heAlt, and the first one is buildable from the bank', () => {
+    let checked = 0;
+    for (const lesson of allLessons) {
+      lesson.sentences.forEach((sentence, i) => {
+        if (!sentence.heAlt?.length) return;
+        const ex = buildSentence(lesson, i, 'he', seededRng(i + 1));
+        if (ex.kind !== 'build') throw new Error('expected build');
+        expect(ex.answers).toEqual([sentence.he, ...sentence.heAlt]);
+        expect(buildable(ex.bank, sentence.he), `${lesson.id}:${i} he`).toBe(true);
+        expect(buildable(ex.bank, sentence.heAlt[0]), `${lesson.id}:${i} heAlt`).toBe(true);
+        for (const alt of sentence.heAlt) expect(isCorrect(alt, ex.answers)).toBe(true);
+        checked++;
+      });
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('US-G1 AC1/AC2: "אני שמחה" is in the bank and accepted for "I am happy"', () => {
+    const lesson: Lesson = {
+      id: 'u2l1',
+      title: 'test',
+      words: [],
+      sentences: [{ en: 'I am happy', he: 'אני שמח', heAlt: ['אני שמחה'] }],
+    };
+    const ex = buildSentence(lesson, 0, 'he', seededRng(1));
+    if (ex.kind !== 'build') throw new Error('expected build');
+    expect(ex.bank).toContain('שמחה');
+    expect(ex.bank).toContain('שמח');
+    expect(isCorrect('אני שמחה', ex.answers)).toBe(true);
+  });
+
+  it('maps exercises to analytics types', () => {
+    const base = { prompt: 'x', options: ['x'], answer: 'x' };
+    const build = { kind: 'build' as const, prompt: 'x', bank: [], answers: [] };
+    const cases: [Exercise, string][] = [
+      [{ kind: 'choice', promptLang: 'he', ...base }, 'choice-en'],
+      [{ kind: 'choice', promptLang: 'en', ...base }, 'choice-he'],
+      [{ kind: 'match', pairs: [] }, 'match'],
+      [{ ...build, promptLang: 'en', answerLang: 'en', listen: true }, 'listen'],
+      [{ ...build, promptLang: 'he', answerLang: 'en' }, 'build-en'],
+      [{ ...build, promptLang: 'en', answerLang: 'he' }, 'build-he'],
+    ];
+    for (const [ex, type] of cases) expect(exerciseType(ex)).toBe(type);
   });
 });

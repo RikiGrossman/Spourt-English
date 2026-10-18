@@ -75,6 +75,25 @@ export async function seedProgress(page: Page, patch: Partial<Progress>) {
 /** The path bubble of a lesson; its accessible name is the title plus (הושלם)/(נעול). */
 export const lessonButton = (page: Page, id: string) => page.locator(`.node-btn[aria-label^="${lesson(id).title}"]`);
 
+/**
+ * Opens a lesson from the path, getting past the unit intro (first lesson of a new unit)
+ * and the lesson tip card when they appear. Stops on the out-of-hearts screen too.
+ */
+export async function openLesson(page: Page, id: string) {
+  await lessonButton(page, id).click();
+  await expect(page.locator('.lesson-header, .unit-intro, .out-of-hearts').first()).toBeVisible();
+  const intro = page.locator('.unit-intro');
+  if (await intro.isVisible()) {
+    await intro.getByRole('button', { name: 'יאללה, מתחילים' }).click();
+  }
+  await expect(page.locator('.lesson-header, .out-of-hearts').first()).toBeVisible();
+  const tip = page.locator('.tip-card');
+  if (await tip.isVisible()) {
+    await page.locator('.lesson-footer').getByRole('button', { name: 'הבנתי' }).click();
+    await expect(tip).toHaveCount(0);
+  }
+}
+
 export async function localProgress(page: Page): Promise<Progress> {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), PROGRESS_KEY);
 }
