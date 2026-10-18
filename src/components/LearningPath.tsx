@@ -1,25 +1,53 @@
+import { useEffect, useRef } from 'react';
+import { REVIEW_PIN_THRESHOLD } from '../../shared/srs';
 import { course } from '../data/course';
 import { dailyGoalOf } from '../lib/goals';
 import { canPractice } from '../lib/practice';
-import { currentLessonId, isUnlocked, type Progress } from '../lib/progress';
+import { currentLessonId, isCatchUp, isUnlocked, type Progress } from '../lib/progress';
+import type { Unit } from '../types';
+import { ReviewCard } from './ReviewCard';
 
 interface Props {
   progress: Progress;
+  /** Spaced-repetition items due now. */
+  due: number;
   onStart: (lessonId: string) => void;
-  onPractice: () => void;
+  onReview: () => void;
+  /** Opens the unit's intro sheet (📖 on the banner). */
+  onIntro: (unit: Unit) => void;
+}
+
+export interface ReviewButtonState {
+  label: string;
+  disabled: boolean;
+  /** Pin the review card at the top of the path. */
+  pinned: boolean;
+}
+
+/** The review button in the daily card: "🧠 חזרה (N)", "💪 תרגול" or disabled (docs/spec/v2.md §7.2). */
+export function reviewButtonState(due: number, anyCompleted: boolean): ReviewButtonState {
+  if (due > 0) return { label: `🧠 חזרה (${due})`, disabled: false, pinned: due >= REVIEW_PIN_THRESHOLD };
+  return { label: '💪 תרגול', disabled: !anyCompleted, pinned: false };
 }
 
 /** Zig-zag offsets for the lesson bubbles, like a winding path. */
 const OFFSETS = [0, 60, 90, 60, 0, -60, -90, -60];
 
-export function LearningPath({ progress, onStart, onPractice }: Props) {
+export function LearningPath({ progress, due, onStart, onReview, onIntro }: Props) {
   const current = currentLessonId(progress);
   const goal = dailyGoalOf(progress);
   const goalPercent = Math.min(100, (progress.xpToday / goal) * 100);
-  const practice = canPractice(progress);
+  const review = reviewButtonState(due, canPractice(progress));
+  const currentRef = useRef<HTMLDivElement>(null);
+
+  // Bring the lesson to continue with into view when the path opens.
+  useEffect(() => {
+    currentRef.current?.scrollIntoView?.({ block: 'center' });
+  }, []);
 
   return (
     <div className="path">
+      {review.pinned && <ReviewCard due={due} onReview={onReview} />}
       <section className="today-card">
         <div className="today-goal">
           <div className="today-head">
@@ -35,28 +63,56 @@ export function LearningPath({ progress, onStart, onPractice }: Props) {
         <button
           type="button"
           className="btn secondary practice-btn"
-          onClick={onPractice}
-          disabled={!practice}
-          title={practice ? 'חזרה על שיעורים שסיימתם' : 'סיימו שיעור כדי לפתוח תרגול'}
+          onClick={onReview}
+          disabled={review.disabled}
+          title={
+            review.disabled
+              ? 'סיימו שיעור כדי לפתוח תרגול'
+              : due > 0
+                ? 'חזרה על מילים ומשפטים שהגיע זמנם'
+                : 'חזרה על שיעורים שסיימתם'
+          }
         >
-          💪 תרגול
+          {review.label}
         </button>
       </section>
 
       {course.map((unit) => (
         <section key={unit.id} className="unit">
           <div className="unit-banner" style={{ background: unit.color }}>
-            <h2>{unit.title}</h2>
-            <p>{unit.description}</p>
+            <div className="unit-banner-text">
+              <h2>{unit.title}</h2>
+              <p>{unit.description}</p>
+            </div>
+            <div className="unit-banner-side">
+              {unit.level && (
+                <span className="level-chip on-color" dir="ltr">
+                  {unit.level}
+                </span>
+              )}
+              {unit.intro && (
+                <button
+                  type="button"
+                  className="intro-btn"
+                  onClick={() => onIntro(unit)}
+                  aria-label={`טיפ פתיחה: ${unit.title}`}
+                  title="טיפ פתיחה"
+                >
+                  <span aria-hidden="true">📖</span>
+                </button>
+              )}
+            </div>
           </div>
           <div className="unit-lessons">
             {unit.lessons.map((lesson, i) => {
               const done = (progress.completed[lesson.id] ?? 0) > 0;
               const open = isUnlocked(progress, lesson.id);
               const isCurrent = lesson.id === current;
+              const catchUp = !done && isCatchUp(progress, lesson.id);
               return (
                 <div
                   key={lesson.id}
+                  ref={isCurrent ? currentRef : undefined}
                   className={`lesson-node${isCurrent ? ' has-label' : ''}`}
                   style={{ transform: `translateX(${OFFSETS[i % OFFSETS.length]}px)` }}
                 >
@@ -67,10 +123,15 @@ export function LearningPath({ progress, onStart, onPractice }: Props) {
                     style={open ? { background: unit.color } : undefined}
                     disabled={!open}
                     onClick={() => onStart(lesson.id)}
-                    aria-label={`${lesson.title}${done ? ' (הושלם)' : open ? '' : ' (נעול)'}`}
+                    aria-label={`${lesson.title}${done ? ' (הושלם)' : open ? '' : ' (נעול)'}${catchUp ? ' (חדש!)' : ''}`}
                   >
                     {done ? '✓' : open ? '★' : '🔒'}
                   </button>
+                  {catchUp && (
+                    <span className="new-chip" aria-hidden="true">
+                      חדש!
+                    </span>
+                  )}
                   <span className="node-title">{lesson.title}</span>
                 </div>
               );

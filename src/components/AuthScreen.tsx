@@ -3,12 +3,13 @@ import type { AuthResponse } from '../../shared/api';
 import { api, errorMessage } from '../lib/api';
 
 interface Props {
-  onSignedIn: (res: AuthResponse) => void;
+  /** `mode` tells a new account ('register') from a login. */
+  onSignedIn: (res: AuthResponse, mode: Mode) => void;
   onCancel: () => void;
   initialMode?: Mode;
 }
 
-type Mode = 'register' | 'login';
+export type Mode = 'register' | 'login';
 
 export const MIN_PASSWORD = 8;
 
@@ -45,7 +46,7 @@ export function AuthScreen({ onSignedIn, onCancel, initialMode = 'register' }: P
         mode === 'register'
           ? await api.register({ email: email.trim(), password, displayName: displayName.trim() })
           : await api.login({ email: email.trim(), password });
-      onSignedIn(res);
+      onSignedIn(res, mode);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);

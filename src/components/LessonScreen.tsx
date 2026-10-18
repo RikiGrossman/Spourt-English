@@ -1,26 +1,47 @@
-import { useCallback, useState } from 'react';
-import type { Exercise } from '../types';
+import { useCallback, useRef, useState } from 'react';
+import type { ErrorCode, Exercise, ItemAnswer } from '../types';
+import { track } from '../lib/analytics';
+import { exerciseType } from '../lib/exercises';
 import { MAX_HEARTS } from '../lib/progress';
 import { sounds } from '../lib/sound';
 import { useEnterKey } from '../lib/useEnterKey';
 import { BuildExercise } from './exercises/BuildExercise';
 import { ChoiceExercise } from './exercises/ChoiceExercise';
 import { MatchExercise } from './exercises/MatchExercise';
+import { TipCard } from './TipCard';
 
-export interface LessonResult {
+/** XP and accuracy – what is reported to the server for a lesson. */
+export interface LessonScore {
   xp: number;
   accuracy: number;
 }
 
+export interface LessonResult extends LessonScore {
+  /** First-attempt answers per item (spaced repetition). */
+  answers: ItemAnswer[];
+  mistakes: number;
+  /** Exercises answered right on the first attempt. */
+  firstTryCorrect: number;
+  durationMs: number;
+}
+
+/** Called when an exercise is checked, before the learner presses "continue". */
+export type CheckHandler = (correct: boolean, solution: string, missedPairs?: number[]) => void;
+
 interface Props {
   exercises: Exercise[];
-  /** Current hearts, or null for a practice session where mistakes are free. */
+  /** The lesson being played, or null for a review session (analytics). */
+  lessonId: string | null;
+  /** Current hearts, or null for a review session where mistakes are free. */
   hearts: number | null;
   onMistake: () => void;
   onFinish: (result: LessonResult) => void;
   onQuit: () => void;
   /** XP for finishing; a flawless run earns a bonus of 5. */
   baseXp?: number;
+  /** Optional lesson tip shown before the first exercise. */
+  tip?: string;
+  tipTitle?: string;
 }
 
 interface Feedback {
@@ -30,7 +51,7 @@ interface Feedback {
 
 const PRAISE = ['מצוין!', 'כל הכבוד!', 'נהדר!', 'מעולה!', 'יפה מאוד!'];
 
-export function lessonResult(total: number, mistakes: number, baseXp = 10): LessonResult {
+export function lessonResult(total: number, mistakes: number, baseXp = 10): LessonScore {
   return {
     xp: baseXp + (mistakes === 0 ? 5 : 0),
     accuracy: Math.round((total / (total + mistakes)) * 100),
@@ -38,21 +59,69 @@ export function lessonResult(total: number, mistakes: number, baseXp = 10): Less
 }
 
 /**
- * Runs one lesson. A wrong answer costs a heart and the exercise is queued
- * again at the end, so the lesson only ends once everything was answered right.
+ * The first-attempt answers of one exercise: one per item key, a match exercise one per pair
+ * (wrong when the pair was part of a wrong match). Exercises without keys report nothing.
  */
-export function LessonScreen({ exercises, hearts, onMistake, onFinish, onQuit, baseXp = 10 }: Props) {
+export function itemAnswers(exercise: Exercise, correct: boolean, missedPairs: readonly number[] = []): ItemAnswer[] {
+  const exType = exerciseType(exercise);
+  if (exercise.kind === 'match') {
+    return (exercise.itemKeys ?? []).map((itemKey, i) => ({ itemKey, correct: !missedPairs.includes(i), exType }));
+  }
+  if (!exercise.itemKey) return [];
+  const errors: ErrorCode[] | undefined = exercise.kind === 'build' ? exercise.errors : undefined;
+  return [{ itemKey: exercise.itemKey, correct, exType, ...(errors?.length ? { errors } : {}) }];
+}
+
+/**
+ * Runs one lesson or review session. A wrong answer costs a heart (not in a review) and the
+ * exercise is queued again at the end, so the session only ends once everything was answered right.
+ */
+export function LessonScreen({
+  exercises,
+  lessonId,
+  hearts,
+  onMistake,
+  onFinish,
+  onQuit,
+  baseXp = 10,
+  tip,
+  tipTitle = 'טיפ לשיעור',
+}: Props) {
   const [queue, setQueue] = useState<Exercise[]>(exercises);
   const [position, setPosition] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [mistakes, setMistakes] = useState(0);
   const [solved, setSolved] = useState(0);
+  const [showTip, setShowTip] = useState(Boolean(tip));
+  const [startedAt] = useState(() => Date.now());
+  const answers = useRef<ItemAnswer[]>([]);
+  const firstTry = useRef({ answered: 0, correct: 0 });
 
   const exercise = queue[position];
   const percent = (solved / exercises.length) * 100;
+  const review = lessonId === null;
 
-  const handleCheck = useCallback(
-    (correct: boolean, solution: string) => {
+  const handleCheck = useCallback<CheckHandler>(
+    (correct, solution, missedPairs = []) => {
+      const current = queue[position];
+      // Repeats are appended after the original exercises, so a position inside the original
+      // list is always a first attempt.
+      if (position < exercises.length && current) {
+        const firstCorrect = correct && missedPairs.length === 0;
+        answers.current.push(...itemAnswers(current, correct, missedPairs));
+        firstTry.current.answered += 1;
+        if (firstCorrect) firstTry.current.correct += 1;
+        const errors = current.kind === 'build' ? current.errors : undefined;
+        track({
+          name: 'exercise_answer',
+          lessonId,
+          ...(current.kind !== 'match' && current.itemKey ? { itemKey: current.itemKey } : {}),
+          exType: exerciseType(current),
+          correct: firstCorrect,
+          firstTry: true,
+          ...(errors?.length ? { props: { errors: [...errors] } } : {}),
+        });
+      }
       setFeedback({ correct, solution });
       if (correct) {
         sounds.correct();
@@ -61,19 +130,35 @@ export function LessonScreen({ exercises, hearts, onMistake, onFinish, onQuit, b
         sounds.wrong();
         setMistakes((m) => m + 1);
         setQueue((q) => [...q, q[position]]);
+        if (hearts === 1 && lessonId) track({ name: 'hearts_out', lessonId });
         onMistake();
       }
     },
-    [position, onMistake],
+    [queue, position, exercises.length, lessonId, hearts, onMistake],
   );
 
   function next() {
     setFeedback(null);
     if (position + 1 >= queue.length) {
-      onFinish(lessonResult(exercises.length, mistakes, baseXp));
+      onFinish({
+        ...lessonResult(exercises.length, mistakes, baseXp),
+        answers: answers.current,
+        mistakes,
+        firstTryCorrect: firstTry.current.correct,
+        durationMs: Date.now() - startedAt,
+      });
       return;
     }
     setPosition(position + 1);
+  }
+
+  function quit() {
+    track({
+      name: 'lesson_abandon',
+      lessonId,
+      props: { answered: firstTry.current.answered, total: exercises.length, review },
+    });
+    onQuit();
   }
 
   useEnterKey(next, feedback !== null);
@@ -83,7 +168,7 @@ export function LessonScreen({ exercises, hearts, onMistake, onFinish, onQuit, b
       <div className="lesson out-of-hearts">
         <div className="big-emoji pop">💔</div>
         <h2>נגמרו הלבבות</h2>
-        <p>לב חדש מתמלא כל 30 דקות. בינתיים אפשר לתרגל שיעורים שסיימתם – בתרגול אין הורדת לבבות.</p>
+        <p>לב חדש מתמלא כל 30 דקות. בינתיים אפשר לעשות חזרה על מה שלמדתם – בחזרה אין הורדת לבבות.</p>
         <button type="button" className="btn primary" onClick={onQuit} autoFocus>
           חזרה למסלול
         </button>
@@ -100,13 +185,18 @@ export function LessonScreen({ exercises, hearts, onMistake, onFinish, onQuit, b
   return (
     <div className="lesson">
       <header className="lesson-header">
-        <button type="button" className="icon-btn" onClick={onQuit} aria-label="יציאה מהשיעור">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={quit}
+          aria-label={review ? 'יציאה מהחזרה' : 'יציאה מהשיעור'}
+        >
           ✕
         </button>
         <div
           className="progress-track"
           role="progressbar"
-          aria-label="התקדמות בשיעור"
+          aria-label={review ? 'התקדמות בחזרה' : 'התקדמות בשיעור'}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(percent)}
@@ -114,7 +204,7 @@ export function LessonScreen({ exercises, hearts, onMistake, onFinish, onQuit, b
           <div className="progress-fill" style={{ width: `${percent}%` }} />
         </div>
         {hearts === null ? (
-          <span className="hearts practice-badge">תרגול</span>
+          <span className="hearts practice-badge">🧠 חזרה</span>
         ) : (
           <span
             className={`hearts${feedback && !feedback.correct ? ' hit' : ''}`}
@@ -125,11 +215,20 @@ export function LessonScreen({ exercises, hearts, onMistake, onFinish, onQuit, b
         )}
       </header>
 
-      <main className={`lesson-body${feedback ? (feedback.correct ? ' is-correct' : ' is-wrong') : ''}`} key={position}>
-        {exercise.kind === 'choice' && <ChoiceExercise exercise={exercise} {...props} />}
-        {exercise.kind === 'build' && <BuildExercise exercise={exercise} {...props} />}
-        {exercise.kind === 'match' && <MatchExercise exercise={exercise} {...props} />}
-      </main>
+      {showTip && tip ? (
+        <main className="lesson-body" key="tip">
+          <TipCard title={tipTitle} tip={tip} onDone={() => setShowTip(false)} />
+        </main>
+      ) : (
+        <main
+          className={`lesson-body${feedback ? (feedback.correct ? ' is-correct' : ' is-wrong') : ''}`}
+          key={position}
+        >
+          {exercise.kind === 'choice' && <ChoiceExercise exercise={exercise} {...props} />}
+          {exercise.kind === 'build' && <BuildExercise exercise={exercise} {...props} />}
+          {exercise.kind === 'match' && <MatchExercise exercise={exercise} {...props} />}
+        </main>
+      )}
 
       <div className="sr-only" role="status" aria-live="assertive">
         {liveText}
