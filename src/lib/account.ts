@@ -1,0 +1,90 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AuthResponse, CompleteLessonRequest } from '../../shared/api';
+import { ApiRequestError, api, clearAuth, loadAuth, saveAuth, type StoredAuth } from './api';
+import type { Progress } from './progress';
+import { mergeProgress } from './sync';
+
+export type SyncStatus = 'guest' | 'syncing' | 'synced' | 'offline';
+
+/**
+ * Optional account + progress sync. Local progress stays the source of truth:
+ * every server call runs in the background and failures only flip the status
+ * to "offline". Signed-in learners push their progress on every app start (and
+ * when the browser comes back online), so anything missed is retried then.
+ */
+export function useAccount(progress: Progress, update: (fn: (p: Progress) => Progress) => void) {
+  const [auth, setAuth] = useState<StoredAuth | null>(loadAuth);
+  const [status, setStatus] = useState<SyncStatus>(auth ? 'syncing' : 'guest');
+  const progressRef = useRef(progress);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
+  const handleError = useCallback((error: unknown) => {
+    if (error instanceof ApiRequestError && error.unauthorized) {
+      // Token expired or revoked – fall back to guest mode, keep local progress.
+      clearAuth();
+      setAuth(null);
+      setStatus('guest');
+      return;
+    }
+    setStatus('offline');
+  }, []);
+
+  const adopt = useCallback(
+    (server: Progress) => {
+      update((local) => mergeProgress(local, server));
+      setStatus('synced');
+    },
+    [update],
+  );
+
+  /** Uploads local progress; the server merges and returns the combined result. */
+  const sync = useCallback(async () => {
+    if (!loadAuth()) return;
+    setStatus('syncing');
+    try {
+      const res = await api.putProgress(progressRef.current);
+      adopt(res.progress);
+    } catch (error) {
+      handleError(error);
+    }
+  }, [adopt, handleError]);
+
+  useEffect(() => {
+    void sync();
+    const onOnline = () => void sync();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [sync]);
+
+  const signIn = useCallback(
+    (res: AuthResponse) => {
+      const stored = { token: res.token, user: res.user };
+      saveAuth(stored);
+      setAuth(stored);
+      void sync();
+    },
+    [sync],
+  );
+
+  const signOut = useCallback(() => {
+    clearAuth();
+    setAuth(null);
+    setStatus('guest');
+  }, []);
+
+  /** Call after the local state was already updated – reports the lesson in the background. */
+  const reportLesson = useCallback(
+    (lessonId: string, result: CompleteLessonRequest) => {
+      if (!loadAuth()) return;
+      api.completeLesson(lessonId, result).then((res) => adopt(res.progress), handleError);
+    },
+    [adopt, handleError],
+  );
+
+  return { user: auth?.user ?? null, status, signIn, signOut, sync, reportLesson };
+}
+
+export type Account = ReturnType<typeof useAccount>;
