@@ -20,6 +20,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     // The server runs its own tests (npm --prefix server test).
-    exclude: ['**/node_modules/**', '**/dist/**', 'server/**', 'tools/**', '.claude/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'server/**', 'tools/**', '.claude/**', 'e2e/**'],
   },
 });

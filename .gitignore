@@ -16,3 +16,7 @@ data/
 # Claude Code local worktrees and settings
 .claude/worktrees/
 .claude/settings.local.json
+
+# Playwright output
+test-results/
+playwright-report/

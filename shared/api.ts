@@ -59,6 +59,12 @@ export type SyncProgressRequest = Progress;
 export interface CompleteLessonRequest {
   xp: number;
   accuracy: number;
+  /**
+   * Optional: the learner's local date (YYYY-MM-DD) when the lesson ended, so
+   * streaks follow the device's calendar rather than the server's time zone.
+   * Ignored unless it is within one day of the server's date.
+   */
+  date?: string;
 }
 
 /** Response of GET/PUT /api/progress and lesson completion. */

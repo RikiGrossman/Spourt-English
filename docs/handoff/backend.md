@@ -85,6 +85,6 @@ Requires Node ≥ 22.5. `node:sqlite` prints an ExperimentalWarning, which is ha
 - A Dockerfile or deploy setup would build the web app at the root (`npm run build`), then run `npm ci --omit=dev` and `npm start` in `server/`. It must keep `../dist`, `../src/lib`, `../src/data` and `../shared` available, because the server imports those pure modules at runtime.
 
 ## Open issues
-- **Time zones:** `src/lib/progress.ts` uses the process's local date. The server defaults to `TZ=Asia/Jerusalem` so streaks and daily XP match Israeli learners. Learners in other time zones could see off-by-one-day streaks around midnight. A proper fix would have the client send its date key, which would be a contract change.
+- **Time zones:** `src/lib/progress.ts` uses the process's local date. The server defaults to `TZ=Asia/Jerusalem` so streaks and daily XP match Israeli learners. Fixed in QA: `POST /lessons/:id/complete` now takes an optional `date` (the client's local `YYYY-MM-DD`, accepted within one day of the server's date), so streaks follow the learner's calendar; `TZ` is only the fallback.
 - The rate limiter and leaderboard are single-process (in memory and SQLite). That is fine for one instance.
 - There is no logout endpoint, because tokens are stateless; the client just deletes the token. There are also no password-reset or delete-account endpoints.

@@ -52,7 +52,7 @@ Vite מעביר (proxy) כל בקשה ל־`/api` אל השרת. אם השרת ל
 | `JWT_SECRET` | – | סוד לחתימת טוקנים. **חובה בפרודקשן** (השרת לא יעלה בלעדיו) |
 | `NODE_ENV` | `development` | ב־`production` השרת מגיש גם את `dist/` |
 | `TRUST_PROXY` | – | `1` מאחורי reverse proxy, כדי שהגבלת הקצב תראה את כתובת ה־IP האמיתית |
-| `TZ` | `Asia/Jerusalem` | אזור הזמן לחישוב רצף ו־XP יומי |
+| `TZ` | `Asia/Jerusalem` | אזור הזמן לחישוב רצף ו־XP יומי כשהלקוח לא שלח תאריך מקומי |
 
 ## בדיקות ואיכות קוד
 
@@ -60,6 +60,7 @@ Vite מעביר (proxy) כל בקשה ל־`/api` אל השרת. אם השרת ל
 npm run typecheck  # tsc לווב ולשרת
 npm run lint       # ESLint
 npm test           # בדיקות הווב (Vitest) ואז בדיקות השרת (Vitest + supertest)
+npm run test:e2e   # בדיקות קצה־לקצה (Playwright): מרים שרת עם DB בזיכרון + Vite, ומריץ ב־Chromium. לא מוריד דפדפנים – CHROMIUM_PATH או /opt/pw-browsers/chromium
 npm run build      # בנייה של אפליקציית הווב ל־dist/
 npm run check      # הכול ברצף
 npm run format     # Prettier

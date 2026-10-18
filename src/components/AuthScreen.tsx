@@ -10,11 +10,15 @@ interface Props {
 
 type Mode = 'register' | 'login';
 
+export const MIN_PASSWORD = 8;
+
 /** Validates the form before sending; returns a Hebrew message or null. */
 export function validateAuth(mode: Mode, email: string, password: string, displayName: string): string | null {
   if (mode === 'register' && displayName.trim().length < 2) return 'השם צריך להכיל לפחות 2 תווים.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'כתובת האימייל לא תקינה.';
-  if (password.length < (mode === 'register' ? 6 : 1)) return 'הסיסמה צריכה להכיל לפחות 6 תווים.';
+  if (mode === 'login' && !password) return 'יש להזין סיסמה.';
+  // Same minimum as the server (server/src/routes/auth.ts).
+  if (mode === 'register' && password.length < MIN_PASSWORD) return `הסיסמה צריכה להכיל לפחות ${MIN_PASSWORD} תווים.`;
   return null;
 }
 

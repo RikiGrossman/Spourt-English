@@ -84,7 +84,8 @@ export default function App() {
             ? completePractice(progress, result.xp)
             : completeLesson(progress, lessonId, result.xp);
           update((p) => (practice ? completePractice(p, result.xp) : completeLesson(p, lessonId, result.xp)));
-          if (practice) void account.sync();
+          // Practice XP only reaches the server through a sync; send the updated progress itself.
+          if (practice) void account.sync(after);
           else account.reportLesson(lessonId, result);
           setScreen({ name: 'complete', result, goalReached: reachesGoal(progress, after), practice });
         }}

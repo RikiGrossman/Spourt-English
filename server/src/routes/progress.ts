@@ -1,9 +1,9 @@
 import { Router, type RequestHandler } from 'express';
 import type { CompleteLessonRequest, ProgressResponse } from '../../../shared/api';
 import { findLesson } from '../../../src/data/course';
-import { completeLesson, isUnlocked } from '../../../src/lib/progress';
+import { completeLesson, dateKey, isUnlocked } from '../../../src/lib/progress';
 import { HttpError, badRequest } from '../errors';
-import { mergeProgress, sanitizeProgress } from '../merge';
+import { mergeProgress, plausibleLocalDate, sanitizeProgress } from '../merge';
 import type { Repo } from '../repo';
 
 /** Upper bound for XP from a single lesson (the client awards 10–15). */
@@ -48,7 +48,8 @@ export function progressRouter(repo: Repo, requireAuth: RequestHandler) {
     if (!isUnlocked(current, lessonId)) {
       throw new HttpError(403, 'lesson_locked', 'השיעור הזה עדיין נעול – סיימו קודם את השיעור הקודם');
     }
-    const progress = completeLesson(current, lessonId, xp, now);
+    const today = plausibleLocalDate(b.date, now) ?? dateKey(now);
+    const progress = completeLesson(current, lessonId, xp, now, today);
     repo.saveLessonResult(userId, progress, xp, now);
     const body: ProgressResponse = { progress };
     res.json(body);

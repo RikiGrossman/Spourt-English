@@ -6,3 +6,5 @@ server/package-lock.json
 data
 *.db
 .claude/worktrees
+test-results
+playwright-report

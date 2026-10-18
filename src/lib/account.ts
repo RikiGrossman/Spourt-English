@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthResponse, CompleteLessonRequest } from '../../shared/api';
 import { ApiRequestError, api, clearAuth, loadAuth, saveAuth, type StoredAuth } from './api';
-import type { Progress } from './progress';
+import { dateKey, type Progress } from './progress';
 import { mergeProgress } from './sync';
 
 export type SyncStatus = 'guest' | 'syncing' | 'synced' | 'offline';
@@ -40,17 +40,24 @@ export function useAccount(progress: Progress, update: (fn: (p: Progress) => Pro
     [update],
   );
 
-  /** Uploads local progress; the server merges and returns the combined result. */
-  const sync = useCallback(async () => {
-    if (!loadAuth()) return;
-    setStatus('syncing');
-    try {
-      const res = await api.putProgress(progressRef.current);
-      adopt(res.progress);
-    } catch (error) {
-      handleError(error);
-    }
-  }, [adopt, handleError]);
+  /**
+   * Uploads local progress; the server merges and returns the combined result.
+   * Pass `latest` right after an update() in the same event – the ref only
+   * catches up after React re-renders, so it would still hold the old state.
+   */
+  const sync = useCallback(
+    async (latest?: Progress) => {
+      if (!loadAuth()) return;
+      setStatus('syncing');
+      try {
+        const res = await api.putProgress(latest ?? progressRef.current);
+        adopt(res.progress);
+      } catch (error) {
+        handleError(error);
+      }
+    },
+    [adopt, handleError],
+  );
 
   useEffect(() => {
     void sync();
@@ -79,7 +86,8 @@ export function useAccount(progress: Progress, update: (fn: (p: Progress) => Pro
   const reportLesson = useCallback(
     (lessonId: string, result: CompleteLessonRequest) => {
       if (!loadAuth()) return;
-      api.completeLesson(lessonId, result).then(
+      // The device's calendar date, so the server counts the streak in the learner's time zone.
+      api.completeLesson(lessonId, { ...result, date: dateKey(Date.now()) }).then(
         (res) => adopt(res.progress),
         (error) => {
           // The server's copy is behind (e.g. earlier lessons were finished offline):
