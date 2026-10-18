@@ -79,9 +79,17 @@ export function useAccount(progress: Progress, update: (fn: (p: Progress) => Pro
   const reportLesson = useCallback(
     (lessonId: string, result: CompleteLessonRequest) => {
       if (!loadAuth()) return;
-      api.completeLesson(lessonId, result).then((res) => adopt(res.progress), handleError);
+      api.completeLesson(lessonId, result).then(
+        (res) => adopt(res.progress),
+        (error) => {
+          // The server's copy is behind (e.g. earlier lessons were finished offline):
+          // upload local progress instead, which carries this lesson too.
+          if (error instanceof ApiRequestError && error.code === 'lesson_locked') void sync();
+          else handleError(error);
+        },
+      );
     },
-    [adopt, handleError],
+    [adopt, handleError, sync],
   );
 
   return { user: auth?.user ?? null, status, signIn, signOut, sync, reportLesson };

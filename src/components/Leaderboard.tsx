@@ -11,7 +11,7 @@ type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-/** Weekly XP league. Needs an account – guests get a friendly invitation instead. */
+/** Weekly XP league. Guests can look and get an invitation to join. */
 export function Leaderboard({ user, onSignIn }: Props) {
   const [state, setState] = useState<State>({ kind: 'loading' });
 
@@ -24,28 +24,23 @@ export function Leaderboard({ user, onSignIn }: Props) {
   }, []);
 
   useEffect(() => {
-    if (user) load();
+    // Anyone can view the league (US-B1 AC5); with a token the server also marks our row.
+    load();
   }, [user, load]);
-
-  if (!user) {
-    return (
-      <div className="leaderboard empty-state">
-        <div className="big-emoji" aria-hidden="true">
-          🏆
-        </div>
-        <h2>הליגה השבועית</h2>
-        <p>צרו פרופיל כדי להתחרות עם לומדים אחרים ולראות כמה XP צברתם השבוע.</p>
-        <button type="button" className="btn primary" onClick={onSignIn}>
-          יצירת פרופיל
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="leaderboard">
       <h2>🏆 הליגה השבועית</h2>
       <p className="muted">דירוג לפי XP בשבעת הימים האחרונים</p>
+
+      {!user && (
+        <div className="panel center">
+          <p>צרו פרופיל כדי להתחרות עם לומדים אחרים ולראות כמה XP צברתם השבוע.</p>
+          <button type="button" className="btn primary" onClick={onSignIn}>
+            יצירת פרופיל
+          </button>
+        </div>
+      )}
 
       {state.kind === 'loading' && (
         <ol className="board" aria-busy="true" aria-label="טוען דירוג">

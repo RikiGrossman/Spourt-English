@@ -40,7 +40,7 @@ An Express 5 API in `server/` that implements `shared/api.ts` exactly (contract 
     - completed: the union of lessons, keeping the higher count for each
     - lastActiveDate: the later date wins, and streak and xpToday come with it. On the same date, the higher of each is kept.
     - hearts: refills are applied to both sides first, then the **lower** heart count is kept along with its clock.
-  - PUT does **not** add leaderboard XP.
+  - PUT also records the XP it adds (merged xp minus stored xp, capped at 50 per sync) as a league `xp_event`, so practice and offline lessons count towards the weekly league. (Added during integration.)
 
 ### Completing a lesson
 - `POST /api/lessons/:id/complete` takes `{ xp, accuracy }`, where accuracy is **0–100** (the same percent `LessonScreen` computes). XP is rounded and clamped to 0–50.

@@ -50,7 +50,7 @@ npx tsc -b && npx vite build
 
 ## Open issues
 
-- XP from practice reaches the server only through `PUT /api/progress` (max XP). If the server computes weekly league XP from lesson-completion events, practice XP will not count toward the league. A `POST /api/practice/complete` endpoint, or a rule that counts XP gains from PUT, would fix that.
+- ~~Practice XP and the league~~ – resolved during integration: the server now counts XP gained through `PUT /api/progress` (capped at 50 per sync) towards the weekly league. A `lesson_locked` answer to a lesson report now triggers a full `PUT` sync instead of showing "offline". Guests can now view the league (US-B1 AC5) with an invitation to sign up above it.
 - Signing out keeps the progress on the device, so a second account signing in on the same device would absorb it. A "clear device progress on sign-out" option may be worth adding.
 - The lesson-complete screen was not screenshotted, because reaching it needs a full lesson run.
 - Screens checked with Playwright at 400x800, light and dark: welcome, goal, path, lesson, feedback, practice, league (guest and signed in), profile (guest and signed in), auth.

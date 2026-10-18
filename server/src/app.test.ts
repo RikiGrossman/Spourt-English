@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -187,6 +187,28 @@ describe('progress endpoints', () => {
     expect(again.body.progress).toEqual(res.body.progress);
   });
 
+  it('PUT accepts the optional client-only dailyGoal field', async () => {
+    const { token } = await register();
+    const res = await request(app)
+      .put('/api/progress')
+      .set(auth(token))
+      .send({ ...initialProgress(), dailyGoal: 30 });
+    expect(res.status).toBe(200);
+  });
+
+  it('PUT counts XP gained on the device towards the league, capped per sync', async () => {
+    const { token } = await register();
+    await request(app).put('/api/progress').set(auth(token)).send({ ...initialProgress(), xp: 15 });
+    let board = await request(app).get('/api/leaderboard').set(auth(token));
+    expect(board.body.entries).toEqual([{ rank: 1, displayName: 'דנה', weeklyXp: 15, isMe: true }]);
+
+    // Re-uploading the same progress adds nothing; a huge jump is capped.
+    await request(app).put('/api/progress').set(auth(token)).send({ ...initialProgress(), xp: 15 });
+    await request(app).put('/api/progress').set(auth(token)).send({ ...initialProgress(), xp: 5000 });
+    board = await request(app).get('/api/leaderboard').set(auth(token));
+    expect(board.body.entries[0].weeklyXp).toBe(65);
+  });
+
   it('PUT rejects malformed progress', async () => {
     const { token } = await register();
     const res = await request(app).put('/api/progress').set(auth(token)).send({ xp: 'lots' });
@@ -293,6 +315,19 @@ describe('static web app', () => {
     expect(spa.status).toBe(200);
     expect(spa.text).toContain('app');
     expect((await request(app).get('/api/missing')).status).toBe(404);
+  });
+
+  it('never lets the app shell or service worker go stale, but caches hashed assets', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'spourt-dist-'));
+    mkdirSync(join(dir, 'assets'));
+    writeFileSync(join(dir, 'index.html'), '<html>app</html>');
+    writeFileSync(join(dir, 'sw.js'), '// sw');
+    writeFileSync(join(dir, 'assets', 'index-abc123.js'), '// bundle');
+    setup({ staticDir: dir });
+    expect((await request(app).get('/sw.js')).headers['cache-control']).toBe('no-cache');
+    expect((await request(app).get('/index.html')).headers['cache-control']).toBe('no-cache');
+    expect((await request(app).get('/')).headers['cache-control']).toBe('no-cache');
+    expect((await request(app).get('/assets/index-abc123.js')).headers['cache-control']).toContain('immutable');
   });
 });
 

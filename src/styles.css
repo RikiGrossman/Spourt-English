@@ -1365,3 +1365,7 @@ button:disabled {
     gap: 12px;
   }
 }
+
+.leaderboard .panel .btn {
+  margin-top: 12px;
+}

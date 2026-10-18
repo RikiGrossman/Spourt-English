@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve, sep } from 'node:path';
 import express, { type RequestHandler } from 'express';
 import { authenticate, rateLimit, resolveSecret } from './auth';
 import type { Db } from './db';
@@ -78,7 +78,23 @@ export function createApp(db: Db, options: AppOptions = {}) {
     if (!existsSync(join(staticDir, 'index.html'))) {
       console.warn(`[server] ${staticDir}/index.html not found – run "npm run build" at the repo root`);
     }
-    app.use(express.static(staticDir, { index: false, maxAge: '1h' }));
+    app.use(
+      express.static(staticDir, {
+        index: false,
+        setHeaders(res, filePath) {
+          const name = basename(filePath);
+          if (name === 'index.html' || name === 'sw.js' || name === 'manifest.webmanifest') {
+            // The app shell and service worker must always be revalidated so updates reach learners.
+            res.setHeader('Cache-Control', 'no-cache');
+          } else if (filePath.includes(`${sep}assets${sep}`)) {
+            // Vite's hashed bundles never change under the same name.
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+          }
+        },
+      }),
+    );
     // SPA fallback: any other GET outside /api gets the app shell.
     app.use((req, res, next) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();

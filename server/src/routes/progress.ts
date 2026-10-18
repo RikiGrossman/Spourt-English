@@ -22,8 +22,13 @@ export function progressRouter(repo: Repo, requireAuth: RequestHandler) {
     const incoming = sanitizeProgress(req.body, now);
     if (!incoming) throw badRequest('invalid_progress', 'נתוני ההתקדמות אינם תקינים');
     const userId = res.locals.userId!;
-    const merged = mergeProgress(repo.getProgress(userId, now), incoming, now);
-    repo.saveProgress(userId, merged, now);
+    const stored = repo.getProgress(userId, now);
+    const merged = mergeProgress(stored, incoming, now);
+    // XP earned on the device that never reached /lessons/:id/complete (practice sessions,
+    // lessons finished offline) still counts towards the weekly league, capped per sync
+    // like a single lesson so an upload can't flood the leaderboard.
+    const gained = Math.max(0, Math.min(MAX_LESSON_XP, merged.xp - stored.xp));
+    repo.saveLessonResult(userId, merged, gained, now);
     const body: ProgressResponse = { progress: merged };
     res.json(body);
   });
