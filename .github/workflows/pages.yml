@@ -2,10 +2,16 @@
 # Pages has no API server: sign-in and the league run on Supabase when the repository
 # variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (docs/supabase.md);
 # without them the build is guest-only.
+# The site also serves the latest Android APK (SpourtEnglish.apk) from the "android-latest"
+# release, so it can be downloaded without going through GitHub; it redeploys after each APK build.
 name: Deploy to GitHub Pages
 
 on:
   push:
+    branches: [main]
+  workflow_run:
+    workflows: [Android APK]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -38,6 +44,10 @@ jobs:
           VITE_ENABLE_ACCOUNTS: 'false'
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      - name: Add the Android APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download android-latest --repo "$GITHUB_REPOSITORY" --pattern SpourtEnglish.apk --dir dist || echo "No APK release yet"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
