@@ -11,7 +11,7 @@ interface Props {
   onContinue: () => void;
 }
 
-const CONFETTI_COLORS = ['#58cc02', '#1cb0f6', '#ffc800', '#ff4b4b', '#ce82ff', '#ff9600'];
+const CONFETTI_COLORS = ['#1f7cf2', '#00a99d', '#ffc21a', '#ff4b4b', '#ce82ff', '#ff9600'];
 
 export function LessonComplete({ result, streak, goalReached = false, practice = false, onContinue }: Props) {
   useEffect(() => {
