@@ -1,6 +1,8 @@
 // Minimal service worker: network-first for everything, falling back to the cache when offline.
 // /api responses are never cached (progress must come from the server or localStorage).
+// Paths are relative to the worker's scope so the app also works under a sub-path (GitHub Pages).
 const CACHE = 'spourt-v1';
+const SCOPE = new URL(self.registration.scope).pathname;
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -16,7 +18,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith(SCOPE + 'api/'))
+    return;
 
   event.respondWith(
     fetch(request)
@@ -31,7 +34,7 @@ self.addEventListener('fetch', (event) => {
         const cached = await caches.match(request);
         if (cached) return cached;
         // Offline navigation to any route: serve the cached app shell.
-        if (request.mode === 'navigate') return (await caches.match('/')) ?? Response.error();
+        if (request.mode === 'navigate') return (await caches.match(SCOPE)) ?? Response.error();
         return Response.error();
       }),
   );

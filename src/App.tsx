@@ -10,6 +10,7 @@ import { Onboarding } from './components/Onboarding';
 import { Profile } from './components/Profile';
 import { TopBar } from './components/TopBar';
 import { useAccount } from './lib/account';
+import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises } from './lib/exercises';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { PRACTICE_XP, completePractice, generatePractice } from './lib/practice';
@@ -28,11 +29,14 @@ type Screen =
   | { name: 'lesson'; lessonId: string | null; exercises: Exercise[] }
   | { name: 'complete'; result: LessonResult; goalReached: boolean; practice: boolean };
 
-const TABS: { name: Tab; icon: string; label: string }[] = [
+const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
   { name: 'path', icon: '🏠', label: 'לימוד' },
   { name: 'league', icon: '🏆', label: 'ליגה' },
   { name: 'profile', icon: '👤', label: 'פרופיל' },
 ];
+
+// The league needs the API server, so static deploys leave it out.
+const TABS = ACCOUNTS_ENABLED ? ALL_TABS : ALL_TABS.filter((tab) => tab.name !== 'league');
 
 export default function App() {
   const { progress, update, reset } = useProgress();
@@ -65,7 +69,7 @@ export default function App() {
     return (
       <Onboarding
         onDone={(goal) => update((p) => setDailyGoal(p, goal))}
-        onSignIn={() => setScreen({ name: 'auth', back: 'onboarding', mode: 'login' })}
+        onSignIn={ACCOUNTS_ENABLED ? () => setScreen({ name: 'auth', back: 'onboarding', mode: 'login' }) : undefined}
       />
     );
   }
@@ -135,7 +139,7 @@ export default function App() {
             settings={settings}
             onSettings={changeSettings}
             onGoal={(xp) => update((p) => setDailyGoal(p, xp))}
-            onSignIn={goAuth}
+            onSignIn={ACCOUNTS_ENABLED ? goAuth : undefined}
             onSignOut={account.signOut}
             onSync={() => void account.sync()}
             onReset={reset}
