@@ -11,36 +11,18 @@ import type {
   RegisterRequest,
   User,
 } from '../../shared/api';
+import { ApiRequestError, OFFLINE_MESSAGE } from './api-error';
+import { createCloudApi } from './cloud';
+import { USE_SUPABASE } from './config';
 
 /** Typed client for the HTTP contract in shared/api.ts. All URLs are relative (`/api/...`). */
 
 const AUTH_KEY = 'spourt-english:auth:v1';
 const TIMEOUT_MS = 10_000;
 
-export const OFFLINE_MESSAGE = 'אין חיבור לשרת כרגע. אפשר להמשיך ללמוד – נסנכרן אחר כך.';
+export { ApiRequestError, OFFLINE_MESSAGE };
+
 const GENERIC_MESSAGE = 'משהו השתבש. נסו שוב בעוד רגע.';
-
-/** Error thrown for every failed request. `message` is Hebrew and safe to show as-is. */
-export class ApiRequestError extends Error {
-  /** HTTP status, or 0 when the server could not be reached. */
-  readonly status: number;
-  readonly code: string;
-
-  constructor(status: number, code: string, message: string) {
-    super(message);
-    this.name = 'ApiRequestError';
-    this.status = status;
-    this.code = code;
-  }
-
-  get offline() {
-    return this.status === 0;
-  }
-
-  get unauthorized() {
-    return this.status === 401;
-  }
-}
 
 export interface StoredAuth {
   token: string;
@@ -115,7 +97,7 @@ async function request<T>(method: string, path: string, body?: unknown, auth = f
   return data as T;
 }
 
-export const api = {
+const restApi = {
   health: () => request<HealthResponse>('GET', '/health'),
   register: (req: RegisterRequest) => request<AuthResponse>('POST', '/auth/register', req),
   login: (req: LoginRequest) => request<AuthResponse>('POST', '/auth/login', req),
@@ -126,7 +108,15 @@ export const api = {
     request<ProgressResponse>('POST', `/lessons/${encodeURIComponent(lessonId)}/complete`, req, true),
   /** Works signed out too; with a token the server marks the learner's own row (`isMe`). */
   leaderboard: () => request<LeaderboardResponse>('GET', '/leaderboard'),
+  /** Tokens are stateless – signing out only forgets the stored one (see clearAuth). */
+  signOut: async () => {},
 };
+
+// supabase-js is only downloaded when a Supabase build actually needs it.
+const cloudApi = createCloudApi(() => import('./supabase').then((m) => m.getSupabase()));
+
+/** REST client for the Express server, or the Supabase backend in static/app builds. */
+export const api = USE_SUPABASE ? { ...restApi, ...cloudApi } : restApi;
 
 /** Hebrew message for any thrown value. */
 export function errorMessage(error: unknown): string {

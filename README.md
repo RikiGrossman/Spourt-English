@@ -100,7 +100,7 @@ docker run -p 3001:3001 -e JWT_SECRET=<סוד> -v spourt-data:/app/data spourt-e
 בכל דחיפה ל־`main` ה־workflow ‏`.github/workflows/pages.yml` בונה את האפליקציה ומפרסם אותה ב־
 https://rikigrossman.github.io/Spourt-English/
 
-ב־GitHub Pages אין שרת, ולכן הבנייה שם רצה עם `VITE_ENABLE_ACCOUNTS=false`: האפליקציה עובדת במצב אורח מלא (שיעורים, לבבות, XP, רצף, תרגול והתקנה בטלפון), בלי הרשמה ובלי ליגה.
+ב־GitHub Pages אין שרת. לכן ההרשמה, ההתחברות והליגה עובדים שם (ובאפליקציית האנדרואיד) דרך Supabase, אחרי שמגדירים אותו לפי [docs/supabase.md](docs/supabase.md). עד אז האפליקציה עובדת במצב אורח מלא (שיעורים, לבבות, XP, רצף, תרגול והתקנה בטלפון).
 הפעלה חד־פעמית: ב־GitHub, ‏Settings → Pages → Source: **GitHub Actions**.
 
 לבדיקה מקומית של אותה גרסה: `BASE_PATH=/Spourt-English/ VITE_ENABLE_ACCOUNTS=false npm run build`.
@@ -157,6 +157,7 @@ docs/                   תיעוד המוצר והמערכת
 - [docs/architecture.md](docs/architecture.md) – ארכיטקטורה, מודל נתונים וזרימת הסנכרון
 - [docs/roadmap.md](docs/roadmap.md) – שלבים הבאים וחוב טכני
 - [docs/android.md](docs/android.md) – אפליקציית האנדרואיד: התקנה, בנייה וחתימה
+- [docs/supabase.md](docs/supabase.md) – התחברות באתר ובאפליקציה: הקמת Supabase
 - [CONTRIBUTING.md](CONTRIBUTING.md) – איך לתרום לפרויקט
 - `docs/handoff/` – הערות המסירה של כל חלק (תשתית, ממשק, שרת, אפיון)
 

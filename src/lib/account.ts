@@ -77,6 +77,7 @@ export function useAccount(progress: Progress, update: (fn: (p: Progress) => Pro
   );
 
   const signOut = useCallback(() => {
+    void api.signOut();
     clearAuth();
     setAuth(null);
     setStatus('guest');

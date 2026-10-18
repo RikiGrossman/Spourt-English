@@ -3,11 +3,10 @@ import type { CompleteLessonRequest, ProgressResponse } from '../../../shared/ap
 import { findLesson } from '../../../src/data/course';
 import { completeLesson, dateKey, isUnlocked } from '../../../src/lib/progress';
 import { HttpError, badRequest } from '../errors';
-import { mergeProgress, plausibleLocalDate, sanitizeProgress } from '../merge';
+import { MAX_LESSON_XP, mergeProgress, plausibleLocalDate, sanitizeProgress } from '../merge';
 import type { Repo } from '../repo';
 
-/** Upper bound for XP from a single lesson (the client awards 10–15). */
-export const MAX_LESSON_XP = 50;
+export { MAX_LESSON_XP };
 
 export function progressRouter(repo: Repo, requireAuth: RequestHandler) {
   const router = Router();
