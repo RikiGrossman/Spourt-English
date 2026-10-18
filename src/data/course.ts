@@ -10,7 +10,7 @@ export const course: Unit[] = [
     id: 'u1',
     title: 'יחידה 1: צעדים ראשונים',
     description: 'ברכות, היכרות ומילים בסיסיות',
-    color: '#58cc02',
+    color: '#1f7cf2',
     lessons: [
       {
         id: 'u1l1',
@@ -67,7 +67,7 @@ export const course: Unit[] = [
     id: 'u2',
     title: 'יחידה 2: משפחה וחברים',
     description: 'אנשים סביבנו',
-    color: '#1cb0f6',
+    color: '#00a99d',
     lessons: [
       {
         id: 'u2l1',
@@ -266,7 +266,7 @@ export const course: Unit[] = [
     id: 'u6',
     title: 'יחידה 6: שאלות והווה פשוט',
     description: 'מספרים על אחרים ושואלים שאלות',
-    color: '#2b70c9',
+    color: '#4f46e5',
     lessons: [
       {
         id: 'u6l1',

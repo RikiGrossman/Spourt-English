@@ -39,5 +39,5 @@ cd android && ./gradlew assembleDebug
 # ה־APK: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-האייקונים ומסך הפתיחה נוצרו מהקבצים ב־`assets/` עם
-`npx @capacitor/assets generate --android --iconBackgroundColor '#58cc02' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#131f24'`.
+האייקונים ומסך הפתיחה נוצרו מהקבצים ב־`assets/` (שמרונדרים מהלוגו ב־`public/icons/` עם `node tools/render-icons.mjs`) עם
+`npx @capacitor/assets generate --android --iconBackgroundColor '#1f7cf2' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#131f24'`.
