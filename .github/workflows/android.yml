@@ -47,6 +47,8 @@ jobs:
           VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleDebug --no-daemon
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk SpourtEnglish.apk
+      # The installed app reads this to offer in-app updates (src/lib/update.ts).
+      - run: echo '{"versionCode":${{ github.run_number }},"versionName":"1.0.${{ github.run_number }}"}' > version.json
       - uses: actions/upload-artifact@v4
         with:
           name: SpourtEnglish-apk
@@ -57,7 +59,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-latest --yes --cleanup-tag || true
-          gh release create android-latest SpourtEnglish.apk \
+          gh release create android-latest SpourtEnglish.apk version.json \
             --target "$GITHUB_SHA" \
             --title "Spourt English לאנדרואיד (גרסה 1.0.${{ github.run_number }})" \
-            --notes "להתקנה: מורידים את SpourtEnglish.apk בטלפון, פותחים אותו ומאשרים התקנה ממקור לא ידוע. גרסה חדשה מותקנת מעל הישנה וההתקדמות נשמרת."
+            --notes "להתקנה: מורידים את SpourtEnglish.apk בטלפון, פותחים אותו ומאשרים התקנה ממקור לא ידוע. גרסה חדשה מותקנת מעל הישנה וההתקדמות נשמרת. מגרסה זו והלאה האפליקציה מציעה עדכון בעצמה כשיוצאת גרסה חדשה."

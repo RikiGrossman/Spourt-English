@@ -8,7 +8,7 @@ export const unit1: Unit = {
   id: 'u1',
   title: 'יחידה 1: צעדים ראשונים',
   description: 'ברכות, היכרות ונימוס',
-  color: '#58cc02',
+  color: '#1f7cf2',
   level: 'Pre-A1',
   intro: {
     tip: "באנגלית לא מוותרים על [[am / is / are]]: אומרים [[I am good]] ולא [[I good]]. ו־[[you]] אחד משמש גם ל״אתה״, גם ל״את״ וגם ל״אתם״.",

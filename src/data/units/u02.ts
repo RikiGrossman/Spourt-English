@@ -8,7 +8,7 @@ export const unit2: Unit = {
   id: 'u2',
   title: 'יחידה 2: משפחה וחברים',
   description: 'אנשים סביבנו – תיאור, שייכות ושלילה',
-  color: '#1cb0f6',
+  color: '#00a99d',
   level: 'Pre-A1',
   intro: {
     tip: "לפני שם עצם ביחיד שמים [[a]]: [[I am a boy]]. [[his]] ו־[[her]] תלויים במי שהדבר שייך לו: [[his mother]] = אמא שלו. בשלילה מוסיפים [[not]]: [[I am not tired]].",

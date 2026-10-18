@@ -22,7 +22,7 @@
 - **Docker**: multi-stage `Dockerfile` (build web → install server deps → runtime with `src/`, `shared/`, `server/`,
   `dist/`), runs as `node`, `HEALTHCHECK` on `/api/health`, `CMD npm start` in `/app/server`. `docker-compose.yml`
   with the `spourt-data` volume at `/app/data`, `DATABASE_PATH=/app/data/spourt.db`, required `JWT_SECRET`.
-- **PWA**: `public/manifest.webmanifest` (Hebrew name, `dir: rtl`, `lang: he`, theme `#58cc02`), SVG icons in
+- **PWA**: `public/manifest.webmanifest` (Hebrew name, `dir: rtl`, `lang: he`, theme `#1f7cf2`), SVG icons (plus a PNG apple-touch icon) in
   `public/icons/`, `<link rel="manifest">` + apple meta tags in `index.html`, and a small network-first service worker
   (`public/sw.js`, never touches `/api/`) registered by an inline script in `index.html` on non-localhost hosts only.
 - `.env.example` (PORT, DATABASE_PATH, JWT_SECRET, NODE_ENV), `.nvmrc` (22), `.gitignore` additions (`.env`, `data/`,

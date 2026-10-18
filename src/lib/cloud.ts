@@ -16,6 +16,7 @@ import { sanitizeItemStates } from '../../shared/srs-merge';
 import { findLesson } from '../data/course';
 import { completeLesson, dateKey, initialProgress, isUnlocked, type Progress } from './progress';
 import { ApiRequestError, OFFLINE_MESSAGE } from './api-error';
+import { authRedirectUrl } from './config';
 
 /**
  * The same operations as the REST client in api.ts, backed by Supabase (auth + Postgres,
@@ -126,7 +127,7 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       const { data, error } = await client.auth.signUp({
         email: req.email,
         password: req.password,
-        options: { data: { display_name: req.displayName } },
+        options: { data: { display_name: req.displayName }, emailRedirectTo: authRedirectUrl() },
       });
       if (error) throw cloudError(error);
       // With "Confirm email" on, Supabase returns no session until the link is clicked;

@@ -8,7 +8,7 @@ export const unit6: Unit = {
   id: 'u6',
   title: 'יחידה 6: שאלות והווה פשוט',
   description: 'מספרים על אחרים, שואלים שאלות, מקצועות',
-  color: '#2b70c9',
+  color: '#4f46e5',
   level: 'A1',
   intro: {
     tip: "עם [[he]], [[she]], [[it]] מוסיפים לפועל [[s]]: [[He likes coffee]]. בשאלה ובשלילה ה־[[s]] עובר ל־[[does]] והפועל חוזר לבסיס: [[Does he like…?]], [[He doesn't like…]].",

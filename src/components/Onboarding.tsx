@@ -16,9 +16,7 @@ export function Onboarding({ onDone, onSignIn }: Props) {
   if (step === 'welcome') {
     return (
       <div className="onboarding">
-        <div className="mascot pop" aria-hidden="true">
-          🦉
-        </div>
+        <img className="mascot pop" src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />
         <h1>
           ברוכים הבאים ל־<bdi dir="ltr">Spourt English</bdi>!
         </h1>

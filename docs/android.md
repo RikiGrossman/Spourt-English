@@ -5,11 +5,17 @@
 
 ## הורדה והתקנה
 
-1. בטלפון פותחים את דף הגרסה: https://github.com/RikiGrossman/Spourt-English/releases/tag/android-latest
-2. מורידים את `SpourtEnglish.apk` ופותחים אותו.
+1. בטלפון פותחים את הקישור https://rikigrossman.github.io/Spourt-English/SpourtEnglish.apk (אותו קובץ נמצא גם בדף הגרסה: https://github.com/RikiGrossman/Spourt-English/releases/tag/android-latest).
+2. פותחים את הקובץ שירד.
 3. מאשרים "התקנה ממקורות לא ידועים" לדפדפן (אנדרואיד שואל בפעם הראשונה).
 
 גרסה חדשה מותקנת מעל הישנה, וההתקדמות נשמרת.
+
+## עדכון מתוך האפליקציה
+
+בכל פתיחה האפליקציה בודקת אם יש גרסה חדשה (הקובץ `version.json` בגרסה `android-latest`). אם יש – מופיע חלון "יש גרסה חדשה!" עם כפתור "עדכון עכשיו": האפליקציה מורידה את ה־APK בעצמה ופותחת את מסך ההתקנה של אנדרואיד, בלי להיכנס לדף ההורדות.
+בפעם הראשונה אנדרואיד מבקש לאשר "התקנת אפליקציות לא מוכרות" עבור Spourt English. אם אין אינטרנט, הבדיקה פשוט מדלגת עד הפתיחה הבאה.
+הקוד: `src/lib/update.ts`, `src/components/UpdatePrompt.tsx` והתוסף הנייטיבי `android/app/src/main/java/com/spourt/english/AppUpdatePlugin.java`.
 
 ## איך זה נבנה
 
@@ -39,5 +45,5 @@ cd android && ./gradlew assembleDebug
 # ה־APK: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-האייקונים ומסך הפתיחה נוצרו מהקבצים ב־`assets/` עם
-`npx @capacitor/assets generate --android --iconBackgroundColor '#58cc02' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#131f24'`.
+האייקונים ומסך הפתיחה נוצרו מהקבצים ב־`assets/` (שמרונדרים מהלוגו ב־`public/icons/` עם `node tools/render-icons.mjs`) עם
+`npx @capacitor/assets generate --android --iconBackgroundColor '#1f7cf2' --splashBackgroundColor '#ffffff' --splashBackgroundColorDark '#131f24'`.

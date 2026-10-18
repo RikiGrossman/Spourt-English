@@ -8,7 +8,7 @@ export const unit7: Unit = {
   id: 'u7',
   title: "יחידה 7: בעיר",
   description: "מקומות, הוראות הגעה, תחבורה וקניות",
-  color: '#00b8a9',
+  color: '#f59f00',
   level: 'A1+',
   intro: {
     tip: "[[Is there a … near here?]] = יש … קרוב לכאן? בהוראות הגעה משתמשים בציווי בלי [[you]]: [[Turn left]]. ואחרי [[can]] לא בא [[to]]: [[I can swim]].",

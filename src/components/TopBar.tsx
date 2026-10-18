@@ -10,6 +10,7 @@ export function TopBar({ streak, xp, hearts }: Props) {
   return (
     <header className="top-bar">
       <span className="brand" dir="ltr">
+        <img className="brand-logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
         Spourt<b>English</b>
       </span>
       <div className="top-stats">

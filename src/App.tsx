@@ -13,6 +13,7 @@ import { Profile } from './components/Profile';
 import { SignupPrompt } from './components/SignupPrompt';
 import { TopBar } from './components/TopBar';
 import { UnitIntro } from './components/UnitIntro';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
 import { ACCOUNTS_ENABLED } from './lib/config';
@@ -36,6 +37,7 @@ import { setSoundEnabled } from './lib/sound';
 import { useSettings } from './lib/settings';
 import { useSrs } from './lib/srs';
 import { useProgress } from './lib/store';
+import { useAppUpdate } from './lib/update';
 import type { Exercise, Unit } from './types';
 
 type Tab = 'path' | 'league' | 'profile';
@@ -83,6 +85,16 @@ const TABS = ACCOUNTS_ENABLED ? ALL_TABS : ALL_TABS.filter((tab) => tab.name !==
 let appOpenSent = false;
 
 export default function App() {
+  const update = useAppUpdate();
+  return (
+    <>
+      <Screens />
+      <UpdatePrompt state={update.state} onInstall={() => void update.install()} onDismiss={update.dismiss} />
+    </>
+  );
+}
+
+function Screens() {
   const { progress, update, reset } = useProgress();
   const { settings, change: changeSettings } = useSettings();
   const account = useAccount(progress, update);
