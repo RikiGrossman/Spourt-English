@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#58cc02" />
     <meta name="description" content="לומדים אנגלית בכיף – שיעורים קצרים, נקודות ורצף יומי." />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/icons/icon.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/icon.svg" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Spourt English" />
     <title>Spourt English – לומדים אנגלית</title>
@@ -26,7 +26,7 @@
     <script>
       // PWA: register the service worker on deployed hosts only, so local dev never serves stale files.
       if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        window.addEventListener('load', () => navigator.serviceWorker.register('%BASE_URL%sw.js'));
       }
     </script>
   </body>

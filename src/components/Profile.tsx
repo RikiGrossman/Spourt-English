@@ -13,7 +13,8 @@ interface Props {
   settings: Settings;
   onSettings: (patch: Partial<Settings>) => void;
   onGoal: (xp: number) => void;
-  onSignIn: () => void;
+  /** Omitted when accounts are disabled (static deploy). */
+  onSignIn?: () => void;
   onSignOut: () => void;
   onSync: () => void;
   onReset: () => void;
@@ -74,9 +75,11 @@ export function Profile(props: Props) {
             </button>
           </>
         ) : (
-          <button type="button" className="btn secondary wide" onClick={props.onSignIn}>
-            יצירת פרופיל / התחברות
-          </button>
+          props.onSignIn && (
+            <button type="button" className="btn secondary wide" onClick={props.onSignIn}>
+              יצירת פרופיל / התחברות
+            </button>
+          )
         )}
       </div>
 

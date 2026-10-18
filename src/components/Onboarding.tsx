@@ -4,7 +4,8 @@ import { DAILY_GOAL_XP } from '../lib/progress';
 
 interface Props {
   onDone: (dailyGoal: number) => void;
-  onSignIn: () => void;
+  /** Omitted when accounts are disabled (static deploy). */
+  onSignIn?: () => void;
 }
 
 /** First-run flow: a welcome screen, then picking a daily XP goal. */
@@ -25,15 +26,17 @@ export function Onboarding({ onDone, onSignIn }: Props) {
         <ul className="features">
           <li>🎯 שיעורים קצרים שנפתחים אחד אחרי השני</li>
           <li>🔊 שומעים כל מילה במבטא אמריקאי</li>
-          <li>🔥 רצף ימים, נקודות XP וליגה שבועית</li>
+          <li>🔥 רצף ימים, נקודות XP{onSignIn && ' וליגה שבועית'}</li>
         </ul>
         <div className="onboarding-actions">
           <button type="button" className="btn primary" onClick={() => setStep('goal')} autoFocus>
             בואו נתחיל
           </button>
-          <button type="button" className="btn ghost" onClick={onSignIn}>
-            כבר יש לי חשבון
-          </button>
+          {onSignIn && (
+            <button type="button" className="btn ghost" onClick={onSignIn}>
+              כבר יש לי חשבון
+            </button>
+          )}
         </div>
       </div>
     );
