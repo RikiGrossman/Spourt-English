@@ -1,5 +1,7 @@
 # Publishes the web app to GitHub Pages on every push to main.
-# Pages has no API server, so the build runs in guest-only mode (no sign-in or league).
+# Pages has no API server: sign-in and the league run on Supabase when the repository
+# variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (docs/supabase.md);
+# without them the build is guest-only.
 name: Deploy to GitHub Pages
 
 on:
@@ -34,6 +36,8 @@ jobs:
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}/
           VITE_ENABLE_ACCOUNTS: 'false'
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

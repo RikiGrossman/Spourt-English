@@ -1,7 +1,8 @@
 # Builds the Android app (APK). Pull requests only build it (and keep it as an artifact);
 # pushes to main also publish it as the "android-latest" GitHub release, so it can be
 # downloaded straight to a phone.
-# Like GitHub Pages, the app runs in guest-only mode (no API server).
+# Like GitHub Pages, sign-in and the league use Supabase when the repository variables
+# VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (docs/supabase.md); otherwise guest-only.
 name: Android APK
 
 on:
@@ -37,6 +38,8 @@ jobs:
       - run: npm run build
         env:
           VITE_ENABLE_ACCOUNTS: 'false'
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - run: npx cap sync android
       - name: Build APK
         working-directory: android
