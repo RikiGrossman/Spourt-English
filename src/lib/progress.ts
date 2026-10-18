@@ -110,23 +110,45 @@ export function completeLesson(
   };
 }
 
-/** A lesson is open once the lesson before it (in course order) was completed. */
+/** Index (in course order) of the furthest completed lesson, or -1. Unknown ids are ignored. */
+function furthestCompletedIndex(p: Progress): number {
+  for (let i = allLessons.length - 1; i >= 0; i--) {
+    if ((p.completed[allLessons[i].id] ?? 0) > 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Open when first in course, completed, the previous lesson is completed, or any later
+ * lesson is completed (high-water mark, so lessons added behind the learner stay open).
+ * Ids unknown to this course version (from a newer client) are not taken into account.
+ * docs/spec/v2.md §6.7.1.
+ */
 export function isUnlocked(p: Progress, lessonId: string): boolean {
   const index = allLessons.findIndex((l) => l.id === lessonId);
-  if (index <= 0) return index === 0;
-  return (p.completed[allLessons[index - 1].id] ?? 0) > 0;
+  if (index < 0) return false;
+  if (index === 0) return true;
+  if ((p.completed[lessonId] ?? 0) > 0) return true;
+  if ((p.completed[allLessons[index - 1].id] ?? 0) > 0) return true;
+  return furthestCompletedIndex(p) > index;
 }
 
 /**
  * Not completed, but a later lesson is – a lesson added behind the learner's furthest point
  * (shown with a "חדש!" chip). docs/spec/v2.md §6.7.1.
- * SCAFFOLD: placeholder until the backend agent implements it.
  */
-export function isCatchUp(_p: Progress, _lessonId: string): boolean {
-  return false;
+export function isCatchUp(p: Progress, lessonId: string): boolean {
+  const index = allLessons.findIndex((l) => l.id === lessonId);
+  if (index < 0 || (p.completed[lessonId] ?? 0) > 0) return false;
+  return furthestCompletedIndex(p) > index;
 }
 
-/** The first lesson not yet completed – the one the path highlights. */
+/**
+ * The lesson the path highlights: the first uncompleted lesson after the furthest completed
+ * one; if there is none (everything up to the end is done), the first uncompleted overall.
+ */
 export function currentLessonId(p: Progress): string | undefined {
-  return allLessons.find((l) => !p.completed[l.id])?.id;
+  const furthest = furthestCompletedIndex(p);
+  const after = allLessons.slice(furthest + 1).find((l) => !(p.completed[l.id] > 0));
+  return (after ?? allLessons.find((l) => !(p.completed[l.id] > 0)))?.id;
 }
