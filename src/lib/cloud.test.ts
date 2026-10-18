@@ -13,12 +13,13 @@ function fakeSupabase(opts: { signedIn?: boolean; confirmEmail?: boolean; stored
     profiles: [{ id: 'u1', display_name: 'דנה' }],
   };
   let session = opts.signedIn ? { user: { id: 'u1' } } : null;
+  const signUps: { options?: { emailRedirectTo?: string } }[] = [];
   const user = { id: 'u1', email: 'dana@example.com', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
   const client = {
     auth: {
       getSession: async () => ({ data: { session }, error: null }),
-      signUp: async () =>
-        opts.confirmEmail
+      signUp: async (req: { options?: { emailRedirectTo?: string } }) =>
+        signUps.push(req) && opts.confirmEmail
           ? { data: { user: { ...user, identities: [{}] }, session: null }, error: null }
           : ((session = { user: { id: 'u1' } }), { data: { user, session }, error: null }),
       signInWithPassword: async ({ password }: { password: string }) =>
@@ -50,7 +51,7 @@ function fakeSupabase(opts: { signedIn?: boolean; confirmEmail?: boolean; stored
       error: null,
     }),
   };
-  return { db, api: createCloudApi(async () => client as unknown as SupabaseClient) };
+  return { db, signUps, api: createCloudApi(async () => client as unknown as SupabaseClient) };
 }
 
 const [first, second] = allLessons;
@@ -69,6 +70,12 @@ describe('cloud backend', () => {
     ).rejects.toMatchObject({
       code: 'confirm_email',
     });
+  });
+
+  it('sends the confirmation link back to the public site', async () => {
+    const { api, signUps } = fakeSupabase({ confirmEmail: true });
+    await api.register({ email: 'a@b.co', password: 'correct-horse', displayName: 'דנה' }).catch(() => undefined);
+    expect(signUps[0].options?.emailRedirectTo).toBe('https://rikigrossman.github.io/Spourt-English/');
   });
 
   it('rejects a wrong password with a Hebrew 401', async () => {
