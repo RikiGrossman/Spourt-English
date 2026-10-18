@@ -105,6 +105,12 @@ https://rikigrossman.github.io/Spourt-English/
 
 לבדיקה מקומית של אותה גרסה: `BASE_PATH=/Spourt-English/ VITE_ENABLE_ACCOUNTS=false npm run build`.
 
+## אפליקציית אנדרואיד
+
+קובץ התקנה (APK) נבנה אוטומטית בכל דחיפה ל־`main`, ואפשר להוריד אותו ישר לטלפון:
+https://github.com/RikiGrossman/Spourt-English/releases/tag/android-latest
+פרטים, הוראות התקנה ובנייה מקומית: [docs/android.md](docs/android.md).
+
 ## מבנה הפרויקט
 
 ```
@@ -150,6 +156,7 @@ docs/                   תיעוד המוצר והמערכת
 - [docs/api.md](docs/api.md) – תיעוד ה־API
 - [docs/architecture.md](docs/architecture.md) – ארכיטקטורה, מודל נתונים וזרימת הסנכרון
 - [docs/roadmap.md](docs/roadmap.md) – שלבים הבאים וחוב טכני
+- [docs/android.md](docs/android.md) – אפליקציית האנדרואיד: התקנה, בנייה וחתימה
 - [CONTRIBUTING.md](CONTRIBUTING.md) – איך לתרום לפרויקט
 - `docs/handoff/` – הערות המסירה של כל חלק (תשתית, ממשק, שרת, אפיון)
 

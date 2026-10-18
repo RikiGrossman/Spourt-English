@@ -1,5 +1,20 @@
-/** Speaks English text with the browser's built-in speech synthesis. */
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+
+// Android's WebView has no Web Speech API, so the installed app uses the
+// device's native text-to-speech engine instead.
+const native = Capacitor.isNativePlatform();
+
+/** Speaks English text with the browser's built-in speech synthesis (or native TTS in the app). */
 export function speak(text: string, slow = false) {
+  if (native) {
+    void TextToSpeech.stop()
+      .then(() => TextToSpeech.speak({ text, lang: 'en-US', rate: slow ? 0.6 : 0.95 }))
+      .catch(() => {
+        // No English voice installed – exercises still work from the written text.
+      });
+    return;
+  }
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   const synth = window.speechSynthesis;
   synth.cancel();
@@ -11,4 +26,4 @@ export function speak(text: string, slow = false) {
   synth.speak(utterance);
 }
 
-export const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
+export const canSpeak = native || (typeof window !== 'undefined' && 'speechSynthesis' in window);

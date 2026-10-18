@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Spourt English</string>
+    <string name="title_activity_main">Spourt English</string>
+    <string name="package_name">com.spourt.english</string>
+    <string name="custom_url_scheme">com.spourt.english</string>
+</resources>

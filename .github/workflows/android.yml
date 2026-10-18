@@ -1,0 +1,60 @@
+# Builds the Android app (APK). Pull requests only build it (and keep it as an artifact);
+# pushes to main also publish it as the "android-latest" GitHub release, so it can be
+# downloaded straight to a phone.
+# Like GitHub Pages, the app runs in guest-only mode (no API server).
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      SKIP_SERVER_INSTALL: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_ENABLE_ACCOUNTS: 'false'
+      - run: npx cap sync android
+      - name: Build APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk SpourtEnglish.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpourtEnglish-apk
+          path: SpourtEnglish.apk
+      - name: Publish release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest SpourtEnglish.apk \
+            --target "$GITHUB_SHA" \
+            --title "Spourt English לאנדרואיד (גרסה 1.0.${{ github.run_number }})" \
+            --notes "להתקנה: מורידים את SpourtEnglish.apk בטלפון, פותחים אותו ומאשרים התקנה ממקור לא ידוע. גרסה חדשה מותקנת מעל הישנה וההתקדמות נשמרת."
