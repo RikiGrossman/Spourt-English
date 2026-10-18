@@ -117,6 +117,15 @@ export function isUnlocked(p: Progress, lessonId: string): boolean {
   return (p.completed[allLessons[index - 1].id] ?? 0) > 0;
 }
 
+/**
+ * Not completed, but a later lesson is – a lesson added behind the learner's furthest point
+ * (shown with a "חדש!" chip). docs/spec/v2.md §6.7.1.
+ * SCAFFOLD: placeholder until the backend agent implements it.
+ */
+export function isCatchUp(_p: Progress, _lessonId: string): boolean {
+  return false;
+}
+
 /** The first lesson not yet completed – the one the path highlights. */
 export function currentLessonId(p: Progress): string | undefined {
   return allLessons.find((l) => !p.completed[l.id])?.id;

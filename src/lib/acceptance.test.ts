@@ -251,9 +251,10 @@ describe('client merge (US-A3)', () => {
 });
 
 describe('content (US-C1)', () => {
-  it('US-C1 AC3: 6 units, 16 lessons, each with 5 words and 3–4 sentences', () => {
-    expect(course).toHaveLength(6);
-    expect(allLessons).toHaveLength(16);
+  // v2 (docs/spec/v2.md §4): the course grows unit by unit towards 12 units / 64 lessons.
+  it('US-C1 AC3: at least 6 units and 16 lessons, each with 5 words and 3–4 sentences', () => {
+    expect(course.length).toBeGreaterThanOrEqual(6);
+    expect(allLessons.length).toBeGreaterThanOrEqual(16);
     for (const lesson of allLessons) {
       expect(lesson.words).toHaveLength(5);
       expect(lesson.sentences.length).toBeGreaterThanOrEqual(3);
