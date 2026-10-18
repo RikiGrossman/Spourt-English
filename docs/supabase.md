@@ -8,7 +8,8 @@
 1. **פותחים פרויקט:** נרשמים ב־https://supabase.com, לוחצים **New project**, בוחרים שם (למשל `spourt-english`), סיסמה למסד הנתונים (שומרים אותה בצד) ואזור קרוב (למשל Frankfurt).
 2. **יוצרים את הטבלאות:** בתפריט הצד נכנסים ל־**SQL Editor** ← **New query**, מדביקים את כל התוכן של [`supabase/schema.sql`](../supabase/schema.sql) ולוחצים **Run**.
 3. **מגדירים כתובות:** ב־**Authentication** ← **URL Configuration**:
-   - **Site URL**: `https://rikigrossman.github.io/Spourt-English/`
+   - **Site URL**: `https://rikigrossman.github.io/Spourt-English/` (בדיוק כך – עם `/Spourt-English/` בסוף. בלי זה הקישור במייל האישור מוביל לדף 404)
+   - **Redirect URLs** ← **Add URL**: `https://rikigrossman.github.io/Spourt-English/**` (ולפיתוח מקומי גם `http://localhost:5173/**`). האפליקציה מבקשת מ־Supabase להחזיר לשם את מי שלוחץ על הקישור במייל, וכתובת שלא ברשימה מוחלפת ב־Site URL.
    - אופציונלי: ב־**Authentication** ← **Sign In / Providers** ← **Email** אפשר לכבות את **Confirm email**. אז נרשמים בלי מייל אישור. אם משאירים אותו פעיל, כל משתמש חדש מקבל מייל ולוחץ על הקישור לפני ההתחברות הראשונה.
 4. **מעתיקים שני ערכים:** ב־**Project Settings** ← **API** (או **Data API**):
    - **Project URL**, למשל `https://abcd1234.supabase.co`
