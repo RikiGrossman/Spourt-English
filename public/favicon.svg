@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#58cc02"/><text x="32" y="44" font-family="Arial, sans-serif" font-size="32" font-weight="bold" text-anchor="middle" fill="#fff">En</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1cb0f6"/>
+  <path d="M84 96h196a40 40 0 0 1 40 40v100a40 40 0 0 1-40 40h-92l-56 48v-48h-48a40 40 0 0 1-40-40V136a40 40 0 0 1 40-40z" fill="#fff"/>
+  <text x="182" y="228" font-family="Arial, Helvetica, sans-serif" font-size="128" font-weight="bold" text-anchor="middle" fill="#1cb0f6">א</text>
+  <path d="M428 232H232a40 40 0 0 0-40 40v100a40 40 0 0 0 40 40h48v48l56-48h92a40 40 0 0 0 40-40V272a40 40 0 0 0-40-40z" fill="#58cc02" stroke="#1cb0f6" stroke-width="14"/>
+  <text x="330" y="366" font-family="Arial, Helvetica, sans-serif" font-size="124" font-weight="bold" text-anchor="middle" fill="#fff">A</text>
+</svg>
