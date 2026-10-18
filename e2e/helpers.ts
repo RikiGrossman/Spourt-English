@@ -73,7 +73,8 @@ export async function seedProgress(page: Page, patch: Partial<Progress>) {
 }
 
 /** The path bubble of a lesson; its accessible name is the title plus (הושלם)/(נעול). */
-export const lessonButton = (page: Page, id: string) => page.locator(`.node-btn[aria-label^="${lesson(id).title}"]`);
+// By id: some titles are prefixes of others (e.g. "בדרך כלל" / "בדרך כלל או עכשיו?").
+export const lessonButton = (page: Page, id: string) => page.locator(`.node-btn[data-lesson-id="${lesson(id).id}"]`);
 
 /**
  * Opens a lesson from the path, getting past the unit intro (first lesson of a new unit)

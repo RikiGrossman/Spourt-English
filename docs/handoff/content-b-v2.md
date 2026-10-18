@@ -2,7 +2,7 @@
 
 Branch: `v2/content-b`, built on the scaffold commit `d315960` (my worktree started on `6ecce61`, so I fast-forwarded it to the spec commit first).
 
-> The spec (§10.1) names this file `docs/handoff/content-b-v2.md`; the workflow asked for `docs/handoff/v2-content-b.md`. I used the workflow name. Rename it if you want the spec's name.
+> Renamed at integration to the spec name (§10.1) `docs/handoff/content-b-v2.md`.
 
 ## What I built
 

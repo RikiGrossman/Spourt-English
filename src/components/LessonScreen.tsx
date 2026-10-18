@@ -42,6 +42,8 @@ interface Props {
   /** Optional lesson tip shown before the first exercise. */
   tip?: string;
   tipTitle?: string;
+  /** Review only: the SRS box of an item before this session (analytics `props.box`). */
+  boxOf?: (itemKey: string) => number | undefined;
 }
 
 interface Feedback {
@@ -86,6 +88,7 @@ export function LessonScreen({
   baseXp = 10,
   tip,
   tipTitle = 'טיפ לשיעור',
+  boxOf,
 }: Props) {
   const [queue, setQueue] = useState<Exercise[]>(exercises);
   const [position, setPosition] = useState(0);
@@ -112,14 +115,20 @@ export function LessonScreen({
         firstTry.current.answered += 1;
         if (firstCorrect) firstTry.current.correct += 1;
         const errors = current.kind === 'build' ? current.errors : undefined;
+        const itemKey = current.kind !== 'match' ? current.itemKey : undefined;
+        const box = itemKey && boxOf ? boxOf(itemKey) : undefined;
+        const props = {
+          ...(errors?.length ? { errors: [...errors] } : {}),
+          ...(box !== undefined ? { box } : {}),
+        };
         track({
           name: 'exercise_answer',
           lessonId,
-          ...(current.kind !== 'match' && current.itemKey ? { itemKey: current.itemKey } : {}),
+          ...(itemKey ? { itemKey } : {}),
           exType: exerciseType(current),
           correct: firstCorrect,
           firstTry: true,
-          ...(errors?.length ? { props: { errors: [...errors] } } : {}),
+          ...(Object.keys(props).length ? { props } : {}),
         });
       }
       setFeedback({ correct, solution });
@@ -134,7 +143,7 @@ export function LessonScreen({
         onMistake();
       }
     },
-    [queue, position, exercises.length, lessonId, hearts, onMistake],
+    [queue, position, exercises.length, lessonId, hearts, onMistake, boxOf],
   );
 
   function next() {

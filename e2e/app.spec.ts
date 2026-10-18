@@ -486,8 +486,7 @@ test.describe('v2 (docs/spec/v2.md §9)', () => {
     await openLesson(page, 'u1l1');
     await finishLesson(page, L1);
     const queue = await page.evaluate(() => JSON.parse(localStorage.getItem('spourt-english:events:v1') ?? 'null'));
-    // The analytics module belongs to the BI agent; skip while it is still the no-op scaffold.
-    test.skip(!Array.isArray(queue) || queue.length === 0, 'analytics queue not implemented in this build');
+    expect(Array.isArray(queue)).toBe(true);
     const names = (queue as { name: string }[])
       .map((e) => e.name)
       .filter((n) => n.startsWith('lesson_') || n === 'exercise_answer');
@@ -505,15 +504,12 @@ test.describe('v2 (docs/spec/v2.md §9)', () => {
     await seedProgress(page, { completed: Object.fromEntries(old.map((id) => [id, 1])), xp: 120 });
     await page.goto('/');
     await expect(page.locator('.path')).toBeVisible();
-    // The unlock rule and isCatchUp belong to the backend agent; skip while they are the scaffold stubs.
-    test.skip((await page.locator('.new-chip').count()) === 0, 'high-water unlock rule not implemented in this build');
     for (const id of old) await expect(lessonButton(page, id)).toHaveAttribute('aria-label', /\(הושלם\)/);
     await expect(page.locator('.lesson-node.has-label')).toContainText(lesson('u4l3').title);
     for (const id of ['u1l4', 'u1l5', 'u2l3', 'u2l4', 'u2l5', 'u3l3', 'u3l4', 'u3l5']) {
       await expect(lessonButton(page, id)).toBeEnabled();
       await expect(lessonButton(page, id)).toHaveAttribute('aria-label', /\(חדש!\)/);
     }
-    // u4l4 is content-b's; check it once it is in the course.
-    if (allLessons.some((l) => l.id === 'u4l4')) await expect(lessonButton(page, 'u4l4')).toBeDisabled();
+    await expect(lessonButton(page, 'u4l4')).toBeDisabled();
   });
 });

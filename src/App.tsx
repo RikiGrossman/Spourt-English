@@ -157,6 +157,7 @@ export default function App() {
         onQuit={() => setScreen({ name: 'path' })}
         tip={screen.tip}
         tipTitle={screen.tipTitle}
+        boxOf={review ? (key) => srs.store.items[key]?.box : undefined}
         onFinish={(raw) => {
           const durationMs = Math.min(MAX_DURATION_MS, Math.max(0, raw.durationMs));
           if (review) {

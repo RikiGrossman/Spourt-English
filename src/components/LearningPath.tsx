@@ -123,6 +123,7 @@ export function LearningPath({ progress, due, onStart, onReview, onIntro }: Prop
                     style={open ? { background: unit.color } : undefined}
                     disabled={!open}
                     onClick={() => onStart(lesson.id)}
+                    data-lesson-id={lesson.id}
                     aria-label={`${lesson.title}${done ? ' (הושלם)' : open ? '' : ' (נעול)'}${catchUp ? ' (חדש!)' : ''}`}
                   >
                     {done ? '✓' : open ? '★' : '🔒'}
