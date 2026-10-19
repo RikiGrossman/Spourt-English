@@ -83,5 +83,5 @@ jobs:
           gh release delete android-latest --yes --cleanup-tag || true
           gh release create android-latest SpourtEnglish.apk version.json \
             --target "$GITHUB_SHA" \
-            --title "Spourt English לאנדרואיד (גרסה 1.0.${{ github.run_number }})" \
+            --title "אנגלית בקטנה לאנדרואיד (גרסה 1.0.${{ github.run_number }})" \
             --notes "להתקנה: מורידים את SpourtEnglish.apk בטלפון, פותחים אותו ומאשרים התקנה ממקור לא ידוע. גרסה חדשה מותקנת מעל הישנה וההתקדמות נשמרת. מגרסה זו והלאה האפליקציה מציעה עדכון בעצמה כשיוצאת גרסה חדשה."

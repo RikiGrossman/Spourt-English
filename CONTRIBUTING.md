@@ -1,4 +1,4 @@
-# Contributing to Spourt English
+# Contributing to אנגלית בקטנה (Spourt English)
 
 ## Setup
 
