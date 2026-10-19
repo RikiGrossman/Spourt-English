@@ -42,11 +42,16 @@ describe('lesson structure (US-L1 … US-L4)', () => {
       expect(exercises.slice(0, lesson.words.length).every((e) => e.kind === 'choice')).toBe(true);
       expect(exercises[lesson.words.length].kind).toBe('match');
       const rest = exercises.slice(lesson.words.length + 1);
-      expect(rest.every((e) => e.kind === 'build' || e.kind === 'speak')).toBe(true);
+      expect(rest.every((e) => e.kind === 'build' || e.kind === 'type' || e.kind === 'speak')).toBe(true);
       expect(rest.filter((e) => e.kind === 'speak')).toHaveLength(Math.min(2, n));
-      const builds = rest.filter((e) => e.kind === 'build');
-      expect(builds.filter((e) => e.listen)).toHaveLength(n > 1 ? 2 : 1);
-      expect(builds.filter((e) => e.answerLang === 'he')).toHaveLength(1);
+      const sentences = rest.filter((e) => e.kind === 'build' || e.kind === 'type');
+      expect(sentences.filter((e) => e.listen)).toHaveLength(n > 1 ? 2 : 1);
+      expect(sentences.filter((e) => e.kind === 'build' && e.answerLang === 'he')).toHaveLength(1);
+      // Typing (US-K1): none in unit 1, one translation from unit 2, plus typing what you hear from unit 4.
+      const unit = course.findIndex((u) => u.lessons.includes(lesson));
+      const typed = rest.filter((e) => e.kind === 'type');
+      expect(typed.filter((e) => !e.listen)).toHaveLength(unit >= 1 ? 1 : 0);
+      expect(typed.filter((e) => e.listen)).toHaveLength(unit >= 3 ? 1 : 0);
       if (lesson.words.length === 5) expect(exercises).toHaveLength(n === 3 ? 14 : 15);
     }
   });

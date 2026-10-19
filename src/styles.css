@@ -1756,3 +1756,28 @@ button:disabled {
 .update-dialog .big-emoji {
   font-size: 3rem;
 }
+
+/* Typing exercise */
+.type-input {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: var(--soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.15rem;
+  resize: none;
+}
+
+.type-input:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.type-warning {
+  margin: 0;
+  color: var(--bad-text);
+  font-weight: 600;
+}

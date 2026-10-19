@@ -1,5 +1,5 @@
 import { sentenceKey, wordKey } from '../../shared/item-keys';
-import { allLessons } from '../data/course';
+import { allLessons, course } from '../data/course';
 import type { Exercise, ExerciseType, Lesson, Word } from '../types';
 import { tokenize } from './answer';
 import { pickDistinct, shuffle, type Rng } from './random';
@@ -74,6 +74,28 @@ export function buildSentence(
   };
 }
 
+/** Typing: translate one of the lesson's sentences into English, or type it after hearing it. */
+export function typeSentence(lesson: Lesson, index: number, listen = false): Exercise {
+  const sentence = lesson.sentences[index];
+  return {
+    kind: 'type',
+    prompt: listen ? sentence.en : sentence.he,
+    listen,
+    answers: [sentence.en, ...(sentence.alt ?? [])],
+    itemKey: sentenceKey(lesson.id, index),
+    ...(sentence.errors?.length ? { errors: sentence.errors } : {}),
+  };
+}
+
+/** Lessons of the first unit only build from word banks; typing starts in unit 2, typing what you hear in unit 4. */
+export const TYPING_FROM_UNIT = 1;
+export const TYPED_LISTENING_FROM_UNIT = 3;
+
+/** Zero-based position of the lesson's unit in the course (-1 when unknown). */
+function unitIndexOf(lesson: Lesson): number {
+  return course.findIndex((u) => u.lessons.some((l) => l.id === lesson.id));
+}
+
 /** Speaking: read one of the lesson's English sentences out loud. */
 export function speakSentence(lesson: Lesson, index: number): Exercise {
   const sentence = lesson.sentences[index];
@@ -90,8 +112,19 @@ export function exerciseType(exercise: Exercise): ExerciseType {
   if (exercise.kind === 'match') return 'match';
   if (exercise.kind === 'speak') return 'speak';
   if (exercise.kind === 'choice') return exercise.promptLang === 'he' ? 'choice-en' : 'choice-he';
+  // Typed answers are reported like their word-bank twins (analytics marks them with props.typed),
+  // so the dashboards and the events table need no new exercise types.
+  if (exercise.kind === 'type') return exercise.listen ? 'listen' : 'build-en';
   if (exercise.listen) return 'listen';
   return exercise.answerLang === 'en' ? 'build-en' : 'build-he';
+}
+
+function shortestSentence(lesson: Lesson): number {
+  let best = 0;
+  lesson.sentences.forEach((s, i) => {
+    if (s.en.length < lesson.sentences[best].en.length) best = i;
+  });
+  return best;
 }
 
 /**
@@ -107,9 +140,16 @@ export function generateExercises(lesson: Lesson, rng: Rng = Math.random): Exerc
   exercises.push({ kind: 'match', pairs, itemKeys: pairs.map(wordKey) });
 
   const n = lesson.sentences.length;
-  const practice: Exercise[] = lesson.sentences.map((_, i) => buildSentence(lesson, i, 'en', rng));
+  const unit = unitIndexOf(lesson);
+  // From unit 2 the shortest sentence is typed instead of built from tiles (free recall).
+  const typed = unit >= TYPING_FROM_UNIT && n > 0 ? shortestSentence(lesson) : -1;
+  const practice: Exercise[] = lesson.sentences.map((_, i) =>
+    i === typed ? typeSentence(lesson, i) : buildSentence(lesson, i, 'en', rng),
+  );
   if (n > 0) {
-    practice.push(buildSentence(lesson, 0, 'en', rng, true));
+    practice.push(
+      unit >= TYPED_LISTENING_FROM_UNIT ? typeSentence(lesson, 0, true) : buildSentence(lesson, 0, 'en', rng, true),
+    );
     practice.push(buildSentence(lesson, n - 1, 'he', rng));
   }
   if (n > 1) {

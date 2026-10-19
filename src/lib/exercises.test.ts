@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { checkTyped } from './typing';
 import { isItemKey, sentenceKey, wordKey } from '../../shared/item-keys';
 import { allLessons, course } from '../data/course';
 import type { Exercise, Lesson } from '../types';
@@ -62,6 +63,8 @@ describe('generateExercises', () => {
             bank.splice(i, 1);
           }
           expect(isCorrect(tiles.join(' '), ex.answers)).toBe(true);
+        } else if (ex.kind === 'type') {
+          expect(checkTyped(ex.answers[0], ex.answers).kind).toBe('correct');
         } else if (ex.kind === 'speak') {
           expect(lesson.sentences.map((s) => s.en)).toContain(ex.prompt);
           expect(ex.answers[0]).toBe(ex.prompt);
