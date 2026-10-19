@@ -34,7 +34,7 @@ android {
             dimension "store"
             // The store edition has its own id (permanent once uploaded to Play), named after the
             // app's public name; the GitHub APK keeps com.spourt.english so installed copies update.
-            applicationId "com.bekatana.english"
+            applicationId "com.baktana.english"
             buildConfigField "boolean", "IN_APP_UPDATES", "false"
         }
     }
