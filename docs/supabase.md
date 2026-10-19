@@ -93,6 +93,24 @@ supabase functions deploy call-turn
 - בלי הסוד `ANTHROPIC_API_KEY` הפונקציה מחזירה `503 call_unavailable` והאפליקציה מציגה "שיחות הווידאו לא זמינות כרגע".
 - בדיקה מקומית: `supabase functions serve call-turn --env-file .env`.
 
+## עדכון אוטומטי מ־GitHub
+
+ה־workflow ‏`.github/workflows/supabase.yml` מעדכן את Supabase לבד, בכל דחיפה ל־`main` שמשנה את `supabase/` או את הקבצים המשותפים של השיחות. אפשר להריץ אותו גם ידנית מ־**Actions** ← **Supabase** ← **Run workflow**. הוא:
+
+1. מריץ את `supabase/schema.sql` (בטוח להריץ שוב ושוב).
+2. מעתיק ל־Edge Functions את הסודות `ANTHROPIC_API_KEY` ו־`PREMIUM_EMAILS`, אם הם מוגדרים ב־GitHub.
+3. פורס את כל הפונקציות ב־`supabase/functions` ובודק ש־`call-turn` עונה 401 לבקשה בלי משתמש.
+
+הגדרה, פעם אחת: ב־repo ← **Settings** ← **Secrets and variables** ← **Actions** ← **New repository secret**:
+
+| Secret | מה שמים |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | טוקן אישי מ־supabase.com ← Account ← **Access Tokens** ← Generate new token |
+| `ANTHROPIC_API_KEY` | מפתח API מ־console.anthropic.com |
+| `PREMIUM_EMAILS` | האימיילים של משתמשי הפרימיום, מופרדים בפסיקים |
+
+את מזהה הפרויקט ה־workflow לוקח מהמשתנה `VITE_SUPABASE_URL` שכבר קיים. משתנה אופציונלי: `CALL_MODEL` (בלשונית Variables).
+
 ## פיתוח מקומי מול Supabase
 
 ```bash
