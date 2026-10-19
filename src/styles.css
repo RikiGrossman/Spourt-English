@@ -1819,3 +1819,13 @@ button:disabled {
   color: var(--bad-text);
   font-weight: 600;
 }
+
+/* Daily reminder time picker */
+.time-input {
+  padding: 6px 10px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--text);
+  font: inherit;
+}

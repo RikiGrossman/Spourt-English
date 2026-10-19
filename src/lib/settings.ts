@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { DEFAULT_REMINDER_TIME, isValidTime } from './reminders';
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
@@ -9,10 +10,21 @@ export interface Settings {
   analytics: boolean;
   /** Speaking exercises (microphone). Missing in older saves → true. */
   speaking: boolean;
+  /** Daily practice reminder (Android notifications). Missing in older saves → off. */
+  reminder: boolean;
+  /** Reminder time, "HH:MM" local. */
+  reminderTime: string;
 }
 
 const STORAGE_KEY = 'spourt-english:settings:v1';
-export const DEFAULT_SETTINGS: Settings = { theme: 'system', sound: true, analytics: true, speaking: true };
+export const DEFAULT_SETTINGS: Settings = {
+  theme: 'system',
+  sound: true,
+  analytics: true,
+  speaking: true,
+  reminder: false,
+  reminderTime: DEFAULT_REMINDER_TIME,
+};
 
 /** Parses saved settings, ignoring anything unknown or malformed. */
 export function parseSettings(raw: string | null): Settings {
@@ -24,6 +36,8 @@ export function parseSettings(raw: string | null): Settings {
       sound: typeof data.sound === 'boolean' ? data.sound : true,
       analytics: typeof data.analytics === 'boolean' ? data.analytics : true,
       speaking: typeof data.speaking === 'boolean' ? data.speaking : true,
+      reminder: data.reminder === true,
+      reminderTime: isValidTime(data.reminderTime) ? data.reminderTime : DEFAULT_REMINDER_TIME,
     };
   } catch {
     return DEFAULT_SETTINGS;

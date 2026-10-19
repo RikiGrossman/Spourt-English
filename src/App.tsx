@@ -22,7 +22,8 @@ import { canListen } from './lib/listen';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-seen';
 import { completePractice } from './lib/practice';
-import { completeLesson, isCatchUp, loseHeart, visibleStreak } from './lib/progress';
+import { completeLesson, dateKey, isCatchUp, loseHeart, visibleStreak } from './lib/progress';
+import { syncReminders } from './lib/reminders';
 import { buildReview, type ReviewSource } from './lib/review';
 import {
   dismiss,
@@ -107,6 +108,13 @@ function Screens() {
   useEffect(() => setSoundEnabled(settings.sound), [settings.sound]);
   // Declared before app_open so an opted-out learner sends nothing.
   useEffect(() => setAnalyticsEnabled(settings.analytics), [settings.analytics]);
+
+  // Reschedule the week of Android reminders on launch, on settings changes and after practice,
+  // so a day that was already practised gets no reminder.
+  const practicedToday = progress.lastActiveDate === dateKey(Date.now());
+  useEffect(() => {
+    void syncReminders({ enabled: settings.reminder, time: settings.reminderTime, practicedToday, streak });
+  }, [settings.reminder, settings.reminderTime, practicedToday, streak]);
 
   useEffect(() => {
     if (appOpenSent) return;
