@@ -42,7 +42,9 @@ describe('lesson structure (US-L1 … US-L4)', () => {
       expect(exercises.slice(0, lesson.words.length).every((e) => e.kind === 'choice')).toBe(true);
       expect(exercises[lesson.words.length].kind).toBe('match');
       const rest = exercises.slice(lesson.words.length + 1);
-      expect(rest.every((e) => e.kind === 'build' || e.kind === 'type' || e.kind === 'speak')).toBe(true);
+      expect(rest.every((e) => ['build', 'type', 'blank', 'speak'].includes(e.kind))).toBe(true);
+      // Fill in the blank (US-K3): at most one per lesson, never on the typed sentence.
+      expect(rest.filter((e) => e.kind === 'blank').length).toBeLessThanOrEqual(1);
       expect(rest.filter((e) => e.kind === 'speak')).toHaveLength(Math.min(2, n));
       const sentences = rest.filter((e) => e.kind === 'build' || e.kind === 'type');
       expect(sentences.filter((e) => e.listen)).toHaveLength(n > 1 ? 2 : 1);

@@ -2,6 +2,7 @@ import { sentenceKey, wordKey } from '../../shared/item-keys';
 import { allLessons, course } from '../data/course';
 import type { Exercise, ExerciseType, Lesson, Word } from '../types';
 import { tokenize } from './answer';
+import { blankSentence } from './blank';
 import { pickDistinct, shuffle, type Rng } from './random';
 
 function lessonsUpTo(lesson: Lesson): Lesson[] {
@@ -112,9 +113,10 @@ export function exerciseType(exercise: Exercise): ExerciseType {
   if (exercise.kind === 'match') return 'match';
   if (exercise.kind === 'speak') return 'speak';
   if (exercise.kind === 'choice') return exercise.promptLang === 'he' ? 'choice-en' : 'choice-he';
-  // Typed answers are reported like their word-bank twins (analytics marks them with props.typed),
-  // so the dashboards and the events table need no new exercise types.
+  // Typed and fill-in-the-blank answers are reported like their word-bank twins (analytics marks
+  // them with props.typed / props.blank), so the dashboards and events table need no new types.
   if (exercise.kind === 'type') return exercise.listen ? 'listen' : 'build-en';
+  if (exercise.kind === 'blank') return 'build-en';
   if (exercise.listen) return 'listen';
   return exercise.answerLang === 'en' ? 'build-en' : 'build-he';
 }
@@ -143,9 +145,12 @@ export function generateExercises(lesson: Lesson, rng: Rng = Math.random): Exerc
   const unit = unitIndexOf(lesson);
   // From unit 2 the shortest sentence is typed instead of built from tiles (free recall).
   const typed = unit >= TYPING_FROM_UNIT && n > 0 ? shortestSentence(lesson) : -1;
-  const practice: Exercise[] = lesson.sentences.map((_, i) =>
-    i === typed ? typeSentence(lesson, i) : buildSentence(lesson, i, 'en', rng),
-  );
+  // One other sentence becomes fill-in-the-blank, when it has a word worth blanking.
+  const blank = n > 1 ? (Math.max(typed, 0) + 1) % n : -1;
+  const practice: Exercise[] = lesson.sentences.map((_, i) => {
+    if (i === typed) return typeSentence(lesson, i);
+    return (i === blank && blankSentence(lesson, i, rng)) || buildSentence(lesson, i, 'en', rng);
+  });
   if (n > 0) {
     practice.push(
       unit >= TYPED_LISTENING_FROM_UNIT ? typeSentence(lesson, 0, true) : buildSentence(lesson, 0, 'en', rng, true),

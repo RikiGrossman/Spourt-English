@@ -134,6 +134,21 @@ export type Exercise =
       errors?: ErrorCode[];
     }
   | {
+      /** Fill in the blank: one word of the English sentence is missing; pick it from the options. */
+      kind: 'blank';
+      /** The sentence before and after the missing word (punctuation included). */
+      before: string;
+      after: string;
+      /** The Hebrew translation, shown as the meaning. */
+      he: string;
+      options: string[];
+      answer: string;
+      /** Key of the sentence (`s:<lessonId>:<index>`). */
+      itemKey?: string;
+      /** Error codes of the sentence, copied for analytics. */
+      errors?: ErrorCode[];
+    }
+  | {
       /** Speaking: the learner reads an English sentence out loud (speech recognition). */
       kind: 'speak';
       /** The English sentence to say. */

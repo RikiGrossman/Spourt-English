@@ -134,7 +134,7 @@ export async function token(page: Page): Promise<string | null> {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null')?.token ?? null, AUTH_KEY);
 }
 
-type Kind = 'choice' | 'build' | 'listen' | 'match' | 'speak' | 'type';
+type Kind = 'choice' | 'build' | 'listen' | 'match' | 'speak' | 'type' | 'blank';
 
 /** Identifies the exercise on screen and the prompt that identifies it. */
 async function current(page: Page): Promise<{ kind: Kind; prompt: string }> {
@@ -143,6 +143,9 @@ async function current(page: Page): Promise<{ kind: Kind; prompt: string }> {
   if (await page.locator('.match-grid').count()) return { kind: 'match', prompt: 'match' };
   if (await page.locator('.mic-btn').count()) {
     return { kind: 'speak', prompt: `speak:${(await page.locator('.speak-prompt').textContent())!.trim()}` };
+  }
+  if (await page.locator('.blank-sentence').count()) {
+    return { kind: 'blank', prompt: (await page.locator('.blank-meaning').textContent())!.trim() };
   }
   if (await page.locator('.type-input').count()) {
     // Typing: the Hebrew prompt is shown, or (type what you hear) only spoken.
@@ -187,6 +190,16 @@ export async function answer(page: Page, l: Lesson, correct = true): Promise<str
   } else if (ex.kind === 'speak') {
     // Needs fakeRecognition(); speaking can't be answered wrong, only retried.
     await page.getByRole('button', { name: 'לחצו ודברו' }).click();
+  } else if (ex.kind === 'blank') {
+    // The missing word: the sentence's word where the gap is (the shown words line up with it).
+    const sentence = l.sentences.find((s) => s.he === ex.prompt)!;
+    expect(sentence, `sentence for "${ex.prompt}"`).toBeTruthy();
+    const before = (await page.locator('.blank-sentence').evaluate((p) => p.firstChild?.textContent ?? '')).trim();
+    const missing = tokenize(sentence.en)[before ? tokenize(before).length : 0];
+    const tiles = page.locator('.bank .tile');
+    const options = (await tiles.allTextContents()).map((t) => t.trim());
+    await tiles.nth(options.indexOf(correct ? missing : options.find((o) => o !== missing)!)).click();
+    await page.getByRole('button', { name: 'בדיקה' }).click();
   } else if (ex.kind === 'type') {
     const text = ex.prompt.replace(/^listen:/, '');
     const sentence = l.sentences.find((s) => s.en === text || s.he === text)!;

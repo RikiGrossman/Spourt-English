@@ -1819,3 +1819,66 @@ button:disabled {
   color: var(--bad-text);
   font-weight: 600;
 }
+
+/* Daily reminder time picker */
+.time-input {
+  padding: 6px 10px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--text);
+  font: inherit;
+}
+
+/* Placement test offer on the path */
+.placement-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+}
+
+.placement-card p {
+  margin: 0;
+}
+
+/* End-of-unit test node */
+.unit-test-node .test-btn {
+  font-size: 1.8rem;
+}
+
+.unit-test-node .test-btn.done {
+  background: var(--gold) !important;
+}
+
+/* Fill in the blank */
+.blank-sentence {
+  margin: 8px 0;
+  font-size: 1.35rem;
+  line-height: 2.2;
+  text-align: left;
+}
+
+.blank-gap {
+  display: inline-block;
+  min-width: 72px;
+  padding: 0 10px;
+  border-bottom: 3px solid var(--border);
+  text-align: center;
+  font-weight: 700;
+}
+
+.blank-gap.filled {
+  border-bottom-color: var(--focus);
+  color: var(--focus);
+}
+
+.tile.selected {
+  border-color: var(--select-border);
+  background: var(--select-bg);
+  color: var(--select-text);
+}
