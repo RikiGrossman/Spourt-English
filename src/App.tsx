@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MAX_DURATION_MS } from '../shared/analytics';
 import type { AuthResponse } from '../shared/api';
+import type { Persona } from '../shared/call';
 import { REVIEW_XP } from '../shared/srs';
 import { findLesson } from './data/course';
 import { AuthScreen, type Mode as AuthMode } from './components/AuthScreen';
+import { CallPicker } from './components/call/CallPicker';
+import { CallScreen } from './components/call/CallScreen';
+import { CallSummary, type CallResult } from './components/call/CallSummary';
 import { LearningPath } from './components/LearningPath';
 import { Leaderboard } from './components/Leaderboard';
 import { LessonComplete } from './components/LessonComplete';
@@ -16,6 +20,7 @@ import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
+import { CALLS_ENABLED } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
 import { canListen } from './lib/listen';
@@ -41,7 +46,7 @@ import { useProgress } from './lib/store';
 import { useAppUpdate } from './lib/update';
 import type { Exercise, Unit } from './types';
 
-type Tab = 'path' | 'league' | 'profile';
+type Tab = 'path' | 'league' | 'call' | 'profile';
 
 /** Where a sign-up started, reported with `signup_complete`. */
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
@@ -64,7 +69,10 @@ type Screen =
       goalReached: boolean;
       kind: 'lesson' | 'review' | 'practice';
       signup: { round: SignupRound; lessonsCompleted: number } | null;
-    };
+    }
+  /** An AI video call in progress, and its summary after hanging up. */
+  | { name: 'call-active'; persona: Persona }
+  | { name: 'call-summary'; result: CallResult };
 
 interface IntroState {
   unit: Unit;
@@ -76,11 +84,14 @@ interface IntroState {
 const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
   { name: 'path', icon: '🏠', label: 'לימוד' },
   { name: 'league', icon: '🏆', label: 'ליגה' },
+  { name: 'call', icon: '📞', label: 'שיחה' },
   { name: 'profile', icon: '👤', label: 'פרופיל' },
 ];
 
-// The league needs the API server, so static deploys leave it out.
-const TABS = ACCOUNTS_ENABLED ? ALL_TABS : ALL_TABS.filter((tab) => tab.name !== 'league');
+// The league and AI calls need a backend, so static deploys without one leave them out.
+const TABS = ALL_TABS.filter(
+  (tab) => (tab.name !== 'league' || ACCOUNTS_ENABLED) && (tab.name !== 'call' || CALLS_ENABLED),
+);
 
 /** `app_open` is sent once per launch (StrictMode mounts effects twice in development). */
 let appOpenSent = false;
@@ -257,6 +268,26 @@ function Screens() {
     );
   }
 
+  if (screen.name === 'call-active') {
+    return (
+      <CallScreen
+        key={screen.persona.id}
+        persona={screen.persona}
+        onEnd={(result) => setScreen({ name: 'call-summary', result })}
+      />
+    );
+  }
+
+  if (screen.name === 'call-summary') {
+    return (
+      <CallSummary
+        result={screen.result}
+        onNewCall={() => setScreen({ name: 'call' })}
+        onBack={() => setScreen({ name: 'path' })}
+      />
+    );
+  }
+
   function openLesson(lessonId: string) {
     const found = findLesson(lessonId);
     if (!found) return;
@@ -328,6 +359,7 @@ function Screens() {
           />
         )}
         {screen.name === 'league' && <Leaderboard user={account.user} onSignIn={goAuth} />}
+        {screen.name === 'call' && <CallPicker onCall={(persona) => setScreen({ name: 'call-active', persona })} />}
         {screen.name === 'profile' && (
           <Profile
             progress={progress}
