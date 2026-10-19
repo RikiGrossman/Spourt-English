@@ -15,6 +15,8 @@ interface Props {
   onReview: () => void;
   /** Opens the unit's intro sheet (📖 on the banner). */
   onIntro: (unit: Unit) => void;
+  /** Starts the placement test (offered until the learner gets past unit 1). */
+  onPlacement?: () => void;
 }
 
 export interface ReviewButtonState {
@@ -33,7 +35,12 @@ export function reviewButtonState(due: number, anyCompleted: boolean): ReviewBut
 /** Zig-zag offsets for the lesson bubbles, like a winding path. */
 const OFFSETS = [0, 60, 90, 60, 0, -60, -90, -60];
 
-export function LearningPath({ progress, due, onStart, onReview, onIntro }: Props) {
+/** The placement test is offered until the learner has finished a lesson beyond unit 1. */
+export function offerPlacement(progress: Progress): boolean {
+  return !course.slice(1).some((unit) => unit.lessons.some((l) => (progress.completed[l.id] ?? 0) > 0));
+}
+
+export function LearningPath({ progress, due, onStart, onReview, onIntro, onPlacement }: Props) {
   const current = currentLessonId(progress);
   const goal = dailyGoalOf(progress);
   const goalPercent = Math.min(100, (progress.xpToday / goal) * 100);
@@ -48,6 +55,18 @@ export function LearningPath({ progress, due, onStart, onReview, onIntro }: Prop
   return (
     <div className="path">
       {review.pinned && <ReviewCard due={due} onReview={onReview} />}
+      {onPlacement && offerPlacement(progress) && (
+        <section className="placement-card">
+          <p>
+            <strong>כבר יודעים קצת אנגלית?</strong>
+            <br />
+            <span className="muted">מבחן מיקום קצר ותדלגו לרמה שלכם.</span>
+          </p>
+          <button type="button" className="btn secondary" onClick={onPlacement}>
+            🎯 מבחן מיקום
+          </button>
+        </section>
+      )}
       <section className="today-card">
         <div className="today-goal">
           <div className="today-head">

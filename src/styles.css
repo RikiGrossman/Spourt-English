@@ -1829,3 +1829,19 @@ button:disabled {
   color: var(--text);
   font: inherit;
 }
+
+/* Placement test offer on the path */
+.placement-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+}
+
+.placement-card p {
+  margin: 0;
+}

@@ -24,6 +24,9 @@ import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-s
 import { completePractice } from './lib/practice';
 import { completeLesson, dateKey, isCatchUp, loseHeart, visibleStreak } from './lib/progress';
 import { syncReminders } from './lib/reminders';
+import { applyPlacement, placementDone, placementQuestions, unitsPassed } from './lib/placement';
+import { QuizScreen } from './components/QuizScreen';
+import { PlacementResult } from './components/PlacementResult';
 import { buildReview, type ReviewSource } from './lib/review';
 import {
   dismiss,
@@ -49,6 +52,8 @@ type AuthFrom = 'prompt' | 'profile' | 'onboarding';
 
 type Screen =
   | { name: Tab }
+  | { name: 'placement'; exercises: Exercise[] }
+  | { name: 'placement-done'; units: number }
   | { name: 'auth'; back: Tab | 'onboarding'; mode?: AuthMode; from: AuthFrom }
   /** `lessonId` is null for a review session. */
   | {
@@ -237,6 +242,30 @@ function Screens() {
     );
   }
 
+  if (screen.name === 'placement') {
+    return (
+      <QuizScreen
+        badge="🎯 מבחן מיקום"
+        exercises={screen.exercises}
+        stop={placementDone}
+        onQuit={() => setScreen({ name: 'path' })}
+        onFinish={(answers) => {
+          const units = unitsPassed(answers);
+          if (units > 0) {
+            const after = applyPlacement(progress, units);
+            update((p) => applyPlacement(p, units));
+            void account.sync(after);
+          }
+          setScreen({ name: 'placement-done', units });
+        }}
+      />
+    );
+  }
+
+  if (screen.name === 'placement-done') {
+    return <PlacementResult units={screen.units} onContinue={() => setScreen({ name: 'path' })} />;
+  }
+
   if (screen.name === 'complete') {
     const { signup } = screen;
     return (
@@ -333,6 +362,7 @@ function Screens() {
             onStart={startLesson}
             onReview={startReview}
             onIntro={showIntro}
+            onPlacement={() => setScreen({ name: 'placement', exercises: placementQuestions() })}
           />
         )}
         {screen.name === 'league' && <Leaderboard user={account.user} onSignIn={goAuth} />}
