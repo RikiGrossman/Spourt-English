@@ -10,17 +10,25 @@ import { AUTH_KEY, openFresh, recordSpeech, seedProgress } from './helpers';
 
 const SHOTS = process.env.CALL_SHOTS_DIR;
 
-let emailCounter = 0;
+/**
+ * One account per worker: the e2e server allows 20 registrations per 15 minutes across the
+ * whole suite, and the call endpoints are mocked anyway.
+ */
+let account: { token: string } | undefined;
 
 /**
  * Opens the app signed in, with GET /api/call/status answering `status` (mutate it to change the
  * next answer).
  */
 async function openSignedIn(page: Page, status: CallStatusResponse) {
-  const res = await page.request.post('/api/auth/register', {
-    data: { email: `call-${Date.now()}-${emailCounter++}@example.com`, password: 'password123', displayName: 'מתקשרת' },
-  });
-  const auth = await res.json();
+  if (!account) {
+    const res = await page.request.post('/api/auth/register', {
+      data: { email: `call-${Date.now()}@example.com`, password: 'password123', displayName: 'מתקשרת' },
+    });
+    expect(res.status()).toBe(201);
+    account = await res.json();
+  }
+  const auth = account!;
   await page.addInitScript(
     ([key, value]) => {
       if (!sessionStorage.getItem('e2e-auth')) {

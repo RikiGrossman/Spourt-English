@@ -14,7 +14,21 @@ describe('parseSettings', () => {
       sound: false,
       analytics: false,
       speaking: false,
+      reminder: false,
+      reminderTime: '20:00',
     });
+  });
+
+  it('reads the reminder and rejects malformed times', () => {
+    expect(parseSettings('{"reminder":true,"reminderTime":"07:30"}')).toMatchObject({
+      reminder: true,
+      reminderTime: '07:30',
+    });
+    expect(parseSettings('{"reminder":"yes","reminderTime":"7:30"}')).toMatchObject({
+      reminder: false,
+      reminderTime: '20:00',
+    });
+    expect(parseSettings('{"reminderTime":"24:00"}').reminderTime).toBe('20:00');
   });
 
   it('turns analytics and speaking on for saves from before those settings existed', () => {
@@ -25,6 +39,8 @@ describe('parseSettings', () => {
       sound: false,
       analytics: true,
       speaking: true,
+      reminder: false,
+      reminderTime: '20:00',
     });
   });
 });

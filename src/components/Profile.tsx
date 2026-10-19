@@ -8,6 +8,7 @@ import { GOAL_OPTIONS, dailyGoalOf } from '../lib/goals';
 import { canListen } from '../lib/listen';
 import { MAX_HEARTS, msUntilNextHeart, type Progress } from '../lib/progress';
 import type { Settings, ThemeChoice } from '../lib/settings';
+import { ReminderSettings } from './ReminderSettings';
 
 interface Props {
   progress: Progress;
@@ -146,6 +147,8 @@ export function Profile(props: Props) {
           {progress.hearts < MAX_HEARTS && ` · לב הבא בעוד ${nextHeart} דק׳`}
         </p>
       </section>
+
+      <ReminderSettings settings={settings} onSettings={props.onSettings} />
 
       <section className="panel">
         <h3>הגדרות</h3>
