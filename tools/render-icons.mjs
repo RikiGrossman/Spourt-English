@@ -23,7 +23,7 @@ const outputs = [
   { file: 'public/icons/apple-touch-icon.png', size: 180, html: page(180, BRAND, maskable) },
   { file: 'assets/icon-only.png', size: 1024, html: page(1024, BRAND, maskable) },
   { file: 'assets/icon-background.png', size: 1024, html: page(1024, BRAND, '') },
-  { file: 'assets/icon-foreground.png', size: 1024, html: page(1024, 'transparent', mark, 0.62), transparent: true },
+  { file: 'assets/icon-foreground.png', size: 1024, html: page(1024, 'transparent', mark, 0.66), transparent: true },
   { file: 'assets/splash.png', size: 2732, html: page(2732, '#ffffff', maskable, 0.18, 22) },
   { file: 'assets/splash-dark.png', size: 2732, html: page(2732, '#131f24', maskable, 0.18, 22) },
 ];
