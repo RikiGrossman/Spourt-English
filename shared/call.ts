@@ -97,10 +97,30 @@ export const CALL_LIMITS = {
   maxHistory: 20,
   /** Learner turns in one call; after that the character says goodbye. */
   maxTurns: 40,
+  /** Calls a premium learner can start per local day. */
+  callsPerDay: 10,
+  /** Learner turns per day across all calls, so a client can't stretch one "call" forever. */
+  turnsPerDay: 400,
 } as const;
 
 /**
- * POST /api/call/turn (auth optional) – the learner said something; get the character's reply.
+ * Calls need a signed-in premium account. For now premium is a server-side allowlist of
+ * emails (PREMIUM_EMAILS); app-store subscriptions come later (docs/subscriptions.md).
+ *
+ * A turn whose `history` has no learner message starts a new call and counts toward
+ * `callsPerDay`. Errors: 401 `unauthorized` (not signed in), 403 `premium_required`,
+ * 429 `daily_limit` (callsPerDay or turnsPerDay reached).
+ */
+
+/** GET /api/call/status (auth) – whether the learner can call, and today's usage. */
+export interface CallStatusResponse {
+  premium: boolean;
+  callsToday: number;
+  callsPerDay: number;
+}
+
+/**
+ * POST /api/call/turn (auth, premium) – the learner said something; get the character's reply.
  * `history` is the conversation so far (including the greeting), oldest first, NOT including
  * `message`.
  */
@@ -124,4 +144,6 @@ export interface CallTurnResponse {
   flagged?: 'inappropriate' | 'personal_info' | 'self_harm';
   /** True when the character ended the call (turn limit reached). */
   ended?: boolean;
+  /** Calls started today including this one, after this turn. */
+  callsToday?: number;
 }

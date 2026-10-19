@@ -1,22 +1,33 @@
 import type { ApiError } from '../../shared/api';
-import type { CallTurnRequest, CallTurnResponse, Correction } from '../../shared/call';
+import {
+  CALL_LIMITS,
+  type CallStatusResponse,
+  type CallTurnRequest,
+  type CallTurnResponse,
+  type Correction,
+} from '../../shared/call';
 import { loadAuth } from './api';
 import { ApiRequestError } from './api-error';
 import { ACCOUNTS_ENABLED, SUPABASE_ANON_KEY, SUPABASE_URL, USE_SUPABASE } from './config';
 
 /**
- * Client for the AI call turn (shared/call.ts): POST /api/call/turn on the Express server, or
- * the `call-turn` Edge Function in Supabase builds.
+ * Client for AI calls (shared/call.ts): POST /api/call/turn and GET /api/call/status on the
+ * Express server, or the `call-turn` Edge Function in Supabase builds. Calls need a signed-in
+ * (premium) learner, so every request carries the learner's token.
  */
 
 /** Calls need a backend: the Express server or Supabase. A static build without either has none. */
 export const CALLS_ENABLED = USE_SUPABASE || ACCOUNTS_ENABLED;
 
 /** The model can take a while to answer. */
-const TIMEOUT_MS = 25_000;
+const TURN_TIMEOUT_MS = 25_000;
+const STATUS_TIMEOUT_MS = 10_000;
 
 export const CALL_OFFLINE_MESSAGE = 'אין חיבור לשרת כרגע. בדקו את החיבור לאינטרנט ונסו שוב.';
 export const CALL_TIMEOUT_MESSAGE = 'התשובה מתעכבת. נסו שוב בעוד רגע.';
+export const CALL_SIGNED_OUT_MESSAGE = 'צריך להתחבר כדי לדבר עם הדמויות.';
+export const CALL_PREMIUM_MESSAGE = 'שיחות וידאו זמינות למנויי פרימיום.';
+export const CALL_LIMIT_MESSAGE = `הגעתם ל־${CALL_LIMITS.callsPerDay} שיחות היום. נתראה מחר! 🌙`;
 const GENERIC_MESSAGE = 'משהו השתבש בשיחה. נסו שוב בעוד רגע.';
 
 function isApiError(body: unknown): body is ApiError {
@@ -34,6 +45,8 @@ function isCorrection(c: unknown): c is Correction {
   );
 }
 
+const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+
 /** Checks the response shape, filling in optional parts; null when it is not a turn response. */
 export function parseTurnResponse(data: unknown): CallTurnResponse | null {
   if (typeof data !== 'object' || data === null) return null;
@@ -48,33 +61,86 @@ export function parseTurnResponse(data: unknown): CallTurnResponse | null {
     res.flagged = d.flagged;
   }
   if (d.ended === true) res.ended = true;
+  if (isCount(d.callsToday)) res.callsToday = Math.floor(d.callsToday);
   return res;
 }
 
-function endpoint(): { url: string; headers: Record<string, string> } {
-  const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
-  if (USE_SUPABASE) {
-    headers.apikey = SUPABASE_ANON_KEY;
-    headers.Authorization = `Bearer ${SUPABASE_ANON_KEY}`;
-    return { url: `${SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/call-turn`, headers };
-  }
-  // Auth is optional; a signed-in learner's token lets the server rate-limit per account.
-  const token = loadAuth()?.token;
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return { url: '/api/call/turn', headers };
+/** Checks a status response; null when it is not one. `callsPerDay` defaults to CALL_LIMITS. */
+export function parseStatusResponse(data: unknown): CallStatusResponse | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const d = data as Partial<CallStatusResponse>;
+  if (typeof d.premium !== 'boolean') return null;
+  return {
+    premium: d.premium,
+    callsToday: isCount(d.callsToday) ? Math.floor(d.callsToday) : 0,
+    callsPerDay: isCount(d.callsPerDay) && d.callsPerDay > 0 ? Math.floor(d.callsPerDay) : CALL_LIMITS.callsPerDay,
+  };
 }
 
-/** Sends what the learner said and returns the character's reply. Throws ApiRequestError (Hebrew message). */
-export async function sendTurn(req: CallTurnRequest, signal?: AbortSignal): Promise<CallTurnResponse> {
-  const { url, headers } = endpoint();
+const signedOut = () => new ApiRequestError(401, 'unauthorized', CALL_SIGNED_OUT_MESSAGE);
+
+/** The signed-in learner's access token from the Supabase session (refreshed by supabase-js). */
+async function supabaseToken(): Promise<string | null> {
+  try {
+    const { getSupabase } = await import('./supabase');
+    const { data } = await getSupabase().auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    throw new ApiRequestError(0, 'network', CALL_OFFLINE_MESSAGE);
+  }
+}
+
+/** URL and headers for a call request; throws a 401 ApiRequestError when nobody is signed in. */
+async function endpoint(path: 'turn' | 'status'): Promise<{ url: string; headers: Record<string, string> }> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (USE_SUPABASE) {
+    const token = await supabaseToken();
+    if (!token) throw signedOut();
+    headers.apikey = SUPABASE_ANON_KEY;
+    headers.Authorization = `Bearer ${token}`;
+    // One function serves both: POST is a turn, GET the status.
+    return { url: `${SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/call-turn`, headers };
+  }
+  const token = loadAuth()?.token;
+  if (!token) throw signedOut();
+  headers.Authorization = `Bearer ${token}`;
+  return { url: `/api/call/${path}`, headers };
+}
+
+/** The error for a non-OK response: the server's Hebrew message when it sent one. */
+function httpError(status: number, data: unknown): ApiRequestError {
+  const body = isApiError(data) ? data : null;
+  if (status === 401) return new ApiRequestError(401, 'unauthorized', body?.message || CALL_SIGNED_OUT_MESSAGE);
+  if (status === 403) return new ApiRequestError(403, 'premium_required', body?.message || CALL_PREMIUM_MESSAGE);
+  if (status === 429 && body?.error === 'daily_limit') {
+    return new ApiRequestError(429, 'daily_limit', body.message || CALL_LIMIT_MESSAGE);
+  }
+  if (body) return new ApiRequestError(status, body.error, body.message);
+  // A proxy/gateway failure without our JSON body means the API is unreachable.
+  const unreachable = status >= 500 || status === 404;
+  return new ApiRequestError(unreachable ? 0 : status, 'http', unreachable ? CALL_OFFLINE_MESSAGE : GENERIC_MESSAGE);
+}
+
+async function call(
+  path: 'turn' | 'status',
+  init: { method: 'GET' | 'POST'; body?: unknown; timeoutMs: number; signal?: AbortSignal },
+): Promise<unknown> {
+  const { url, headers } = await endpoint(path);
+  if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+  const { signal } = init;
   const timeout =
-    typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(TIMEOUT_MS) : undefined;
+    typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(init.timeoutMs) : undefined;
   const signals = [timeout, signal].filter((s): s is AbortSignal => s !== undefined);
   const combined = signals.length > 1 && 'any' in AbortSignal ? AbortSignal.any(signals) : signals[0];
 
   let res: Response;
   try {
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(req), signal: combined });
+    res = await fetch(url, {
+      method: init.method,
+      headers,
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: combined,
+    });
   } catch (e) {
     if (signal?.aborted) throw new ApiRequestError(0, 'aborted', GENERIC_MESSAGE);
     const timedOut = timeout?.aborted || (e instanceof Error && e.name === 'TimeoutError');
@@ -89,17 +155,30 @@ export async function sendTurn(req: CallTurnRequest, signal?: AbortSignal): Prom
   } catch {
     // Not JSON – e.g. the dev proxy's error page when no server is running.
   }
+  if (!res.ok) throw httpError(res.status, data);
+  return data;
+}
 
-  if (!res.ok) {
-    if (isApiError(data)) throw new ApiRequestError(res.status, data.error, data.message);
-    const unreachable = res.status >= 500 || res.status === 404;
-    throw new ApiRequestError(
-      unreachable ? 0 : res.status,
-      'http',
-      unreachable ? CALL_OFFLINE_MESSAGE : GENERIC_MESSAGE,
-    );
-  }
+/** Sends what the learner said and returns the character's reply. Throws ApiRequestError (Hebrew message). */
+export async function sendTurn(req: CallTurnRequest, signal?: AbortSignal): Promise<CallTurnResponse> {
+  const data = await call('turn', { method: 'POST', body: req, timeoutMs: TURN_TIMEOUT_MS, signal });
   const parsed = parseTurnResponse(data);
   if (!parsed) throw new ApiRequestError(0, 'bad-response', GENERIC_MESSAGE);
   return parsed;
+}
+
+/** Whether the signed-in learner can call, and today's usage. Throws ApiRequestError (401 when signed out). */
+export async function getCallStatus(signal?: AbortSignal): Promise<CallStatusResponse> {
+  const data = await call('status', { method: 'GET', timeoutMs: STATUS_TIMEOUT_MS, signal });
+  const parsed = parseStatusResponse(data);
+  if (!parsed) throw new ApiRequestError(0, 'bad-response', CALL_OFFLINE_MESSAGE);
+  return parsed;
+}
+
+/** Whether a failed turn means the learner can't call any more (signed out, not premium, daily limit). */
+export function isCallBlocked(error: unknown): error is ApiRequestError {
+  return (
+    error instanceof ApiRequestError &&
+    (error.status === 401 || error.status === 403 || (error.status === 429 && error.code === 'daily_limit'))
+  );
 }

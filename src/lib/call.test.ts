@@ -4,10 +4,12 @@ import {
   allCorrections,
   appendReply,
   appendUser,
+  callsLeft,
   canTalk,
   cleanMessage,
   formatDuration,
   learnerTurns,
+  remainingText,
   retryRequest,
   startCall,
   turnRequest,
@@ -123,5 +125,17 @@ describe('formatDuration', () => {
     expect(formatDuration(65_000)).toBe('01:05');
     expect(formatDuration(61 * 60_000)).toBe('61:00');
     expect(formatDuration(-10)).toBe('00:00');
+  });
+});
+
+describe('daily calls', () => {
+  it('counts the calls left, never below zero', () => {
+    expect(callsLeft({ premium: true, callsToday: 3, callsPerDay: 10 })).toBe(7);
+    expect(callsLeft({ premium: true, callsToday: 12, callsPerDay: 10 })).toBe(0);
+  });
+
+  it('says how many are left, with the singular for one', () => {
+    expect(remainingText(7, 10)).toBe('נשארו לכם 7 מתוך 10 שיחות היום');
+    expect(remainingText(1, 10)).toBe('נשארה לכם שיחה אחת מתוך 10 היום');
   });
 });

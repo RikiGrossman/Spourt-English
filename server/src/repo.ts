@@ -43,6 +43,15 @@ interface SrsRow {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+export interface CallUsage {
+  calls: number;
+  turns: number;
+}
+
+/** Outcome of recordCallTurn: `calls` is today's call count after the turn (unchanged when refused). */
+export type CallTurnCharge =
+  { allowed: true; calls: number } | { allowed: false; reason: 'calls' | 'turns'; calls: number };
+
 /** Data access for the API, kept in one place so routes stay small. */
 export function createRepo(db: Db) {
   const q = {
@@ -77,6 +86,11 @@ export function createRepo(db: Db) {
       `INSERT INTO events (anon_id, user_id, name, lesson_id, item_key, ex_type, correct, first_try, duration_ms,
          props, client_ts, local_date, local_hour, app_version, platform, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ),
+    getCallUsage: db.prepare('SELECT calls, turns FROM call_usage WHERE user_id = ? AND day = ?'),
+    addCallUsage: db.prepare(
+      `INSERT INTO call_usage (user_id, day, calls, turns) VALUES (?, ?, ?, 1)
+       ON CONFLICT(user_id, day) DO UPDATE SET calls = calls + excluded.calls, turns = turns + 1`,
     ),
   };
 
@@ -118,7 +132,7 @@ export function createRepo(db: Db) {
       }
       return { id, email, displayName, createdAt, passwordHash };
     },
-    /** Deletes the user; progress, XP, review state and events go with it (ON DELETE CASCADE). */
+    /** Deletes the user; progress, XP, review state, events and call usage go with it (ON DELETE CASCADE). */
     deleteUser(id: string): void {
       q.deleteUser.run(id);
     },
@@ -187,6 +201,35 @@ export function createRepo(db: Db) {
           );
         }
       });
+    },
+    /** The learner's video-call usage on `day` (YYYY-MM-DD); zeros when there is no row. */
+    getCallUsage(userId: string, day: string): CallUsage {
+      const row = q.getCallUsage.get(userId, day) as { calls: number; turns: number } | undefined;
+      return { calls: Number(row?.calls ?? 0), turns: Number(row?.turns ?? 0) };
+    },
+    /**
+     * Checks the daily limits and, if allowed, counts one turn (and one call when `newCall`) in a
+     * single transaction. Refused when a new call would exceed `callsPerDay` or the turn `turnsPerDay`.
+     */
+    recordCallTurn(
+      userId: string,
+      day: string,
+      newCall: boolean,
+      limits: { callsPerDay: number; turnsPerDay: number },
+    ): CallTurnCharge {
+      let result: CallTurnCharge = { allowed: true, calls: 0 };
+      transaction(() => {
+        const row = q.getCallUsage.get(userId, day) as { calls: number; turns: number } | undefined;
+        const calls = Number(row?.calls ?? 0);
+        const turns = Number(row?.turns ?? 0);
+        if (newCall && calls >= limits.callsPerDay) result = { allowed: false, reason: 'calls', calls };
+        else if (turns >= limits.turnsPerDay) result = { allowed: false, reason: 'turns', calls };
+        else {
+          q.addCallUsage.run(userId, day, newCall ? 1 : 0);
+          result = { allowed: true, calls: calls + (newCall ? 1 : 0) };
+        }
+      });
+      return result;
     },
     leaderboard(meId: string | undefined, now = Date.now(), limit = 20): LeaderboardEntry[] {
       const rows = q.leaderboard.all(now - WEEK_MS, limit) as { id: string; displayName: string; weeklyXp: number }[];

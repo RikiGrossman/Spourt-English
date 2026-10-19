@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, join, resolve, sep } from 'node:path';
 import express, { type RequestHandler } from 'express';
+import { parsePremiumEmails } from '../../shared/premium';
 import { authenticate, rateLimit, resolveSecret } from './auth';
 import type { Db } from './db';
 import { HttpError, errorHandler } from './errors';
@@ -24,6 +25,8 @@ export interface AppOptions {
   callRateLimit?: { max: number; windowMs: number };
   /** Anthropic API settings for the AI video call (defaults: ANTHROPIC_API_KEY, CALL_MODEL env). */
   anthropic?: CallModelOptions;
+  /** Comma-separated emails allowed to use the AI video call (defaults to the PREMIUM_EMAILS env). */
+  premiumEmails?: string;
   /** Directory of the built web app to serve; defaults to ../dist in production. */
   staticDir?: string | false;
   /** Allow cross-origin requests from localhost (dev only by default). */
@@ -82,7 +85,8 @@ export function createApp(db: Db, options: AppOptions = {}) {
   api.use(leaderboardRouter(repo, optionalAuth));
   api.use(srsRouter(repo, requireAuth));
   api.use(eventsRouter(repo, optionalAuth, eventsLimiter));
-  api.use(callRouter(options.anthropic ?? {}, optionalAuth, callLimiter));
+  const premiumEmails = parsePremiumEmails(options.premiumEmails ?? process.env.PREMIUM_EMAILS);
+  api.use(callRouter(repo, options.anthropic ?? {}, premiumEmails, requireAuth, callLimiter));
   api.use((_req, _res, next) => next(new HttpError(404, 'not_found', 'הנתיב המבוקש לא נמצא')));
   app.use('/api', api);
 

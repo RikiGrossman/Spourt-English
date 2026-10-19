@@ -1910,6 +1910,52 @@ button:disabled {
   justify-self: start;
 }
 
+/* Signed out, not premium or out of calls: the characters stay visible as a teaser. */
+.call-gate {
+  border-color: var(--select-border);
+  background: var(--select-bg);
+}
+
+.call-gate p:first-child {
+  margin-top: 0;
+}
+
+.call-gate .btn {
+  margin-top: 12px;
+}
+
+.call-gate-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.call-gate.limit {
+  border-color: var(--gold);
+  background: transparent;
+}
+
+.calls-left {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--select-bg);
+  color: var(--select-text);
+  font-weight: 700;
+}
+
+.persona-grid.locked .persona-avatar {
+  filter: grayscale(0.5);
+  opacity: 0.75;
+}
+
+.persona-card.skeleton {
+  min-height: 132px;
+  background: linear-gradient(90deg, var(--soft), var(--border), var(--soft));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
 /* ---------- Call screen ---------- */
 
 .call-screen {

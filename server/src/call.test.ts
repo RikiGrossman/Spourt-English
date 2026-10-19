@@ -1,8 +1,10 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuthResponse } from '../../shared/api';
 import { CALL_LIMITS, PERSONAS, type CallMessage, type CallTurnRequest } from '../../shared/call';
+import { usageDay } from '../../shared/premium';
 import { createApp, type AppOptions } from './app';
-import { openDb } from './db';
+import { openDb, type Db } from './db';
 import { CALL_OUTPUT_SCHEMA, CALL_START } from './routes/call';
 
 interface SentRequest {
@@ -18,7 +20,13 @@ interface SentRequest {
 }
 
 let sent: SentRequest[];
+let db: Db;
 let app: ReturnType<typeof createApp>;
+/** Token of the signed-in learner used by turn(); premium unless a test signs in someone else. */
+let token: string;
+
+const PREMIUM = 'dana@example.com';
+const PASSWORD = 'password123';
 
 /** A fetch that records the request and answers like the Messages API with `text`. */
 function fakeFetch(text: string | (() => Response | Promise<Response>)) {
@@ -36,13 +44,23 @@ function fakeFetch(text: string | (() => Response | Promise<Response>)) {
   }) as unknown as typeof fetch;
 }
 
-function setup(fetchImpl: typeof fetch, options: AppOptions = {}) {
-  app = createApp(openDb(':memory:'), {
+async function register(email: string) {
+  const res = await request(app).post('/api/auth/register').send({ email, password: PASSWORD, displayName: 'דנה' });
+  expect(res.status).toBe(201);
+  return res.body as AuthResponse;
+}
+
+/** A fresh app and database, with a premium learner (PREMIUM) signed in. */
+async function setup(fetchImpl: typeof fetch, options: AppOptions = {}) {
+  db = openDb(':memory:');
+  app = createApp(db, {
     secret: 'test-secret',
     staticDir: false,
     anthropic: { apiKey: 'test-key', model: 'test-model', fetch: fetchImpl },
+    premiumEmails: ` other@example.com, ${PREMIUM.toUpperCase()} `,
     ...options,
   });
+  token = (await register(PREMIUM)).token;
 }
 
 const modelJson = (reply: string, corrections: unknown[] = []) =>
@@ -53,10 +71,15 @@ const greeting = (persona: CallTurnRequest['persona']): CallMessage => ({
   text: PERSONAS.find((p) => p.id === persona)!.greeting,
 });
 
-const turn = (body: unknown) =>
-  request(app)
-    .post('/api/call/turn')
-    .send(body as object);
+const turn = (body: unknown, as: string | null = token) => {
+  const req = request(app).post('/api/call/turn');
+  if (as) req.set('Authorization', `Bearer ${as}`);
+  return req.send(body as object);
+};
+
+const status = (as: string = token) => request(app).get('/api/call/status').set('Authorization', `Bearer ${as}`);
+
+const usageRows = () => db.prepare('SELECT user_id, day, calls, turns FROM call_usage').all();
 
 const correction = { original: 'I goed to school', corrected: 'I went to school', explanationHe: 'went הוא עבר של go' };
 
@@ -67,13 +90,14 @@ beforeEach(() => {
 
 describe('POST /api/call/turn', () => {
   it('returns the teacher reply with corrections', async () => {
-    setup(fakeFetch(modelJson('Oh, you went to school! What did you learn?', [correction])));
+    await setup(fakeFetch(modelJson('Oh, you went to school! What did you learn?', [correction])));
     const res = await turn({ persona: 'teacher', history: [greeting('teacher')], message: 'I goed to school' });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       reply: 'Oh, you went to school! What did you learn?',
       replyHe: 'תרגום',
       corrections: [correction],
+      callsToday: 1,
     });
     expect(res.headers['cache-control']).toBe('no-store');
 
@@ -90,7 +114,7 @@ describe('POST /api/call/turn', () => {
   });
 
   it('strips corrections for characters that do not correct', async () => {
-    setup(fakeFetch(modelJson('Cool! What did you do there?', [correction])));
+    await setup(fakeFetch(modelJson('Cool! What did you do there?', [correction])));
     const res = await turn({ persona: 'friend', history: [greeting('friend')], message: 'I goed to school' });
     expect(res.status).toBe(200);
     expect(res.body.reply).toBe('Cool! What did you do there?');
@@ -98,7 +122,7 @@ describe('POST /api/call/turn', () => {
   });
 
   it('sends messages that start with user and alternate', async () => {
-    setup(fakeFetch(modelJson('Nice!')));
+    await setup(fakeFetch(modelJson('Nice!')));
     const history: CallMessage[] = [
       greeting('barista'),
       { role: 'user', text: 'Hi' },
@@ -118,7 +142,7 @@ describe('POST /api/call/turn', () => {
 
   it('does not call the model for a flagged message', async () => {
     const fetchImpl = fakeFetch(modelJson('should not be used'));
-    setup(fetchImpl);
+    await setup(fetchImpl);
     const res = await turn({
       persona: 'friend',
       history: [greeting('friend')],
@@ -133,7 +157,7 @@ describe('POST /api/call/turn', () => {
 
   it('says goodbye without calling the model after the turn limit', async () => {
     const fetchImpl = fakeFetch(modelJson('should not be used'));
-    setup(fetchImpl);
+    await setup(fetchImpl);
     const history: CallMessage[] = [greeting('teacher')];
     for (let i = 0; i < CALL_LIMITS.maxTurns; i++) {
       history.push({ role: 'user', text: `Sentence ${i}` }, { role: 'assistant', text: 'Nice!' });
@@ -146,7 +170,7 @@ describe('POST /api/call/turn', () => {
   });
 
   it('replaces an unsafe model reply with a safe one', async () => {
-    setup(fakeFetch(modelJson("Cool! What's your phone number?")));
+    await setup(fakeFetch(modelJson("Cool! What's your phone number?")));
     const res = await turn({ persona: 'friend', history: [greeting('friend')], message: 'I like music' });
     expect(res.status).toBe(200);
     expect(res.body.reply).not.toMatch(/phone number\?/);
@@ -154,7 +178,7 @@ describe('POST /api/call/turn', () => {
   });
 
   it('falls back to a generic reply when the model output is not JSON', async () => {
-    setup(fakeFetch('not json at all'));
+    await setup(fakeFetch('not json at all'));
     const res = await turn({ persona: 'teacher', history: [greeting('teacher')], message: 'Hello' });
     expect(res.status).toBe(200);
     expect(res.body.reply).toMatch(/again/i);
@@ -163,7 +187,7 @@ describe('POST /api/call/turn', () => {
 
   it('answers 503 when no API key is configured', async () => {
     const fetchImpl = fakeFetch(modelJson('x'));
-    setup(fetchImpl, { anthropic: { apiKey: '', fetch: fetchImpl } });
+    await setup(fetchImpl, { anthropic: { apiKey: '', fetch: fetchImpl } });
     const res = await turn({ persona: 'teacher', history: [greeting('teacher')], message: 'Hello' });
     expect(res.status).toBe(503);
     expect(res.body).toEqual({ error: 'call_unavailable', message: 'שיחות הווידאו לא זמינות כרגע' });
@@ -179,7 +203,7 @@ describe('POST /api/call/turn', () => {
       },
     ],
   ])('answers 502 on %s from Anthropic', async (_name, respond) => {
-    setup(fakeFetch(respond));
+    await setup(fakeFetch(respond));
     const res = await turn({ persona: 'teacher', history: [greeting('teacher')], message: 'Hello' });
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('call_failed');
@@ -195,7 +219,7 @@ describe('POST /api/call/turn', () => {
     [[{ persona: 'teacher', history: [], message: 'Hello' }]],
   ])('rejects an invalid body %#', async (body) => {
     const fetchImpl = fakeFetch(modelJson('x'));
-    setup(fetchImpl);
+    await setup(fetchImpl);
     const res = await turn(body);
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('invalid_call');
@@ -203,10 +227,147 @@ describe('POST /api/call/turn', () => {
   });
 
   it('rate limits per IP', async () => {
-    setup(fakeFetch(modelJson('Hi!')), { callRateLimit: { max: 2, windowMs: 60_000 } });
+    await setup(fakeFetch(modelJson('Hi!')), { callRateLimit: { max: 2, windowMs: 60_000 } });
     const body = { persona: 'friend', history: [greeting('friend')], message: 'Hello' };
     expect((await turn(body)).status).toBe(200);
     expect((await turn(body)).status).toBe(200);
     expect((await turn(body)).status).toBe(429);
+  });
+});
+
+describe('call access and daily limits', () => {
+  const start = (persona: CallTurnRequest['persona'] = 'friend') => ({
+    persona,
+    history: [greeting(persona)],
+    message: 'Hello',
+  });
+  const cont = (persona: CallTurnRequest['persona'] = 'friend') => ({
+    persona,
+    history: [greeting(persona), { role: 'user', text: 'Hello' }, { role: 'assistant', text: 'Hi!' }],
+    message: 'How are you?',
+  });
+
+  it('answers 401 without a valid token and does not call the model', async () => {
+    const fetchImpl = fakeFetch(modelJson('x'));
+    await setup(fetchImpl);
+    for (const as of [null, 'not-a-token']) {
+      const res = await turn(start(), as);
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('unauthorized');
+    }
+    expect((await request(app).get('/api/call/status')).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(usageRows()).toEqual([]);
+  });
+
+  it('answers 403 premium_required for a signed-in learner who is not premium', async () => {
+    const fetchImpl = fakeFetch(modelJson('x'));
+    await setup(fetchImpl);
+    const other = (await register('noa@example.com')).token;
+    const res = await turn(start(), other);
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'premium_required', message: 'שיחות וידאו זמינות כרגע רק למנויי פרימיום' });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(usageRows()).toEqual([]);
+  });
+
+  it('treats everyone as non-premium when PREMIUM_EMAILS is empty', async () => {
+    await setup(fakeFetch(modelJson('x')), { premiumEmails: '' });
+    expect((await turn(start())).status).toBe(403);
+    expect((await status()).body).toEqual({ premium: false, callsToday: 0, callsPerDay: CALL_LIMITS.callsPerDay });
+  });
+
+  it('allows 10 calls a day and refuses the 11th with 429 daily_limit', async () => {
+    const fetchImpl = fakeFetch(modelJson('Hi!'));
+    await setup(fetchImpl, { callRateLimit: { max: 100, windowMs: 60_000 } });
+    for (let i = 1; i <= CALL_LIMITS.callsPerDay; i++) {
+      const res = await turn(start());
+      expect(res.status).toBe(200);
+      expect(res.body.callsToday).toBe(i);
+    }
+    const res = await turn(start('teacher'));
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual({ error: 'daily_limit', message: 'הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!' });
+    expect(fetchImpl).toHaveBeenCalledTimes(CALL_LIMITS.callsPerDay);
+
+    // A call already in progress may go on.
+    const more = await turn(cont());
+    expect(more.status).toBe(200);
+    expect(more.body.callsToday).toBe(CALL_LIMITS.callsPerDay);
+  });
+
+  it('counts continuing turns as turns but not as new calls', async () => {
+    await setup(fakeFetch(modelJson('Nice!')));
+    expect((await turn(start())).body.callsToday).toBe(1);
+    for (let i = 0; i < 3; i++) {
+      const res = await turn(cont());
+      expect(res.status).toBe(200);
+      expect(res.body.callsToday).toBe(1);
+    }
+    expect(usageRows()).toEqual([{ user_id: expect.any(String), day: usageDay(), calls: 1, turns: 4 }]);
+  });
+
+  it('counts flagged turns but not invalid requests or 503s', async () => {
+    const fetchImpl = fakeFetch(modelJson('x'));
+    await setup(fetchImpl);
+    const flagged = await turn({ ...start(), message: 'My phone number is 052-123-4567' });
+    expect(flagged.status).toBe(200);
+    expect(flagged.body.flagged).toEqual(expect.any(String));
+    expect(flagged.body.callsToday).toBe(1);
+    expect((await turn({ persona: 'pirate', history: [], message: 'Hi' })).status).toBe(400);
+    expect(usageRows()).toEqual([expect.objectContaining({ calls: 1, turns: 1 })]);
+
+    await setup(fetchImpl, { anthropic: { apiKey: '', fetch: fetchImpl } });
+    expect((await turn(start())).status).toBe(503);
+    expect(usageRows()).toEqual([]);
+  });
+
+  it('caps the turns per day across calls', async () => {
+    const fetchImpl = fakeFetch(modelJson('Hi!'));
+    await setup(fetchImpl);
+    const me = (await status()).body;
+    expect(me.premium).toBe(true);
+    const userId = (db.prepare('SELECT id FROM users WHERE email = ?').get(PREMIUM) as { id: string }).id;
+    db.prepare('INSERT INTO call_usage (user_id, day, calls, turns) VALUES (?, ?, 2, ?)').run(
+      userId,
+      usageDay(),
+      CALL_LIMITS.turnsPerDay - 1,
+    );
+    expect((await turn(cont())).status).toBe(200);
+    const res = await turn(cont());
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('daily_limit');
+    expect(res.body.message).toMatch(/[֐-׿]/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // Yesterday's usage doesn't count today.
+    db.prepare('UPDATE call_usage SET day = ?').run('2000-01-01');
+    expect((await turn(cont())).status).toBe(200);
+  });
+
+  it('reports the status of premium and non-premium learners', async () => {
+    await setup(fakeFetch(modelJson('Hi!')));
+    expect((await status()).body).toEqual({ premium: true, callsToday: 0, callsPerDay: CALL_LIMITS.callsPerDay });
+    await turn(start());
+    await turn(cont());
+    await turn(start());
+    const res = await status();
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body).toEqual({ premium: true, callsToday: 2, callsPerDay: CALL_LIMITS.callsPerDay });
+
+    const other = (await register('noa@example.com')).token;
+    expect((await status(other)).body).toEqual({ premium: false, callsToday: 0, callsPerDay: CALL_LIMITS.callsPerDay });
+  });
+
+  it('deletes the usage rows with the account', async () => {
+    await setup(fakeFetch(modelJson('Hi!')));
+    await turn(start());
+    expect(usageRows()).toHaveLength(1);
+    const res = await request(app)
+      .delete('/api/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ password: PASSWORD });
+    expect(res.status).toBe(204);
+    expect(usageRows()).toEqual([]);
   });
 });

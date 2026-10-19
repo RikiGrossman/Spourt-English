@@ -36,11 +36,13 @@
 | 401 | `unauthorized` | אין טוקן, טוקן לא תקין או פג תוקף |
 | 401 | `invalid_credentials` | אימייל או סיסמה שגויים בהתחברות (הודעה אחת לשני המקרים), או סיסמה שגויה במחיקת חשבון |
 | 403 | `lesson_locked` | השלמת שיעור שעדיין נעול לפי ההתקדמות השמורה בשרת |
+| 403 | `premium_required` | שיחת וידאו: המשתמש המחובר אינו מנוי פרימיום (האימייל שלו לא ב־`PREMIUM_EMAILS`) |
 | 404 | `not_found` | נתיב API לא קיים |
 | 404 | `lesson_not_found` | `lessonId` שאינו בקורס |
 | 409 | `email_taken` | הרשמה עם אימייל שכבר קיים (ללא תלות ברישיות) |
 | 429 | `rate_limited` | יותר מ־20 ניסיונות הרשמה/התחברות ב־15 דקות מאותה כתובת IP |
 | 400 | `invalid_call` | גוף `POST /api/call/turn` לא תקין (דמות לא מוכרת, הודעה ריקה או ארוכה מ־400 תווים) |
+| 429 | `daily_limit` | שיחת וידאו: הגעתם ל־10 שיחות ביום (`callsPerDay`) או ל־400 תורות ביום (`turnsPerDay`) |
 | 502 | `call_failed` | שיחת וידאו: תקלה או timeout מול שירות ה־AI |
 | 503 | `call_unavailable` | שיחת וידאו: `ANTHROPIC_API_KEY` לא מוגדר בשרת |
 | 500 | `server_error` | תקלה פנימית |
@@ -266,11 +268,28 @@ Content-Type: application/json
 - אירוע עם שם לא מוכר, `anonId` שאינו UUID, תאריך/שעה לא תקינים, `props` מעל 1KB או שדה מחוץ למגבלות העמודות – נזרק. אם לא נשאר אף אירוע תקין: `400 invalid_events`.
 - הגבלת קצב: 60 בקשות לדקה לכל IP (`429 rate_limited`).
 
-### `POST /api/call/turn` (שיחת וידאו עם AI)
-תור אחד בשיחת "וידאו" באנגלית עם דמות AI (`shared/call.ts`). **אימות אופציונלי.** הלומד אמר משהו – השרת מחזיר את תשובת הדמות. השרת לא שומר ולא מתעד את תוכן השיחה.
+### שיחת וידאו עם AI – גישה ומגבלות
+שיחות הווידאו (`shared/call.ts`) זמינות רק ל**משתמשים מחוברים שהם מנויי פרימיום**. כרגע פרימיום = האימייל של החשבון מופיע במשתנה הסביבה `PREMIUM_EMAILS` בשרת (רשימה מופרדת בפסיקים, בלי תלות ברישיות ורווחים; `shared/premium.ts`). מנויים דרך חנויות האפליקציות יגיעו בהמשך.
+
+- **מגבלה יומית:** עד 10 שיחות (`CALL_LIMITS.callsPerDay`) ועד 400 תורות של הלומד (`CALL_LIMITS.turnsPerDay`) ביום, לפי התאריך המקומי של השרת (`TZ`, ברירת מחדל `Asia/Jerusalem`).
+- **מה נחשב שיחה חדשה:** תור שב־`history` שלו אין אף הודעה של הלומד (`role: "user"`) – כלומר התור הראשון אחרי הברכה. תורות המשך באותה שיחה נספרים כתורות בלבד, ולכן שיחה שכבר התחילה יכולה להימשך גם אחרי שהגעתם ל־10.
+- **מתי נספר:** אחרי שהבקשה עברה אימות (משתמש פרימיום, גוף תקין, השירות מוגדר) ולפני הקריאה למודל. נספרים גם תורות שסומנו (`flagged`) ותור הפרידה. בקשות שנדחו (`400`, `401`, `403`, `429`, `503`) לא נספרות; תור שהמודל נכשל בו (`502`) נשאר ספור.
+- השרת שומר רק מונים יומיים (`call_usage`: משתמש, יום, מספר שיחות, מספר תורות) – לא את תוכן השיחה. מחיקת חשבון (`DELETE /api/me`) מוחקת גם אותם.
+
+### `GET /api/call/status` 🔒
+האם הלומד יכול להתקשר, וכמה שיחות כבר התחיל היום (`CallStatusResponse`).
+```json
+200 { "premium": true, "callsToday": 3, "callsPerDay": 10 }
+```
+- משתמש שאינו פרימיום מקבל `200` עם `"premium": false` (לא 403), כדי שהאפליקציה תציג הסבר במקום כפתור שיחה.
+- שגיאות: `401 unauthorized`.
+
+### `POST /api/call/turn` 🔒 (פרימיום)
+תור אחד בשיחת "וידאו" באנגלית עם דמות AI. הלומד אמר משהו – השרת מחזיר את תשובת הדמות. השרת לא שומר ולא מתעד את תוכן השיחה.
 
 ```http
 POST /api/call/turn
+Authorization: Bearer <token>
 Content-Type: application/json
 
 { "persona": "teacher",
@@ -279,16 +298,18 @@ Content-Type: application/json
 ```
 ```json
 200 { "reply": "Oh, you went to school! What did you learn?", "replyHe": "הו, הלכת לבית הספר! מה למדת?",
-      "corrections": [ { "original": "I goed", "corrected": "I went", "explanationHe": "went הוא העבר של go" } ] }
+      "corrections": [ { "original": "I goed", "corrected": "I went", "explanationHe": "went הוא העבר של go" } ],
+      "callsToday": 1 }
 ```
 - `persona`: `teacher` | `friend` | `barista` | `interviewer`. רק `teacher` מחזיר `corrections`; אצל השאר זה תמיד `[]`.
 - `history`: השיחה עד עכשיו (כולל הברכה הראשונה), מהישן לחדש, **בלי** `message`. השרת שומר רק את 20 השורות האחרונות.
 - `message`: עד 400 תווים.
+- `callsToday`: מספר השיחות שהתחילו היום, כולל זו, אחרי התור הזה.
 - הודעה עם פרטים אישיים, תוכן לא הולם או מצוקה – המודל לא נקרא, ומוחזרת תשובה בטוחה עם `flagged` (`personal_info` | `inappropriate` | `self_harm`). גם תשובת מודל לא הולמת מוחלפת בתשובה בטוחה.
 - אחרי 40 תורות של הלומד ב־`history` מוחזרת פרידה עם `"ended": true`, בלי קריאה למודל.
 - המודל: Claude דרך ה־Messages API (`ANTHROPIC_API_KEY`, ובאופן אופציונלי `CALL_MODEL`, ברירת מחדל `claude-haiku-5-5`). timeout של 20 שניות.
-- שגיאות: `400 invalid_call`, `429 rate_limited` (יותר מ־30 בקשות לדקה לכל IP), `502 call_failed`, `503 call_unavailable`.
-- באתר ב־GitHub Pages ובאפליקציה (בלי שרת Express) אותה לוגיקה רצה כ־Supabase Edge Function בשם `call-turn` – ראו [supabase.md](supabase.md).
+- שגיאות: `401 unauthorized` (לא מחובר), `403 premium_required` ("שיחות וידאו זמינות כרגע רק למנויי פרימיום"), `429 daily_limit` ("הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!", או הודעה על מגבלת התורות), `400 invalid_call`, `429 rate_limited` (יותר מ־30 בקשות לדקה לכל IP), `502 call_failed`, `503 call_unavailable`.
+- באתר ב־GitHub Pages ובאפליקציה (בלי שרת Express) אותה לוגיקה רצה כ־Supabase Edge Function בשם `call-turn` (`POST` לתור, `GET` לסטטוס, עם ה־access token של Supabase) – ראו [supabase.md](supabase.md).
 
 ---
 

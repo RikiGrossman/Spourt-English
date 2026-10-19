@@ -15,7 +15,8 @@ import {
   type CallLine,
   type CallState,
 } from '../../lib/call';
-import { sendTurn } from '../../lib/call-api';
+import { isCallBlocked, sendTurn } from '../../lib/call-api';
+import type { ApiRequestError } from '../../lib/api-error';
 import { canListen, listen, type ListenError, type Listening } from '../../lib/listen';
 import { speakAsync, stopSpeaking } from '../../lib/speech';
 import type { CallResult } from './CallSummary';
@@ -25,9 +26,15 @@ import { personaStyle } from './persona-style';
 interface Props {
   persona: Persona;
   onEnd: (result: CallResult) => void;
+  /** Leaves without a summary (a call that was blocked before the learner got an answer). */
+  onBack: () => void;
+  /** Today's call count from the server, after each turn. */
+  onCallsToday?: (callsToday: number) => void;
+  /** The server refused the call: signed out (401), not premium (403) or daily limit (429). */
+  onBlocked?: (error: ApiRequestError) => void;
 }
 
-type Phase = 'connecting' | 'ready' | 'speaking' | 'listening' | 'thinking' | 'error';
+type Phase = 'connecting' | 'ready' | 'speaking' | 'listening' | 'thinking' | 'error' | 'blocked';
 type Camera = 'off' | 'starting' | 'on' | 'denied' | 'unavailable';
 
 /** How long the "calling…" ring shows before the character picks up. */
@@ -52,7 +59,7 @@ const FLAG_NOTES: Record<NonNullable<CallTurnResponse['flagged']>, string> = {
  * A "video call" with an AI character: the character's animated face, live captions, push-to-talk
  * microphone (or typing), and an optional self-view that never leaves the device.
  */
-export function CallScreen({ persona, onEnd }: Props) {
+export function CallScreen({ persona, onEnd, onBack, onCallsToday, onBlocked }: Props) {
   const [call, setCallState] = useState<CallState>(() => startCall(persona));
   const [phase, setPhase] = useState<Phase>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +179,7 @@ export function CallScreen({ persona, onEnd }: Props) {
         (res) => {
           if (controller.signal.aborted || !alive.current) return;
           pending.current = null;
+          if (res.callsToday !== undefined) onCallsToday?.(res.callsToday);
           const next = appendReply(callRef.current, res);
           setCall(next);
           setShowHe(false);
@@ -184,17 +192,23 @@ export function CallScreen({ persona, onEnd }: Props) {
           if (controller.signal.aborted || !alive.current) return;
           pending.current = null;
           setError(errorMessage(err));
-          setPhase('error');
+          if (isCallBlocked(err)) {
+            // No retry: the call can't go on today (or without signing in / premium).
+            listening.current?.stop();
+            listening.current = null;
+            setPhase('blocked');
+            onBlocked?.(err);
+          } else setPhase('error');
         },
       );
     },
-    [finish, say, setCall],
+    [finish, say, setCall, onCallsToday, onBlocked],
   );
 
   function send(text: string) {
     const message = cleanMessage(text);
     const state = callRef.current;
-    if (!message || !canTalk(state) || phase === 'thinking' || phase === 'connecting') return;
+    if (!message || !canTalk(state) || phase === 'thinking' || phase === 'connecting' || phase === 'blocked') return;
     interrupt();
     setCall(appendUser(state, message));
     request(turnRequest(state, message));
@@ -273,12 +287,15 @@ export function CallScreen({ persona, onEnd }: Props) {
 
   const connecting = phase === 'connecting';
   const busy = connecting || phase === 'thinking';
-  const talkable = canTalk(call) && !connecting;
+  const blocked = phase === 'blocked';
+  const talkable = canTalk(call) && !connecting && !blocked;
   const lastUserIndex = lastIndexOf(call.lines, 'user');
   const lastUser: CallLine | undefined = call.lines[lastUserIndex];
   const lastReply = call.lines[lastIndexOf(call.lines, 'assistant')];
   // The reply to the learner's newest line hasn't arrived yet.
   const awaiting = lastUserIndex === call.lines.length - 1;
+  // Lines the character answered – a blocked call with none goes straight back, without a summary.
+  const answered = learnerTurns(call) - (awaiting ? 1 : 0);
   const isListening = phase === 'listening';
 
   let status: string;
@@ -289,7 +306,7 @@ export function CallScreen({ persona, onEnd }: Props) {
   else if (isListening) status = 'מקשיבים… לחצו שוב כשסיימתם';
   else if (phase === 'thinking') status = 'מחכים לתשובה…';
   else if (phase === 'speaking') status = `🔊 ${persona.name} עונה`;
-  else if (phase === 'error') status = '';
+  else if (phase === 'error' || blocked) status = '';
   else status = keyboard && !canListen ? 'כתבו באנגלית ולחצו על שליחה' : 'לחצו על המיקרופון ודברו באנגלית';
 
   return (
@@ -359,6 +376,13 @@ export function CallScreen({ persona, onEnd }: Props) {
                 <span />
                 <span />
                 <span />
+              </div>
+            ) : blocked ? (
+              <div className="caption-error blocked" role="alert">
+                <p>{error}</p>
+                <button type="button" className="btn primary small" onClick={answered > 0 ? finish : onBack}>
+                  {answered > 0 ? 'לסיכום השיחה' : 'חזרה לדמויות'}
+                </button>
               </div>
             ) : phase === 'error' && awaiting ? (
               <div className="caption-error" role="alert">

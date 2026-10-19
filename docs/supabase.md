@@ -66,22 +66,30 @@ DATABASE_URL=postgres://postgres@localhost:5432/scratch npm run test:supabase
 
 ## שיחות וידאו עם AI (Edge Function)
 
-באתר ובאפליקציה אין שרת Express, לכן שיחות הווידאו עם דמות ה־AI רצות דרך Supabase Edge Function בשם `call-turn` ([`supabase/functions/call-turn/index.ts`](../supabase/functions/call-turn/index.ts)). היא מממשת בדיוק את `POST /api/call/turn` (ראו [api.md](api.md)) עם אותם קבצים משותפים מ־`shared/`. מפתח ה־API נשמר כסוד ב־Supabase ולא מגיע לדפדפן.
+באתר ובאפליקציה אין שרת Express, לכן שיחות הווידאו עם דמות ה־AI רצות דרך Supabase Edge Function בשם `call-turn` ([`supabase/functions/call-turn/index.ts`](../supabase/functions/call-turn/index.ts)). היא מממשת בדיוק את `POST /api/call/turn` ואת `GET /api/call/status` (ראו [api.md](api.md)) עם אותם קבצים משותפים מ־`shared/`. מפתח ה־API נשמר כסוד ב־Supabase ולא מגיע לדפדפן.
 
-פריסה (פעם אחת, ושוב אחרי כל שינוי ב־`shared/call*.ts` או בפונקציה), מתיקיית השורש של ה־repo עם [Supabase CLI](https://supabase.com/docs/guides/cli):
+**שיחות רק למנויי פרימיום, עד 10 ביום.** הפונקציה דורשת משתמש מחובר: היא מאמתת את ה־access token שלו מול Supabase Auth (`/auth/v1/user`), בודקת שהאימייל ברשימת הסוד `PREMIUM_EMAILS`, וסופרת שיחות ותורות בטבלה `call_usage` (לפי היום בשעון ישראל) דרך הפונקציה `increment_call_usage` ב־`schema.sql`. לטבלה ולפונקציה אין שום הרשאה ללקוחות – רק ה־service role (המפתח `SUPABASE_SERVICE_ROLE_KEY` זמין אוטומטית בכל Edge Function, אין צורך להגדיר אותו).
+
+פריסה (פעם אחת, ושוב אחרי כל שינוי ב־`shared/call*.ts`, ב־`shared/premium.ts` או בפונקציה), מתיקיית השורש של ה־repo עם [Supabase CLI](https://supabase.com/docs/guides/cli):
+
+1. **מריצים שוב את `supabase/schema.sql`** ב־SQL Editor (בטוח להריץ שוב). זה יוצר את `call_usage` ואת `increment_call_usage`. בלי זה כל תור מחזיר `502 call_failed`.
+2. מגדירים את הסודות ופורסים:
 
 ```bash
 supabase login
 supabase link --project-ref <project-ref>
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+supabase secrets set PREMIUM_EMAILS=first@example.com,second@example.com
 # אופציונלי: supabase secrets set CALL_MODEL=claude-haiku-5-5
 supabase functions deploy call-turn
 ```
 
-- הפונקציה מייבאת את `shared/call.ts`, `shared/call-prompts.ts` ו־`shared/call-safety.ts` בנתיב יחסי. הקבצים המשותפים מייבאים `'./call'` בלי סיומת `.ts`, ו־Deno דורש סיומת, לכן [`deno.json`](../supabase/functions/call-turn/deno.json) שליד הפונקציה ממפה את הנתיב הזה ל־`shared/call.ts`. חשוב להריץ את ה־deploy מתוך ה־repo המלא (לא להעתיק רק את תיקיית `supabase/`).
+- כדי להוסיף או להסיר מנוי מריצים שוב `supabase secrets set PREMIUM_EMAILS=...` עם הרשימה המלאה (אין צורך לפרוס מחדש). לעולם לא כותבים אימיילים בקוד.
+- **מה הלקוח שולח:** `POST {SUPABASE_URL}/functions/v1/call-turn` עם גוף `CallTurnRequest` לתור, ו־`GET` לאותה כתובת (בלי גוף) לסטטוס (`CallStatusResponse`). בשתיהן `Authorization: Bearer <access token של המשתמש המחובר>` ו־`apikey: <anon/publishable key>` – `supabase.functions.invoke('call-turn', { method: 'GET' | 'POST', body })` שולח את שניהם לבד כשיש session. בלי session: `401 unauthorized`; משתמש שאינו פרימיום: `403 premium_required` בתור, ו־`premium: false` בסטטוס; מעבר למגבלה: `429 daily_limit`.
+- הפונקציה מייבאת את `shared/call.ts`, `shared/call-prompts.ts`, `shared/call-safety.ts` ו־`shared/premium.ts` בנתיב יחסי. הקבצים המשותפים מייבאים `'./call'` בלי סיומת `.ts`, ו־Deno דורש סיומת, לכן [`deno.json`](../supabase/functions/call-turn/deno.json) שליד הפונקציה ממפה את הנתיב הזה ל־`shared/call.ts`. חשוב להריץ את ה־deploy מתוך ה־repo המלא (לא להעתיק רק את תיקיית `supabase/`).
 - CORS מותר רק מהאתר (`https://rikigrossman.github.io`), מהאפליקציה (`https://localhost`) ומ־localhost בפיתוח.
-- הלקוח קורא לפונקציה עם ה־anon key (`supabase.functions.invoke('call-turn', …)`), כך שאימות JWT של Supabase נשאר פעיל. משתמש מחובר לא נדרש. אם הפרויקט משתמש במפתח publishable (`sb_publishable_…`, שאינו JWT), פורסים עם `supabase functions deploy call-turn --no-verify-jwt` – ממילא ה־anon key ציבורי, וההגנה היא ה־CORS והגבלת הקצב.
-- הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה (הגנה בסיסית; מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console).
+- אימות JWT של ה־gateway נשאר פעיל (פורסים **בלי** `--no-verify-jwt`): הלקוח שולח ב־`Authorization` את ה־access token של המשתמש, שהוא JWT של הפרויקט – גם כשמפתח הפרויקט הוא `sb_publishable_…` (המפתח הולך ב־`apikey`). אם פרסתם בעבר עם `--no-verify-jwt`, פורסים שוב בלעדיו. (רק אם ה־gateway דוחה טוקנים תקינים – למשל בפרויקט שעבר למפתחות חתימה אסימטריים – אפשר לפרוס עם `--no-verify-jwt`; זה עדיין בטוח, כי הפונקציה עצמה מאמתת כל טוקן מול Supabase Auth.)
+- הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה, בנוסף למגבלה היומית למשתמש (10 שיחות ו־400 תורות ביום). מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console.
 - בלי הסוד `ANTHROPIC_API_KEY` הפונקציה מחזירה `503 call_unavailable` והאפליקציה מציגה "שיחות הווידאו לא זמינות כרגע".
 - בדיקה מקומית: `supabase functions serve call-turn --env-file .env`.
 

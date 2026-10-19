@@ -58,6 +58,14 @@ const migrations: string[] = [
   );
   CREATE INDEX events_created_at ON events(created_at);
   CREATE INDEX events_anon ON events(anon_id);`,
+  // #4 – AI video-call usage per learner and local day (shared/call.ts CALL_LIMITS.callsPerDay/turnsPerDay).
+  `CREATE TABLE call_usage (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    calls INTEGER NOT NULL DEFAULT 0,
+    turns INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day)
+  );`,
 ];
 
 export function migrate(db: Db): void {

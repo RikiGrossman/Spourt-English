@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MAX_DURATION_MS } from '../shared/analytics';
 import type { AuthResponse } from '../shared/api';
-import type { Persona } from '../shared/call';
+import type { CallStatusResponse, Persona } from '../shared/call';
 import { REVIEW_XP } from '../shared/srs';
 import { findLesson } from './data/course';
 import { AuthScreen, type Mode as AuthMode } from './components/AuthScreen';
@@ -113,6 +113,8 @@ function Screens() {
   const srs = useSrs(progress, account.user !== null);
   const [screen, setScreen] = useState<Screen>({ name: 'path' });
   const [intro, setIntro] = useState<IntroState | null>(null);
+  /** Premium and today's call count, as last heard from the server (the call tab refreshes it). */
+  const [callStatus, setCallStatus] = useState<CallStatusResponse | null>(null);
   const streak = visibleStreak(progress);
 
   useEffect(() => setSoundEnabled(settings.sound), [settings.sound]);
@@ -133,21 +135,27 @@ function Screens() {
   const onMistake = useCallback(() => update((p) => loseHeart(p)), [update]);
   const noop = useCallback(() => {}, []);
   const closeIntro = useCallback(() => setIntro(null), []);
+  const onCallsToday = useCallback((callsToday: number) => setCallStatus((s) => (s ? { ...s, callsToday } : s)), []);
 
-  function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom) {
+  // Another learner may sign in on this device: forget the last one's call status.
+  const userId = account.user?.id ?? null;
+  useEffect(() => setCallStatus(null), [userId]);
+
+  function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
     account.signIn(res);
     saveSignupPrompt(retire(loadSignupPrompt()));
     if (mode === 'register') track({ name: 'signup_complete', props: { from } });
     identify();
-    setScreen({ name: from === 'prompt' ? 'path' : 'profile' });
+    // Signing in from the call tab goes back to the characters.
+    setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
   }
 
   if (screen.name === 'auth') {
-    const { from } = screen;
+    const { from, back } = screen;
     return (
       <AuthScreen
         initialMode={screen.mode}
-        onSignedIn={(res, mode) => signedIn(res, mode, from)}
+        onSignedIn={(res, mode) => signedIn(res, mode, from, back)}
         onCancel={() => setScreen({ name: screen.back === 'onboarding' ? 'path' : screen.back })}
       />
     );
@@ -274,6 +282,15 @@ function Screens() {
         key={screen.persona.id}
         persona={screen.persona}
         onEnd={(result) => setScreen({ name: 'call-summary', result })}
+        onBack={() => setScreen({ name: 'call' })}
+        onCallsToday={onCallsToday}
+        onBlocked={(error) => {
+          if (error.status === 401) setCallStatus(null);
+          else
+            setCallStatus(
+              (s) => s && (error.status === 403 ? { ...s, premium: false } : { ...s, callsToday: s.callsPerDay }),
+            );
+        }}
       />
     );
   }
@@ -359,7 +376,15 @@ function Screens() {
           />
         )}
         {screen.name === 'league' && <Leaderboard user={account.user} onSignIn={goAuth} />}
-        {screen.name === 'call' && <CallPicker onCall={(persona) => setScreen({ name: 'call-active', persona })} />}
+        {screen.name === 'call' && (
+          <CallPicker
+            user={account.user}
+            status={callStatus}
+            onStatus={setCallStatus}
+            onSignIn={goAuth}
+            onCall={(persona) => setScreen({ name: 'call-active', persona })}
+          />
+        )}
         {screen.name === 'profile' && (
           <Profile
             progress={progress}

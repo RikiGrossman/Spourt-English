@@ -228,8 +228,8 @@ $$;
 revoke execute on function public.purge_old_events() from public, anon, authenticated;
 
 -- (4) Account deletion from inside the app (required by Google Play and the App Store).
--- Removes the caller's auth user; profiles, progress, xp_events, srs_state and events all
--- reference auth.users with ON DELETE CASCADE, so everything stored about them goes too.
+-- Removes the caller's auth user; profiles, progress, xp_events, srs_state, events and call_usage
+-- (section 5, below) all reference auth.users with ON DELETE CASCADE, so everything stored about them goes too.
 -- The app asks for the password again before calling this (src/lib/cloud.ts).
 create or replace function public.delete_my_account()
 returns void language plpgsql security definer set search_path = '' as $$
@@ -239,3 +239,46 @@ begin
 end; $$;
 revoke execute on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- (5) AI video-call usage (shared/call.ts CALL_LIMITS): calls and learner turns per learner and
+-- Asia/Jerusalem day. Only the call-turn Edge Function touches it, with the service role key:
+-- RLS is on with no policies and clients have no privileges, so learners can't read or reset it.
+create table if not exists public.call_usage (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  day date not null,
+  calls integer not null default 0 check (calls >= 0),
+  turns integer not null default 0 check (turns >= 0),
+  primary key (user_id, day)
+);
+alter table public.call_usage enable row level security;
+revoke all on public.call_usage from public, anon, authenticated;
+grant select, insert, update, delete on public.call_usage to service_role;
+
+-- Checks the daily limits and counts one turn (and one call when p_new_call) in one transaction;
+-- the row lock makes concurrent turns of the same learner queue up. Returns
+-- {"allowed": true, "reason": null, "calls": <today's calls>} or
+-- {"allowed": false, "reason": "calls" | "turns", "calls": <today's calls>}.
+create or replace function public.increment_call_usage(
+  p_user uuid, p_day date, p_new_call boolean, p_calls_limit integer, p_turns_limit integer)
+returns json language plpgsql security invoker set search_path = '' as $$
+declare
+  r public.call_usage;
+begin
+  if p_user is null or p_day is null then raise exception 'invalid_call_usage'; end if;
+  insert into public.call_usage (user_id, day) values (p_user, p_day) on conflict (user_id, day) do nothing;
+  select * into r from public.call_usage where user_id = p_user and day = p_day for update;
+  if coalesce(p_new_call, false) and r.calls >= p_calls_limit then
+    return json_build_object('allowed', false, 'reason', 'calls', 'calls', r.calls);
+  end if;
+  if r.turns >= p_turns_limit then
+    return json_build_object('allowed', false, 'reason', 'turns', 'calls', r.calls);
+  end if;
+  update public.call_usage
+     set calls = calls + case when coalesce(p_new_call, false) then 1 else 0 end, turns = turns + 1
+   where user_id = p_user and day = p_day
+  returning * into r;
+  return json_build_object('allowed', true, 'reason', null, 'calls', r.calls);
+end; $$;
+revoke execute on function public.increment_call_usage(uuid, date, boolean, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.increment_call_usage(uuid, date, boolean, integer, integer) to service_role;

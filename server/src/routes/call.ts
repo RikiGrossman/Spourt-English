@@ -1,8 +1,16 @@
 import { Router, type RequestHandler } from 'express';
-import { CALL_LIMITS, findPersona, type CallMessage, type CallTurnResponse } from '../../../shared/call';
+import {
+  CALL_LIMITS,
+  findPersona,
+  type CallMessage,
+  type CallStatusResponse,
+  type CallTurnResponse,
+} from '../../../shared/call';
 import { buildSystemPrompt, parseModelOutput } from '../../../shared/call-prompts';
 import { checkModelReply, checkUserMessage, safeReply, sanitizeTurnRequest } from '../../../shared/call-safety';
+import { isNewCall, isPremium, usageDay } from '../../../shared/premium';
 import { HttpError, badRequest } from '../errors';
+import type { Repo } from '../repo';
 
 /** How the server reaches the Anthropic Messages API. Every field falls back to the environment. */
 export interface CallModelOptions {
@@ -59,6 +67,9 @@ const GOODBYE = {
 
 const unavailable = () => new HttpError(503, 'call_unavailable', 'שיחות הווידאו לא זמינות כרגע');
 const failed = () => new HttpError(502, 'call_failed', 'השיחה נתקעה לרגע, נסו לומר את זה שוב');
+const premiumRequired = () => new HttpError(403, 'premium_required', 'שיחות וידאו זמינות כרגע רק למנויי פרימיום');
+const callsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!');
+const turnsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלת השיחות להיום. נתראה מחר!');
 
 interface AnthropicMessage {
   role: 'user' | 'assistant';
@@ -133,18 +144,39 @@ async function callModel(options: Required<CallModelOptions>, system: string, me
     .join('');
 }
 
-/** The full turn logic, independent of Express. Throws HttpError for 502/503. */
-export async function callTurn(body: unknown, model: CallModelOptions): Promise<CallTurnResponse | null> {
+/**
+ * Counts a validated turn against the daily limits and returns today's call count, or throws a 429.
+ * `newCall` is true when the raw history has no learner message (shared/premium.ts isNewCall).
+ */
+export type ChargeTurn = (newCall: boolean) => number;
+
+/**
+ * The full turn logic, independent of Express. Throws HttpError for 429/502/503.
+ *
+ * `charge` runs once the request is valid and the feature is configured, BEFORE the goodbye, the
+ * safety check and the model call: every valid turn counts (flagged and goodbye turns too), and a
+ * turn whose model call then fails (502) is not refunded. Invalid requests (400) and 503 never count.
+ */
+export async function callTurn(
+  body: unknown,
+  model: CallModelOptions,
+  charge?: ChargeTurn,
+): Promise<CallTurnResponse | null> {
   const apiKey = model.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw unavailable();
   const req = sanitizeTurnRequest(body);
   const persona = req && findPersona(req.persona);
   if (!req || !persona) return null;
 
-  if (countLearnerTurns(body) >= CALL_LIMITS.maxTurns) return { ...GOODBYE, corrections: [], ended: true };
+  const calls = charge?.(isNewCall((body as { history?: unknown }).history));
+  const usage = calls === undefined ? {} : { callsToday: calls };
+
+  if (countLearnerTurns(body) >= CALL_LIMITS.maxTurns) return { ...GOODBYE, corrections: [], ended: true, ...usage };
 
   const check = checkUserMessage(req.message);
-  if (check.flagged) return { ...safeReply(check.flagged, persona), corrections: [], flagged: check.flagged };
+  if (check.flagged) {
+    return { ...safeReply(check.flagged, persona), corrections: [], flagged: check.flagged, ...usage };
+  }
 
   const raw = await callModel(
     {
@@ -156,20 +188,53 @@ export async function callTurn(body: unknown, model: CallModelOptions): Promise<
     buildSystemPrompt(persona),
     toAnthropicMessages(req.history, req.message),
   );
-  if (raw === null) return { ...safeReply('inappropriate', persona), corrections: [] };
+  if (raw === null) return { ...safeReply('inappropriate', persona), corrections: [], ...usage };
 
   const parsed = parseModelOutput(raw, persona);
-  if (!parsed) return { ...FALLBACK, corrections: [] };
-  if (!checkModelReply(parsed.reply)) return { ...safeReply('inappropriate', persona), corrections: [] };
-  return { reply: parsed.reply, replyHe: parsed.replyHe, corrections: persona.corrects ? parsed.corrections : [] };
+  if (!parsed) return { ...FALLBACK, corrections: [], ...usage };
+  if (!checkModelReply(parsed.reply)) return { ...safeReply('inappropriate', persona), corrections: [], ...usage };
+  return {
+    reply: parsed.reply,
+    replyHe: parsed.replyHe,
+    corrections: persona.corrects ? parsed.corrections : [],
+    ...usage,
+  };
 }
 
-/** AI video-call practice (shared/call.ts). Auth is optional; message content is never logged or stored. */
-export function callRouter(model: CallModelOptions, optionalAuth: RequestHandler, limiter: RequestHandler) {
+/**
+ * AI video-call practice (shared/call.ts). Signed-in premium learners only (PREMIUM_EMAILS allowlist),
+ * with CALL_LIMITS.callsPerDay / turnsPerDay per local day (server TZ, Asia/Jerusalem by default).
+ * Message content is never logged or stored; only per-day counters are.
+ */
+export function callRouter(
+  repo: Repo,
+  model: CallModelOptions,
+  premiumEmails: Set<string>,
+  requireAuth: RequestHandler,
+  limiter: RequestHandler,
+) {
   const router = Router();
+  const premium = (userId: string) => isPremium(repo.findUserById(userId)?.email, premiumEmails);
 
-  router.post('/call/turn', limiter, optionalAuth, async (req, res) => {
-    const body = await callTurn(req.body, model);
+  router.get('/call/status', requireAuth, (_req, res) => {
+    const userId = res.locals.userId!;
+    const body: CallStatusResponse = {
+      premium: premium(userId),
+      callsToday: repo.getCallUsage(userId, usageDay()).calls,
+      callsPerDay: CALL_LIMITS.callsPerDay,
+    };
+    res.json(body);
+  });
+
+  router.post('/call/turn', limiter, requireAuth, async (req, res) => {
+    const userId = res.locals.userId!;
+    if (!premium(userId)) throw premiumRequired();
+    const charge: ChargeTurn = (newCall) => {
+      const result = repo.recordCallTurn(userId, usageDay(), newCall, CALL_LIMITS);
+      if (!result.allowed) throw result.reason === 'calls' ? callsLimit() : turnsLimit();
+      return result.calls;
+    };
+    const body = await callTurn(req.body, model, charge);
     if (!body) throw badRequest('invalid_call', 'הבקשה לשיחה אינה תקינה');
     res.json(body);
   });

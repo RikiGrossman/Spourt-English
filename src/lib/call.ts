@@ -1,6 +1,7 @@
 import {
   CALL_LIMITS,
   type CallMessage,
+  type CallStatusResponse,
   type CallTurnRequest,
   type CallTurnResponse,
   type Correction,
@@ -96,4 +97,15 @@ export function formatDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+
+/** Calls the learner can still start today (never negative). */
+export function callsLeft(status: CallStatusResponse): number {
+  return Math.max(0, status.callsPerDay - status.callsToday);
+}
+
+/** "נשארו לכם 3 מתוך 10 שיחות היום", with the singular for one call. */
+export function remainingText(left: number, perDay: number): string {
+  if (left === 1) return `נשארה לכם שיחה אחת מתוך ${perDay} היום`;
+  return `נשארו לכם ${left} מתוך ${perDay} שיחות היום`;
 }
