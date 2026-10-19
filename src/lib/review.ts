@@ -108,6 +108,8 @@ export function buildReview(
     let hasMatch = false;
     for (const extra of generatePractice(progress, rng, REVIEW_LENGTH * 2)) {
       if (exercises.length >= REVIEW_LENGTH) break;
+      // Reviews revisit scheduled items; speaking has none.
+      if (extra.kind === 'speak') continue;
       const extraKeys = keysOf(extra);
       if (extraKeys.some((k) => used.has(k))) continue;
       if (extra.kind === 'match') {

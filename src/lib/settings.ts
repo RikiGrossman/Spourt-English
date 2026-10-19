@@ -7,10 +7,12 @@ export interface Settings {
   sound: boolean;
   /** Send anonymous usage events (docs/spec/v2.md §7.7). Missing in older saves → true. */
   analytics: boolean;
+  /** Speaking exercises (microphone). Missing in older saves → true. */
+  speaking: boolean;
 }
 
 const STORAGE_KEY = 'spourt-english:settings:v1';
-export const DEFAULT_SETTINGS: Settings = { theme: 'system', sound: true, analytics: true };
+export const DEFAULT_SETTINGS: Settings = { theme: 'system', sound: true, analytics: true, speaking: true };
 
 /** Parses saved settings, ignoring anything unknown or malformed. */
 export function parseSettings(raw: string | null): Settings {
@@ -21,6 +23,7 @@ export function parseSettings(raw: string | null): Settings {
       theme: data.theme === 'light' || data.theme === 'dark' ? data.theme : 'system',
       sound: typeof data.sound === 'boolean' ? data.sound : true,
       analytics: typeof data.analytics === 'boolean' ? data.analytics : true,
+      speaking: typeof data.speaking === 'boolean' ? data.speaking : true,
     };
   } catch {
     return DEFAULT_SETTINGS;

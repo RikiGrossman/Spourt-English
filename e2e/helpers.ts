@@ -16,10 +16,14 @@ export const lesson = (id: string): Lesson => {
 /**
  * Replaces speech synthesis with a recorder, so listening exercises can be
  * solved from what the app "said" (and headless runs stay silent).
+ * Also hides speech recognition, so lessons have no speaking exercises unless a test adds
+ * fakeRecognition() after this.
  */
 export async function recordSpeech(page: Page) {
   await page.addInitScript(() => {
     const w = window as unknown as { __spoken: string[] };
+    delete (window as unknown as Record<string, unknown>).SpeechRecognition;
+    delete (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
     w.__spoken = [];
     const synth = {
       speak: (u: { text: string }) => w.__spoken.push(u.text),
@@ -34,6 +38,33 @@ export async function recordSpeech(page: Page) {
         constructor(public text: string) {}
       };
     }
+  });
+}
+
+/**
+ * A fake microphone for speaking exercises: it "hears" `window.__heard` when set, otherwise the
+ * sentence on screen. Call after recordSpeech().
+ */
+export async function fakeRecognition(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown> & { __heard: string | null };
+    w.__heard = null;
+    w.webkitSpeechRecognition = class {
+      lang = '';
+      interimResults = false;
+      maxAlternatives = 1;
+      onresult: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      onend: (() => void) | null = null;
+      start() {
+        setTimeout(() => {
+          const transcript = w.__heard ?? document.querySelector('.speak-prompt')?.textContent ?? '';
+          this.onresult?.({ results: [[{ transcript }]] });
+          this.onend?.();
+        }, 50);
+      }
+      stop() {}
+    };
   });
 }
 
@@ -103,13 +134,16 @@ export async function token(page: Page): Promise<string | null> {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null')?.token ?? null, AUTH_KEY);
 }
 
-type Kind = 'choice' | 'build' | 'listen' | 'match';
+type Kind = 'choice' | 'build' | 'listen' | 'match' | 'speak';
 
 /** Identifies the exercise on screen and the prompt that identifies it. */
 async function current(page: Page): Promise<{ kind: Kind; prompt: string }> {
   const title = page.locator('.exercise-title');
   await expect(title).toBeVisible();
   if (await page.locator('.match-grid').count()) return { kind: 'match', prompt: 'match' };
+  if (await page.locator('.mic-btn').count()) {
+    return { kind: 'speak', prompt: `speak:${(await page.locator('.speak-prompt').textContent())!.trim()}` };
+  }
   if (await page.locator('.prompt-word').count()) {
     return { kind: 'choice', prompt: (await page.locator('.prompt-word').textContent())!.trim() };
   }
@@ -142,6 +176,9 @@ export async function answer(page: Page, l: Lesson, correct = true): Promise<str
       await en.click();
       await page.locator('.match-col:not([dir])').getByRole('button', { name: pair.he, exact: true }).click();
     }
+  } else if (ex.kind === 'speak') {
+    // Needs fakeRecognition(); speaking can't be answered wrong, only retried.
+    await page.getByRole('button', { name: 'לחצו ודברו' }).click();
   } else if (ex.kind === 'choice') {
     const word = l.words.find((w) => w.he === ex.prompt || w.en === ex.prompt)!;
     const right = word.he === ex.prompt ? word.en : word.he;

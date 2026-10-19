@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { wordId } from '../../../shared/item-keys';
 import { isCorrect, tokenize } from '../../lib/answer';
 import { generateExercises } from '../../lib/exercises';
+import { isSpokenCorrectly } from '../../lib/spoken';
 import { seededRng } from '../../lib/random';
 import type { Unit } from '../../types';
 import { unit4 } from './u04';
@@ -88,6 +89,8 @@ describe('content-b units', () => {
             expect(new Set(ex.options).size).toBe(ex.options.length);
           } else if (ex.kind === 'match') {
             expect(ex.pairs.length).toBe(5);
+          } else if (ex.kind === 'speak') {
+            expect(isSpokenCorrectly([ex.prompt], ex.answers)).toBe(true);
           } else {
             expect(buildable(ex.answers[0], ex.bank), `${lesson.id} seed ${seed}: "${ex.answers[0]}"`).toBe(true);
             expect(isCorrect(tokenize(ex.answers[0]).join(' '), ex.answers)).toBe(true);

@@ -9,15 +9,22 @@ describe('parseSettings', () => {
   });
 
   it('reads saved choices', () => {
-    expect(parseSettings('{"theme":"dark","sound":false,"analytics":false}')).toEqual({
+    expect(parseSettings('{"theme":"dark","sound":false,"analytics":false,"speaking":false}')).toEqual({
       theme: 'dark',
       sound: false,
       analytics: false,
+      speaking: false,
     });
   });
 
-  it('turns analytics on for saves from before the setting existed', () => {
+  it('turns analytics and speaking on for saves from before those settings existed', () => {
     expect(DEFAULT_SETTINGS.analytics).toBe(true);
-    expect(parseSettings('{"theme":"dark","sound":false}')).toEqual({ theme: 'dark', sound: false, analytics: true });
+    expect(DEFAULT_SETTINGS.speaking).toBe(true);
+    expect(parseSettings('{"theme":"dark","sound":false}')).toEqual({
+      theme: 'dark',
+      sound: false,
+      analytics: true,
+      speaking: true,
+    });
   });
 });

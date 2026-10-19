@@ -8,6 +8,7 @@ import { useEnterKey } from '../lib/useEnterKey';
 import { BuildExercise } from './exercises/BuildExercise';
 import { ChoiceExercise } from './exercises/ChoiceExercise';
 import { MatchExercise } from './exercises/MatchExercise';
+import { SpeakExercise } from './exercises/SpeakExercise';
 import { TipCard } from './TipCard';
 
 /** XP and accuracy – what is reported to the server for a lesson. */
@@ -77,6 +78,7 @@ export function itemAnswers(exercise: Exercise, correct: boolean, missedPairs: r
 /**
  * Runs one lesson or review session. A wrong answer costs a heart (not in a review) and the
  * exercise is queued again at the end, so the session only ends once everything was answered right.
+ * "Can't speak now" drops the speaking exercises left in the session.
  */
 export function LessonScreen({
   exercises,
@@ -91,6 +93,8 @@ export function LessonScreen({
   boxOf,
 }: Props) {
   const [queue, setQueue] = useState<Exercise[]>(exercises);
+  /** How many of the original exercises are still in the session (speaking ones can be skipped). */
+  const [total, setTotal] = useState(exercises.length);
   const [position, setPosition] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [mistakes, setMistakes] = useState(0);
@@ -101,35 +105,37 @@ export function LessonScreen({
   const firstTry = useRef({ answered: 0, correct: 0 });
 
   const exercise = queue[position];
-  const percent = (solved / exercises.length) * 100;
+  const percent = (solved / total) * 100;
   const review = lessonId === null;
 
   const handleCheck = useCallback<CheckHandler>(
     (correct, solution, missedPairs = []) => {
       const current = queue[position];
       // Repeats are appended after the original exercises, so a position inside the original
-      // list is always a first attempt.
-      if (position < exercises.length && current) {
+      // list is always a first attempt. Speaking isn't reported (see ExerciseType).
+      if (position < total && current) {
         const firstCorrect = correct && missedPairs.length === 0;
         answers.current.push(...itemAnswers(current, correct, missedPairs));
         firstTry.current.answered += 1;
         if (firstCorrect) firstTry.current.correct += 1;
-        const errors = current.kind === 'build' ? current.errors : undefined;
-        const itemKey = current.kind !== 'match' ? current.itemKey : undefined;
-        const box = itemKey && boxOf ? boxOf(itemKey) : undefined;
-        const props = {
-          ...(errors?.length ? { errors: [...errors] } : {}),
-          ...(box !== undefined ? { box } : {}),
-        };
-        track({
-          name: 'exercise_answer',
-          lessonId,
-          ...(itemKey ? { itemKey } : {}),
-          exType: exerciseType(current),
-          correct: firstCorrect,
-          firstTry: true,
-          ...(Object.keys(props).length ? { props } : {}),
-        });
+        if (current.kind !== 'speak') {
+          const errors = current.kind === 'build' ? current.errors : undefined;
+          const itemKey = current.kind !== 'match' ? current.itemKey : undefined;
+          const box = itemKey && boxOf ? boxOf(itemKey) : undefined;
+          const props = {
+            ...(errors?.length ? { errors: [...errors] } : {}),
+            ...(box !== undefined ? { box } : {}),
+          };
+          track({
+            name: 'exercise_answer',
+            lessonId,
+            ...(itemKey ? { itemKey } : {}),
+            exType: exerciseType(current),
+            correct: firstCorrect,
+            firstTry: true,
+            ...(Object.keys(props).length ? { props } : {}),
+          });
+        }
       }
       setFeedback({ correct, solution });
       if (correct) {
@@ -143,29 +149,45 @@ export function LessonScreen({
         onMistake();
       }
     },
-    [queue, position, exercises.length, lessonId, hearts, onMistake, boxOf],
+    [queue, position, total, lessonId, hearts, onMistake, boxOf],
   );
+
+  function finish(count: number) {
+    onFinish({
+      ...lessonResult(count, mistakes, baseXp),
+      answers: answers.current,
+      mistakes,
+      firstTryCorrect: firstTry.current.correct,
+      durationMs: Date.now() - startedAt,
+    });
+  }
 
   function next() {
     setFeedback(null);
     if (position + 1 >= queue.length) {
-      onFinish({
-        ...lessonResult(exercises.length, mistakes, baseXp),
-        answers: answers.current,
-        mistakes,
-        firstTryCorrect: firstTry.current.correct,
-        durationMs: Date.now() - startedAt,
-      });
+      finish(total);
       return;
     }
     setPosition(position + 1);
+  }
+
+  /** Drops the current and later speaking exercises. Speaking never fails, so none are repeats. */
+  function skipSpeaking() {
+    const rest = queue.slice(position).filter((e) => e.kind !== 'speak');
+    const left = total - queue.slice(position, total).filter((e) => e.kind === 'speak').length;
+    if (rest.length === 0) {
+      finish(left);
+      return;
+    }
+    setQueue([...queue.slice(0, position), ...rest]);
+    setTotal(left);
   }
 
   function quit() {
     track({
       name: 'lesson_abandon',
       lessonId,
-      props: { answered: firstTry.current.answered, total: exercises.length, review },
+      props: { answered: firstTry.current.answered, total, review },
     });
     onQuit();
   }
@@ -236,6 +258,7 @@ export function LessonScreen({
           {exercise.kind === 'choice' && <ChoiceExercise exercise={exercise} {...props} />}
           {exercise.kind === 'build' && <BuildExercise exercise={exercise} {...props} />}
           {exercise.kind === 'match' && <MatchExercise exercise={exercise} {...props} />}
+          {exercise.kind === 'speak' && <SpeakExercise exercise={exercise} {...props} onSkip={skipSpeaking} />}
         </main>
       )}
 

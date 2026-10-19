@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { wordId } from '../../../shared/item-keys';
 import { isCorrect, tokenize } from '../../lib/answer';
 import { generateExercises } from '../../lib/exercises';
+import { isSpokenCorrectly } from '../../lib/spoken';
 import { seededRng } from '../../lib/random';
 import { allLessons } from '../course';
 import { unit1 } from './u01';
@@ -95,6 +96,8 @@ describe('content-a units: exercises', () => {
               bank.splice(i, 1);
             }
             expect(isCorrect(tiles.join(' '), ex.answers)).toBe(true);
+          } else if (ex.kind === 'speak') {
+            expect(isSpokenCorrectly([ex.prompt], ex.answers)).toBe(true);
           } else {
             expect(ex.pairs.length).toBeGreaterThanOrEqual(4);
           }
