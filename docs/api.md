@@ -42,7 +42,7 @@
 | 409 | `email_taken` | הרשמה עם אימייל שכבר קיים (ללא תלות ברישיות) |
 | 429 | `rate_limited` | יותר מ־20 ניסיונות הרשמה/התחברות ב־15 דקות מאותה כתובת IP |
 | 400 | `invalid_call` | גוף `POST /api/call/turn` לא תקין (דמות לא מוכרת, הודעה ריקה או ארוכה מ־400 תווים) |
-| 429 | `daily_limit` | שיחת וידאו: הגעתם ל־10 שיחות ביום (`callsPerDay`) או ל־400 תורות ביום (`turnsPerDay`) |
+| 429 | `daily_limit` | שיחת וידאו: הגעתם ל־10 שיחות ביום (`callsPerDay`) או ל־100 תורות ביום (`turnsPerDay`) |
 | 502 | `call_failed` | שיחת וידאו: תקלה או timeout מול שירות ה־AI |
 | 503 | `call_unavailable` | שיחת וידאו: `ANTHROPIC_API_KEY` לא מוגדר בשרת |
 | 500 | `server_error` | תקלה פנימית |

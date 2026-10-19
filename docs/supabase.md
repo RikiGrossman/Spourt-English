@@ -89,7 +89,7 @@ supabase functions deploy call-turn
 - הפונקציה מייבאת את `shared/call.ts`, `shared/call-prompts.ts`, `shared/call-safety.ts` ו־`shared/premium.ts` בנתיב יחסי. הקבצים המשותפים מייבאים `'./call'` בלי סיומת `.ts`, ו־Deno דורש סיומת, לכן [`deno.json`](../supabase/functions/call-turn/deno.json) שליד הפונקציה ממפה את הנתיב הזה ל־`shared/call.ts`. חשוב להריץ את ה־deploy מתוך ה־repo המלא (לא להעתיק רק את תיקיית `supabase/`).
 - CORS מותר רק מהאתר (`https://rikigrossman.github.io`), מהאפליקציה (`https://localhost`) ומ־localhost בפיתוח.
 - אימות JWT של ה־gateway נשאר פעיל (פורסים **בלי** `--no-verify-jwt`): הלקוח שולח ב־`Authorization` את ה־access token של המשתמש, שהוא JWT של הפרויקט – גם כשמפתח הפרויקט הוא `sb_publishable_…` (המפתח הולך ב־`apikey`). אם פרסתם בעבר עם `--no-verify-jwt`, פורסים שוב בלעדיו. (רק אם ה־gateway דוחה טוקנים תקינים – למשל בפרויקט שעבר למפתחות חתימה אסימטריים – אפשר לפרוס עם `--no-verify-jwt`; זה עדיין בטוח, כי הפונקציה עצמה מאמתת כל טוקן מול Supabase Auth.)
-- הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה, בנוסף למגבלה היומית למשתמש (10 שיחות ו־400 תורות ביום). מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console.
+- הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה, בנוסף למגבלה היומית למשתמש (10 שיחות ו־100 תורות ביום). מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console.
 - בלי הסוד `ANTHROPIC_API_KEY` הפונקציה מחזירה `503 call_unavailable` והאפליקציה מציגה "שיחות הווידאו לא זמינות כרגע".
 - בדיקה מקומית: `supabase functions serve call-turn --env-file .env`.
 

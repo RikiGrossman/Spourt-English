@@ -100,7 +100,7 @@ export const CALL_LIMITS = {
   /** Calls a premium learner can start per local day. */
   callsPerDay: 10,
   /** Learner turns per day across all calls, so a client can't stretch one "call" forever. */
-  turnsPerDay: 400,
+  turnsPerDay: 100,
 } as const;
 
 /**
