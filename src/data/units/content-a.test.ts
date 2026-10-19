@@ -97,6 +97,8 @@ describe('content-a units: exercises', () => {
               bank.splice(i, 1);
             }
             expect(isCorrect(tiles.join(' '), ex.answers)).toBe(true);
+          } else if (ex.kind === 'blank') {
+            expect(ex.options).toContain(ex.answer);
           } else if (ex.kind === 'type') {
             expect(checkTyped(ex.answers[0], ex.answers).kind).toBe('correct');
           } else if (ex.kind === 'speak') {

@@ -5,6 +5,7 @@ import { useEnterKey } from '../lib/useEnterKey';
 import { BuildExercise } from './exercises/BuildExercise';
 import { ChoiceExercise } from './exercises/ChoiceExercise';
 import { TypeExercise } from './exercises/TypeExercise';
+import { BlankExercise } from './exercises/BlankExercise';
 
 interface Props {
   /** Shown in the header instead of hearts, e.g. "🎯 מבחן מיקום". */
@@ -25,7 +26,7 @@ interface Feedback {
 /**
  * A test run (placement, end of unit): every question is asked once – no hearts and no
  * repeats – and the answers, right or wrong, go to `onFinish`. Supports the exercise kinds
- * tests use: choice, build and type.
+ * tests use: choice, build, type and blank.
  */
 export function QuizScreen({ badge, exercises, stop, onFinish, onQuit }: Props) {
   const [position, setPosition] = useState(0);
@@ -78,6 +79,7 @@ export function QuizScreen({ badge, exercises, stop, onFinish, onQuit }: Props) 
         {exercise.kind === 'choice' && <ChoiceExercise exercise={exercise} {...props} />}
         {exercise.kind === 'build' && <BuildExercise exercise={exercise} {...props} />}
         {exercise.kind === 'type' && <TypeExercise exercise={exercise} {...props} />}
+        {exercise.kind === 'blank' && <BlankExercise exercise={exercise} {...props} />}
       </main>
 
       <div className="sr-only" role="status" aria-live="assertive">

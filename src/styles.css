@@ -1854,3 +1854,31 @@ button:disabled {
 .unit-test-node .test-btn.done {
   background: var(--gold) !important;
 }
+
+/* Fill in the blank */
+.blank-sentence {
+  margin: 8px 0;
+  font-size: 1.35rem;
+  line-height: 2.2;
+  text-align: left;
+}
+
+.blank-gap {
+  display: inline-block;
+  min-width: 72px;
+  padding: 0 10px;
+  border-bottom: 3px solid var(--border);
+  text-align: center;
+  font-weight: 700;
+}
+
+.blank-gap.filled {
+  border-bottom-color: var(--focus);
+  color: var(--focus);
+}
+
+.tile.selected {
+  border-color: var(--select-border);
+  background: var(--select-bg);
+  color: var(--select-text);
+}

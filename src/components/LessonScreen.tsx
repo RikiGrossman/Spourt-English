@@ -10,6 +10,7 @@ import { ChoiceExercise } from './exercises/ChoiceExercise';
 import { MatchExercise } from './exercises/MatchExercise';
 import { SpeakExercise } from './exercises/SpeakExercise';
 import { TypeExercise } from './exercises/TypeExercise';
+import { BlankExercise } from './exercises/BlankExercise';
 import { TipCard } from './TipCard';
 
 /** XP and accuracy – what is reported to the server for a lesson. */
@@ -75,7 +76,7 @@ export function itemAnswers(exercise: Exercise, correct: boolean, missedPairs: r
   }
   if (!exercise.itemKey) return [];
   const errors: ErrorCode[] | undefined =
-    exercise.kind === 'build' || exercise.kind === 'type' ? exercise.errors : undefined;
+    exercise.kind === 'build' || exercise.kind === 'type' || exercise.kind === 'blank' ? exercise.errors : undefined;
   return [{ itemKey: exercise.itemKey, correct, exType, ...(errors?.length ? { errors } : {}) }];
 }
 
@@ -123,13 +124,17 @@ export function LessonScreen({
         firstTry.current.answered += 1;
         if (firstCorrect) firstTry.current.correct += 1;
         if (current.kind !== 'speak') {
-          const errors = current.kind === 'build' || current.kind === 'type' ? current.errors : undefined;
+          const errors =
+            current.kind === 'build' || current.kind === 'type' || current.kind === 'blank'
+              ? current.errors
+              : undefined;
           const itemKey = current.kind !== 'match' ? current.itemKey : undefined;
           const box = itemKey && boxOf ? boxOf(itemKey) : undefined;
           const props = {
             ...(errors?.length ? { errors: [...errors] } : {}),
             ...(box !== undefined ? { box } : {}),
             ...(current.kind === 'type' ? { typed: true } : {}),
+            ...(current.kind === 'blank' ? { blank: true } : {}),
           };
           track({
             name: 'exercise_answer',
@@ -264,6 +269,7 @@ export function LessonScreen({
           {exercise.kind === 'build' && <BuildExercise exercise={exercise} {...props} />}
           {exercise.kind === 'match' && <MatchExercise exercise={exercise} {...props} />}
           {exercise.kind === 'type' && <TypeExercise exercise={exercise} {...props} />}
+          {exercise.kind === 'blank' && <BlankExercise exercise={exercise} {...props} />}
           {exercise.kind === 'speak' && <SpeakExercise exercise={exercise} {...props} onSkip={skipSpeaking} />}
         </main>
       )}
