@@ -1,6 +1,8 @@
 # Builds the Android app (APK). Pull requests only build it (and keep it as an artifact);
 # pushes to main also publish it as the "android-latest" GitHub release, so it can be
 # downloaded straight to a phone.
+# When the upload-key secrets are set (docs/store-release.md), it also builds the signed
+# Google Play bundle (.aab, "play" flavor) and keeps it as an artifact to upload to Play Console.
 # Like GitHub Pages, sign-in and the league use Supabase when the repository variables
 # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (docs/supabase.md); otherwise guest-only.
 name: Android APK
@@ -23,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SKIP_SERVER_INSTALL: '1'
+      HAS_UPLOAD_KEY: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,14 +48,33 @@ jobs:
         working-directory: android
         env:
           VERSION_CODE: ${{ github.run_number }}
-        run: ./gradlew assembleDebug --no-daemon
-      - run: cp android/app/build/outputs/apk/debug/app-debug.apk SpourtEnglish.apk
+        run: ./gradlew assembleSideloadDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk SpourtEnglish.apk
       # The installed app reads this to offer in-app updates (src/lib/update.ts).
       - run: echo '{"versionCode":${{ github.run_number }},"versionName":"1.0.${{ github.run_number }}"}' > version.json
       - uses: actions/upload-artifact@v4
         with:
           name: SpourtEnglish-apk
           path: SpourtEnglish.apk
+      - name: Build Google Play bundle
+        if: env.HAS_UPLOAD_KEY == 'true'
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$ANDROID_KEYSTORE_PATH"
+          ./gradlew bundlePlayRelease --no-daemon
+          rm -f "$ANDROID_KEYSTORE_PATH"
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_UPLOAD_KEY == 'true'
+        with:
+          name: SpourtEnglish-play-bundle
+          path: android/app/build/outputs/bundle/playRelease/app-play-release.aab
       - name: Publish release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:

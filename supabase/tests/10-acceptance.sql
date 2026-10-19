@@ -93,4 +93,31 @@ do $$ declare n bigint; begin
   if n = 0 then raise exception 'US-T1 AC7 failed: v_lesson_funnel is empty on the seed'; end if;
 end $$;
 
+-- Account deletion: anon can't call delete_my_account; a learner deleting their account takes all
+-- their rows with them and leaves everyone else's.
+set role anon;
+do $$ begin
+  perform public.delete_my_account();
+  raise exception 'delete_my_account: anon was allowed to call it';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000000b', false);
+insert into public.progress (user_id, data) values ('00000000-0000-4000-8000-00000000000b', '{"xp":5}');
+insert into public.xp_events (xp) values (5);
+select count(*) from public.merge_srs(jsonb_build_object(
+  'w:cat', jsonb_build_object('box', 1, 'due', current_date::text, 'seen', 1, 'wrong', 0, 'last', 1)));
+select public.delete_my_account();
+reset role;
+do $$ declare n int; b uuid := '00000000-0000-4000-8000-00000000000b'; begin
+  select (select count(*) from auth.users where id = b) + (select count(*) from public.profiles where id = b)
+       + (select count(*) from public.progress where user_id = b) + (select count(*) from public.xp_events where user_id = b)
+       + (select count(*) from public.srs_state where user_id = b) + (select count(*) from public.events where user_id = b)
+    into n;
+  if n <> 0 then raise exception 'delete_my_account failed: % rows of B remain', n; end if;
+  select count(*) into n from public.progress where user_id = '00000000-0000-4000-8000-00000000000a';
+  if n <> 1 then raise exception 'delete_my_account removed another learner''s progress'; end if;
+end $$;
+
 select 'supabase acceptance: all checks passed' as result;

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { AuthResponse } from '../../shared/api';
 import { api, errorMessage } from '../lib/api';
+import { PRIVACY_URL, TERMS_URL } from '../lib/config';
 
 interface Props {
   /** `mode` tells a new account ('register') from a login. */
@@ -108,6 +109,19 @@ export function AuthScreen({ onSignedIn, onCancel, initialMode = 'register' }: P
         <button type="submit" className="btn primary wide" disabled={busy}>
           {busy ? 'רגע…' : mode === 'register' ? 'יצירת חשבון' : 'כניסה'}
         </button>
+        {mode === 'register' && (
+          <p className="legal-note">
+            ביצירת חשבון את/ה מסכים/ה ל
+            <a href={TERMS_URL} target="_blank" rel="noopener">
+              תנאי השימוש
+            </a>{' '}
+            ול
+            <a href={PRIVACY_URL} target="_blank" rel="noopener">
+              מדיניות הפרטיות
+            </a>
+            .
+          </p>
+        )}
         <button
           type="button"
           className="link-btn"

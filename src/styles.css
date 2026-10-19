@@ -975,6 +975,44 @@ button:disabled {
   margin-bottom: 24px;
 }
 
+.link-btn.danger-link {
+  color: var(--bad-text);
+}
+
+/* Opens inside .account-actions and takes the whole row. */
+.delete-account {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.delete-account .account-actions {
+  margin-bottom: 0;
+}
+
+.legal-note {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.legal-note a {
+  color: var(--brand);
+}
+
+.legal-links {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.legal-links a {
+  color: var(--muted);
+}
+
 .panel {
   border: 2px solid var(--border);
   border-radius: 16px;

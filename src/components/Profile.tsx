@@ -1,6 +1,9 @@
+import { useState, type FormEvent } from 'react';
 import type { User } from '../../shared/api';
 import { allLessons } from '../data/course';
 import type { SyncStatus } from '../lib/account';
+import { errorMessage } from '../lib/api';
+import { PRIVACY_URL, TERMS_URL } from '../lib/config';
 import { GOAL_OPTIONS, dailyGoalOf } from '../lib/goals';
 import { canListen } from '../lib/listen';
 import { MAX_HEARTS, msUntilNextHeart, type Progress } from '../lib/progress';
@@ -17,6 +20,8 @@ interface Props {
   /** Omitted when accounts are disabled (static deploy). */
   onSignIn?: () => void;
   onSignOut: () => void;
+  /** Deletes the account after the password is entered again; rejects with a Hebrew message. */
+  onDeleteAccount: (password: string) => Promise<void>;
   onSync: () => void;
   onReset: () => void;
 }
@@ -74,6 +79,7 @@ export function Profile(props: Props) {
             <button type="button" className="btn ghost small" onClick={props.onSignOut}>
               התנתקות
             </button>
+            <DeleteAccount onDelete={props.onDeleteAccount} />
           </>
         ) : (
           props.onSignIn && (
@@ -212,6 +218,88 @@ export function Profile(props: Props) {
       >
         איפוס התקדמות
       </button>
+
+      <p className="legal-links">
+        <a href={PRIVACY_URL} target="_blank" rel="noopener">
+          מדיניות פרטיות
+        </a>
+        {' · '}
+        <a href={TERMS_URL} target="_blank" rel="noopener">
+          תנאי שימוש
+        </a>
+      </p>
     </div>
+  );
+}
+
+/** "Delete account" – required by the app stores. Asks for the password before deleting. */
+function DeleteAccount({ onDelete }: { onDelete: (password: string) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!password) {
+      setError('יש להזין את הסיסמה.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onDelete(password);
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="link-btn danger-link" onClick={() => setOpen(true)}>
+        מחיקת החשבון
+      </button>
+    );
+  }
+  return (
+    <form className="panel delete-account" onSubmit={submit} noValidate>
+      <h3>מחיקת החשבון</h3>
+      <p>
+        החשבון יימחק לצמיתות, ואיתו ההתקדמות השמורה בשרת, המקום בליגה ונתוני השימוש שקשורים אליו. אי אפשר לבטל את זה.
+        ההתקדמות במכשיר הזה תישאר, ואפשר לאפס אותה בנפרד.
+      </p>
+      <label className="field">
+        <span>הסיסמה שלך, לאישור</span>
+        <input
+          type="password"
+          dir="ltr"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
+        />
+      </label>
+      <div className="form-error" role="alert" aria-live="polite">
+        {error}
+      </div>
+      <div className="account-actions">
+        <button type="submit" className="btn danger small" disabled={busy}>
+          {busy ? 'מוחק…' : 'מחיקה לצמיתות'}
+        </button>
+        <button
+          type="button"
+          className="btn ghost small"
+          disabled={busy}
+          onClick={() => {
+            setOpen(false);
+            setPassword('');
+            setError(null);
+          }}
+        >
+          ביטול
+        </button>
+      </div>
+    </form>
   );
 }

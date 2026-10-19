@@ -15,6 +15,14 @@ export const PUBLIC_SITE_URL: string =
   import.meta.env.VITE_SITE_URL ?? 'https://rikigrossman.github.io/Spourt-English/';
 
 /**
+ * The privacy policy and terms (public/privacy.html, public/terms.html). Always the public
+ * site's copy, so the app stores have a stable address and the Android app opens them in the
+ * browser instead of inside the app.
+ */
+export const PRIVACY_URL = new URL('privacy.html', PUBLIC_SITE_URL).href;
+export const TERMS_URL = new URL('terms.html', PUBLIC_SITE_URL).href;
+
+/**
  * Where the confirmation link sends the learner: this site when it runs on the web (the
  * app's own base path, so GitHub Pages' sub-path is kept), the public site from the Android
  * app, whose https://localhost origin does not exist outside the phone.

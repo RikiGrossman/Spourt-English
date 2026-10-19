@@ -17,6 +17,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures {
+        buildConfig = true
+    }
+    // Two editions of the same app (docs/android.md, docs/store-release.md):
+    // - sideload: the APK on GitHub releases, which updates itself from there (AppUpdatePlugin).
+    // - play: the Google Play build. Play delivers updates, so self-update and its
+    //   REQUEST_INSTALL_PACKAGES permission are left out (src/play/AndroidManifest.xml).
+    flavorDimensions = ["store"]
+    productFlavors {
+        sideload {
+            dimension "store"
+            buildConfigField "boolean", "IN_APP_UPDATES", "true"
+        }
+        play {
+            dimension "store"
+            buildConfigField "boolean", "IN_APP_UPDATES", "false"
+        }
+    }
     signingConfigs {
         // A fixed key committed to the repo (Android debug-key convention, not a secret), so
         // APKs built on different machines share one signature and can update each other.
@@ -27,12 +45,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // The private upload key for Google Play, only when CI (or you) provide it – see
+        // docs/store-release.md. Never commit this key.
+        if (System.getenv("ANDROID_KEYSTORE_PATH")) {
+            release {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

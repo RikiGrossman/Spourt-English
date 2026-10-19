@@ -1,5 +1,11 @@
 import { Router, type RequestHandler } from 'express';
-import type { AuthResponse, LoginRequest, MeResponse, RegisterRequest } from '../../../shared/api';
+import type {
+  AuthResponse,
+  DeleteAccountRequest,
+  LoginRequest,
+  MeResponse,
+  RegisterRequest,
+} from '../../../shared/api';
 import { getDummyHash, hashPassword, signToken, verifyPassword } from '../auth';
 import { HttpError, badRequest } from '../errors';
 import { publicUser, type Repo } from '../repo';
@@ -55,6 +61,18 @@ export function authRouter(repo: Repo, secret: string, limiter: RequestHandler, 
     const user = repo.findUserById(userId)!;
     const body: MeResponse = { user: publicUser(user), progress: repo.getProgress(userId) };
     res.json(body);
+  });
+
+  router.delete('/me', limiter, requireAuth, async (req, res) => {
+    const password = str((req.body as Partial<DeleteAccountRequest> | undefined)?.password);
+    if (!password) throw badRequest('missing_password', 'יש להזין את הסיסמה כדי למחוק את החשבון');
+    const userId = res.locals.userId!;
+    const user = repo.findUserById(userId)!;
+    if (!(await verifyPassword(password.slice(0, MAX_PASSWORD), user.passwordHash))) {
+      throw new HttpError(401, 'invalid_credentials', 'הסיסמה שגויה');
+    }
+    repo.deleteUser(userId);
+    res.status(204).end();
   });
 
   return router;

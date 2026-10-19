@@ -155,6 +155,29 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       await client.auth.signOut().catch(() => undefined);
     },
 
+    /**
+     * Deletes the account (same as DELETE /api/me): signing in again checks the password, then
+     * the `delete_my_account` RPC removes the auth user, and every table cascades with it.
+     */
+    async deleteAccount(password: string): Promise<void> {
+      const client = await getClient();
+      await userId(client);
+      const { data } = await client.auth.getUser();
+      const email = data.user?.email;
+      if (!email) throw new ApiRequestError(401, 'unauthorized', NOT_SIGNED_IN);
+      const { error: authError } = await client.auth.signInWithPassword({ email, password });
+      if (authError) {
+        const err = cloudError(authError);
+        throw err.code === 'invalid_credentials'
+          ? new ApiRequestError(401, 'invalid_credentials', 'הסיסמה שגויה.')
+          : err;
+      }
+      const { error } = await client.rpc('delete_my_account');
+      if (error) throw cloudError(error);
+      // The session belongs to a user that no longer exists – just forget it on this device.
+      await client.auth.signOut({ scope: 'local' }).catch(() => undefined);
+    },
+
     /** Merges uploaded progress with the stored copy (same rules as PUT /api/progress). */
     async putProgress(progress: Progress): Promise<ProgressResponse> {
       const client = await getClient();

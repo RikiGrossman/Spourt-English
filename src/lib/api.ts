@@ -2,6 +2,7 @@ import type {
   ApiError,
   AuthResponse,
   CompleteLessonRequest,
+  DeleteAccountRequest,
   HealthResponse,
   ItemStates,
   LeaderboardResponse,
@@ -83,6 +84,9 @@ async function request<T>(method: string, path: string, body?: unknown, auth = f
     throw new ApiRequestError(0, 'network', OFFLINE_MESSAGE);
   }
 
+  // No content (e.g. DELETE /api/me).
+  if (res.status === 204) return undefined as T;
+
   let data: unknown = null;
   try {
     data = await res.json();
@@ -105,6 +109,9 @@ const restApi = {
   register: (req: RegisterRequest) => request<AuthResponse>('POST', '/auth/register', req),
   login: (req: LoginRequest) => request<AuthResponse>('POST', '/auth/login', req),
   me: () => request<MeResponse>('GET', '/me', undefined, true),
+  /** Deletes the account and all its data on the server (the password is checked again). */
+  deleteAccount: (password: string) =>
+    request<void>('DELETE', '/me', { password } satisfies DeleteAccountRequest, true),
   getProgress: () => request<ProgressResponse>('GET', '/progress', undefined, true),
   putProgress: (progress: Progress) => request<ProgressResponse>('PUT', '/progress', progress, true),
   completeLesson: (lessonId: string, req: CompleteLessonRequest) =>
