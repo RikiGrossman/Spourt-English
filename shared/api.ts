@@ -45,6 +45,15 @@ export interface AuthResponse {
   user: User;
 }
 
+/**
+ * DELETE /api/me (auth) – deletes the account and everything stored with it (progress, XP,
+ * review state, analytics events). The password is asked again so a borrowed, signed-in
+ * device can't wipe someone's account. Responds 204.
+ */
+export interface DeleteAccountRequest {
+  password: string;
+}
+
 /** GET /api/me (auth) */
 export interface MeResponse {
   user: User;

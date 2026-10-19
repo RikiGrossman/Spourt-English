@@ -152,6 +152,43 @@ describe('GET /api/me', () => {
   });
 });
 
+describe('DELETE /api/me', () => {
+  const count = (table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+
+  it('deletes the account and everything stored with it', async () => {
+    const { token, user } = await register();
+    await request(app).post(`/api/lessons/${l1}/complete`).set(auth(token)).send({ xp: 10, accuracy: 90 });
+    db.prepare(`INSERT INTO srs_state VALUES (?, 'w:cat', 1, '2026-01-01', 1, 0, 1)`).run(user.id);
+    db.prepare(
+      `INSERT INTO events (anon_id, user_id, name, props, client_ts, local_date, local_hour, created_at)
+       VALUES ('a', ?, 'app_open', '{}', 1, '2026-01-01', 9, 1)`,
+    ).run(user.id);
+
+    const res = await request(app).delete('/api/me').set(auth(token)).send({ password: 'password123' });
+    expect(res.status).toBe(204);
+    for (const table of ['users', 'progress', 'xp_events', 'srs_state', 'events']) expect(count(table)).toBe(0);
+    expect((await request(app).get('/api/me').set(auth(token))).status).toBe(401);
+    expect((await request(app).get('/api/leaderboard')).body.entries).toEqual([]);
+    // The address is free again.
+    await register();
+  });
+
+  it('asks for the right password', async () => {
+    const { token } = await register();
+    const missing = await request(app).delete('/api/me').set(auth(token)).send({});
+    expect(missing.status).toBe(400);
+    expect(missing.body.error).toBe('missing_password');
+    const wrong = await request(app).delete('/api/me').set(auth(token)).send({ password: 'nope-nope' });
+    expect(wrong.status).toBe(401);
+    expect(wrong.body.error).toBe('invalid_credentials');
+    expect(count('users')).toBe(1);
+  });
+
+  it('requires auth', async () => {
+    expect((await request(app).delete('/api/me').send({ password: 'password123' })).status).toBe(401);
+  });
+});
+
 describe('progress endpoints', () => {
   it('require auth', async () => {
     expect((await request(app).get('/api/progress')).status).toBe(401);

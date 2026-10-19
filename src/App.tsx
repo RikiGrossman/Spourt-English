@@ -339,6 +339,7 @@ function Screens() {
             onGoal={(xp) => update((p) => setDailyGoal(p, xp))}
             onSignIn={ACCOUNTS_ENABLED ? goAuth : undefined}
             onSignOut={account.signOut}
+            onDeleteAccount={account.deleteAccount}
             onSync={() => void account.sync()}
             onReset={() => {
               reset();

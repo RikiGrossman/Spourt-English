@@ -51,6 +51,7 @@ export function createRepo(db: Db) {
     insertUser: db.prepare(
       'INSERT INTO users (id, email, display_name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)',
     ),
+    deleteUser: db.prepare('DELETE FROM users WHERE id = ?'),
     getProgress: db.prepare('SELECT json FROM progress WHERE user_id = ?'),
     upsertProgress: db.prepare(
       `INSERT INTO progress (user_id, json, updated_at) VALUES (?, ?, ?)
@@ -116,6 +117,10 @@ export function createRepo(db: Db) {
         throw err;
       }
       return { id, email, displayName, createdAt, passwordHash };
+    },
+    /** Deletes the user; progress, XP, review state and events go with it (ON DELETE CASCADE). */
+    deleteUser(id: string): void {
+      q.deleteUser.run(id);
     },
     getProgress(userId: string, now = Date.now()): Progress {
       const row = q.getProgress.get(userId) as { json: string } | undefined;

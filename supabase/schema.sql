@@ -226,3 +226,16 @@ returns void language sql security definer set search_path = '' as $$
   delete from public.events where created_at < now() - interval '180 days';
 $$;
 revoke execute on function public.purge_old_events() from public, anon, authenticated;
+
+-- (4) Account deletion from inside the app (required by Google Play and the App Store).
+-- Removes the caller's auth user; profiles, progress, xp_events, srs_state and events all
+-- reference auth.users with ON DELETE CASCADE, so everything stored about them goes too.
+-- The app asks for the password again before calling this (src/lib/cloud.ts).
+create or replace function public.delete_my_account()
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then raise exception 'not_signed_in'; end if;
+  delete from auth.users where id = auth.uid();
+end; $$;
+revoke execute on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;

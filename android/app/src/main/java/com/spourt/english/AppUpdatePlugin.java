@@ -38,6 +38,8 @@ public class AppUpdatePlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("versionCode", code);
             result.put("versionName", info.versionName);
+            // False in the Google Play build, which Play updates (see app/build.gradle).
+            result.put("inAppUpdates", BuildConfig.IN_APP_UPDATES);
             call.resolve(result);
         } catch (PackageManager.NameNotFoundException e) {
             call.reject("Package info unavailable", e);
@@ -72,6 +74,10 @@ public class AppUpdatePlugin extends Plugin {
 
     @PluginMethod
     public void downloadAndInstall(PluginCall call) {
+        if (!BuildConfig.IN_APP_UPDATES) {
+            call.unavailable("Updates come from Google Play in this build");
+            return;
+        }
         String url = call.getString("url");
         if (url == null) {
             call.reject("Missing url");

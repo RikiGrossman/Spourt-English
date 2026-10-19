@@ -83,6 +83,17 @@ export function useAccount(progress: Progress, update: (fn: (p: Progress) => Pro
     setStatus('guest');
   }, []);
 
+  /**
+   * Deletes the account on the server, then continues as a guest. Progress on this device
+   * stays (the learner can reset it separately). Errors are thrown for the form to show.
+   */
+  const deleteAccount = useCallback(async (password: string) => {
+    await api.deleteAccount(password);
+    clearAuth();
+    setAuth(null);
+    setStatus('guest');
+  }, []);
+
   /** Call after the local state was already updated – reports the lesson in the background. */
   const reportLesson = useCallback(
     (lessonId: string, result: CompleteLessonRequest) => {
@@ -101,7 +112,7 @@ export function useAccount(progress: Progress, update: (fn: (p: Progress) => Pro
     [adopt, handleError, sync],
   );
 
-  return { user: auth?.user ?? null, status, signIn, signOut, sync, reportLesson };
+  return { user: auth?.user ?? null, status, signIn, signOut, deleteAccount, sync, reportLesson };
 }
 
 export type Account = ReturnType<typeof useAccount>;

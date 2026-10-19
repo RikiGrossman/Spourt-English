@@ -30,10 +30,11 @@
 |---|---|---|
 | 400 | `invalid_email`, `weak_password`, `invalid_password`, `invalid_display_name` | הרשמה: אימייל לא תקין, סיסמה קצרה מ־8 תווים (או ארוכה מ־200), שם תצוגה שאינו 2–30 תווים |
 | 400 | `missing_credentials` | התחברות בלי אימייל או סיסמה |
+| 400 | `missing_password` | מחיקת חשבון בלי סיסמה |
 | 400 | `invalid_progress` | גוף `PUT /api/progress` שאינו `Progress` תקין |
 | 400 | `invalid_xp`, `invalid_accuracy` | `xp` שאינו מספר, או `accuracy` מחוץ ל־0–100 |
 | 401 | `unauthorized` | אין טוקן, טוקן לא תקין או פג תוקף |
-| 401 | `invalid_credentials` | אימייל או סיסמה שגויים בהתחברות (הודעה אחת לשני המקרים) |
+| 401 | `invalid_credentials` | אימייל או סיסמה שגויים בהתחברות (הודעה אחת לשני המקרים), או סיסמה שגויה במחיקת חשבון |
 | 403 | `lesson_locked` | השלמת שיעור שעדיין נעול לפי ההתקדמות השמורה בשרת |
 | 404 | `not_found` | נתיב API לא קיים |
 | 404 | `lesson_not_found` | `lessonId` שאינו בקורס |
@@ -126,6 +127,22 @@ Authorization: Bearer eyJhbGciOi...
 200 { "user": { "id": "u_7f3c", "email": "dana@example.com", "displayName": "דנה", "createdAt": "..." }, "progress": { "xp": 45, "completed": { "u1l1": 2 }, "streak": 3, "lastActiveDate": "2026-10-18", "xpToday": 15, "hearts": 4, "heartsUpdatedAt": 1792310400000 } }
 ```
 שגיאות: `401`.
+
+### `DELETE /api/me` 🔒
+מוחק את החשבון לצמיתות, ואיתו ההתקדמות, ה־XP של הליגה, מצב החזרה ואירועי האנליטיקה שמקושרים אליו (`ON DELETE CASCADE`). חנויות האפליקציות מחייבות את זה (ראו [store-release.md](store-release.md)). הסיסמה נבדקת שוב, כדי שמכשיר מחובר שהושאל לא יוכל למחוק חשבון. מוגבל באותו rate limit כמו ההתחברות.
+
+```http
+DELETE /api/me
+Authorization: Bearer eyJhbGciOi...
+Content-Type: application/json
+
+{ "password": "secret123" }
+```
+```
+204 (בלי גוף)
+```
+שגיאות: `400 missing_password`, `401 invalid_credentials` (סיסמה שגויה), `401 unauthorized`, `429`.
+בגרסת Supabase הלקוח מתחבר מחדש עם הסיסמה ואז קורא לפונקציה `delete_my_account()` (ב־`supabase/schema.sql`).
 
 ### `GET /api/progress` 🔒
 ```json

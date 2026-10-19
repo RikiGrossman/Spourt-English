@@ -35,10 +35,21 @@
 בכל שיעור יש שני תרגילים שבהם אומרים משפט באנגלית בקול. באתר הזיהוי עובר דרך ה־Web Speech API של הדפדפן (כרום); באפליקציה – דרך זיהוי הדיבור של אנדרואיד, בתוסף הנייטיבי `android/app/src/main/java/com/spourt/english/SpeechRecognizerPlugin.java` (ראו `src/lib/listen.ts`).
 בפעם הראשונה האפליקציה מבקשת הרשאת מיקרופון. אם אין זיהוי דיבור בטלפון, מתקינים/מעדכנים את אפליקציית Google. אפשר לכבות את תרגילי הדיבור בפרופיל, ובתוך תרגיל יש כפתור "לא יכול/ה לדבר עכשיו".
 
+## שתי גרסאות: APK להורדה ו־Google Play
+
+ב־`android/app/build.gradle` מוגדרים שני flavors של אותה אפליקציה:
+
+| flavor | למה | עדכונים | בנייה |
+|---|---|---|---|
+| `sideload` | ה־APK שמורידים מ־GitHub | מתוך האפליקציה (`AppUpdatePlugin`), עם ההרשאה `REQUEST_INSTALL_PACKAGES` | `./gradlew assembleSideloadDebug` |
+| `play` | Google Play | דרך Play. ההרשאה מוסרת (`android/app/src/play/AndroidManifest.xml`) והאפליקציה לא בודקת עדכונים (`BuildConfig.IN_APP_UPDATES`) | `./gradlew bundlePlayRelease` (עם מפתח העלאה) |
+
+Google Play מתירה את `REQUEST_INSTALL_PACKAGES` רק לאפליקציות שזה התפקיד העיקרי שלהן, ולכן הגרסה לחנות בלעדיה.
+
 ## חתימה
 
 ה־APK נחתם במפתח קבוע ששמור ב־repo (`android/app/spourt-debug.keystore`, סיסמה `android`). זה לפי המוסכמה של מפתחות debug באנדרואיד, והמפתח לא סודי. בזכותו כל בנייה חתומה באותה חתימה, וגרסה חדשה מתעדכנת מעל הקודמת.
-לפרסום ב־Google Play צריך מפתח פרטי משלכם (שנשמר ב־GitHub Secrets) ובניית `bundleRelease`.
+לפרסום ב־Google Play צריך מפתח העלאה פרטי משלכם. ה־workflow בונה את ה־`.aab` החתום כשהסודות `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` ו־`ANDROID_KEY_PASSWORD` מוגדרים. הוראות מלאות: [store-release.md](store-release.md).
 
 ## פיתוח מקומי
 
@@ -46,8 +57,8 @@
 
 ```bash
 npm run android:sync          # בונה את הווב במצב אורח ומעתיק ל־android/
-cd android && ./gradlew assembleDebug
-# ה־APK: android/app/build/outputs/apk/debug/app-debug.apk
+cd android && ./gradlew assembleSideloadDebug
+# ה־APK: android/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk
 ```
 
 האייקונים ומסך הפתיחה נוצרו מהקבצים ב־`assets/` (שמרונדרים מהלוגו ב־`public/icons/` עם `node tools/render-icons.mjs`) עם

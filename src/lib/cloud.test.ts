@@ -14,10 +14,12 @@ function fakeSupabase(opts: { signedIn?: boolean; confirmEmail?: boolean; stored
   };
   let session = opts.signedIn ? { user: { id: 'u1' } } : null;
   const signUps: { options?: { emailRedirectTo?: string } }[] = [];
+  const rpcs: string[] = [];
   const user = { id: 'u1', email: 'dana@example.com', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
   const client = {
     auth: {
       getSession: async () => ({ data: { session }, error: null }),
+      getUser: async () => ({ data: { user: session ? user : null }, error: null }),
       signUp: async (req: { options?: { emailRedirectTo?: string } }) =>
         signUps.push(req) && opts.confirmEmail
           ? { data: { user: { ...user, identities: [{}] }, session: null }, error: null }
@@ -46,12 +48,15 @@ function fakeSupabase(opts: { signedIn?: boolean; confirmEmail?: boolean; stored
         return { error: null };
       },
     }),
-    rpc: async () => ({
-      data: [{ rank: 1, display_name: 'דנה', weekly_xp: '25', is_me: true }],
-      error: null,
-    }),
+    rpc: async (name: string) => (
+      rpcs.push(name),
+      {
+        data: [{ rank: 1, display_name: 'דנה', weekly_xp: '25', is_me: true }],
+        error: null,
+      }
+    ),
   };
-  return { db, signUps, api: createCloudApi(async () => client as unknown as SupabaseClient) };
+  return { db, signUps, rpcs, api: createCloudApi(async () => client as unknown as SupabaseClient) };
 }
 
 const [first, second] = allLessons;
@@ -84,6 +89,17 @@ describe('cloud backend', () => {
     expect(err).toBeInstanceOf(ApiRequestError);
     expect(err.status).toBe(401);
     expect(err.message).toMatch(/שגויים/);
+  });
+
+  it('deletes the account only after checking the password again', async () => {
+    const { api, rpcs } = fakeSupabase({ signedIn: true });
+    const err = await api.deleteAccount('nope').catch((e) => e);
+    expect(err).toMatchObject({ status: 401, code: 'invalid_credentials', message: 'הסיסמה שגויה.' });
+    expect(rpcs).toEqual([]);
+    await api.deleteAccount('correct-horse');
+    expect(rpcs).toEqual(['delete_my_account']);
+    // Signed out locally afterwards.
+    expect((await api.putProgress(initialProgress()).catch((e) => e)).unauthorized).toBe(true);
   });
 
   it('requires a session for progress calls', async () => {

@@ -236,6 +236,27 @@ test('US-A1, US-A3, US-A4, US-A2, US-P2: register → progress synced → reload
   expect(errors).toEqual([]);
 });
 
+test('store requirement: a learner deletes their account from the profile', async ({ page }) => {
+  await openFresh(page);
+  await tab(page, 'פרופיל');
+  await page.getByRole('button', { name: 'יצירת פרופיל / התחברות' }).click();
+  await expect(page.getByRole('link', { name: 'מדיניות הפרטיות' })).toHaveAttribute('href', /privacy\.html$/);
+  const email = await register(page, 'למחיקה');
+
+  await page.getByRole('button', { name: 'מחיקת החשבון' }).click();
+  await page.getByLabel('הסיסמה שלך, לאישור').fill('wrong-password');
+  await page.getByRole('button', { name: 'מחיקה לצמיתות' }).click();
+  await expect(page.getByRole('alert')).toContainText('הסיסמה שגויה');
+  expect(await token(page)).not.toBeNull();
+
+  await page.getByLabel('הסיסמה שלך, לאישור').fill('password123');
+  await page.getByRole('button', { name: 'מחיקה לצמיתות' }).click();
+  await expect(page.locator('.account-info h2')).toHaveText('אורח/ת');
+  expect(await token(page)).toBeNull();
+  const login = await page.request.post('/api/auth/login', { data: { email, password: 'password123' } });
+  expect(login.status()).toBe(401);
+});
+
 test('US-A1 AC2, US-A2 AC2: duplicate email and wrong password show Hebrew errors', async ({ page }) => {
   const email = uniqueEmail();
   const res = await page.request.post('/api/auth/register', {

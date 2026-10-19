@@ -9,7 +9,8 @@ export const VERSION_URL = `${RELEASE_URL}/version.json`;
 export const APK_URL = `${RELEASE_URL}/SpourtEnglish.apk`;
 
 interface AppUpdatePlugin {
-  getInstalledVersion(): Promise<{ versionCode: number; versionName: string }>;
+  /** `inAppUpdates` is false in the Google Play build – Play updates it (older APKs omit it). */
+  getInstalledVersion(): Promise<{ versionCode: number; versionName: string; inAppUpdates?: boolean }>;
   fetchText(options: { url: string }): Promise<{ text: string }>;
   downloadAndInstall(options: { url: string }): Promise<void>;
   addListener(event: 'progress', listener: (e: { percent: number }) => void): Promise<PluginListenerHandle>;
@@ -46,7 +47,7 @@ export type UpdateState =
   | { status: 'downloading'; version: LatestVersion; percent: number }
   | { status: 'failed'; version: LatestVersion };
 
-/** Checks once on launch (Android app only) and drives the download + install. */
+/** Checks once on launch (the sideloaded Android app only) and drives the download + install. */
 export function useAppUpdate() {
   const [state, setState] = useState<UpdateState>({ status: 'idle' });
 
@@ -55,10 +56,9 @@ export function useAppUpdate() {
     let cancelled = false;
     void (async () => {
       try {
-        const [installed, { text }] = await Promise.all([
-          AppUpdate.getInstalledVersion(),
-          AppUpdate.fetchText({ url: `${VERSION_URL}?t=${Date.now()}` }),
-        ]);
+        const installed = await AppUpdate.getInstalledVersion();
+        if (installed.inAppUpdates === false) return;
+        const { text } = await AppUpdate.fetchText({ url: `${VERSION_URL}?t=${Date.now()}` });
         const version = newerVersion(installed.versionCode, parseLatestVersion(text));
         if (version && !cancelled) setState({ status: 'available', version });
       } catch {
