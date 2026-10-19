@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MAX_DURATION_MS } from '../shared/analytics';
 import type { AuthResponse } from '../shared/api';
+import type { CallStatusResponse, Persona } from '../shared/call';
 import { REVIEW_XP } from '../shared/srs';
 import { course, findLesson } from './data/course';
 import { AuthScreen, type Mode as AuthMode } from './components/AuthScreen';
+import { CallPicker } from './components/call/CallPicker';
+import { CallScreen } from './components/call/CallScreen';
+import { CallSummary, type CallResult } from './components/call/CallSummary';
 import { LearningPath } from './components/LearningPath';
 import { Leaderboard } from './components/Leaderboard';
 import { LessonComplete } from './components/LessonComplete';
@@ -16,6 +20,7 @@ import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
+import { CALLS_ENABLED } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
 import { canListen } from './lib/listen';
@@ -47,7 +52,7 @@ import { useProgress } from './lib/store';
 import { useAppUpdate } from './lib/update';
 import type { Exercise, Unit } from './types';
 
-type Tab = 'path' | 'league' | 'profile';
+type Tab = 'path' | 'league' | 'call' | 'profile';
 
 /** Where a sign-up started, reported with `signup_complete`. */
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
@@ -74,7 +79,10 @@ type Screen =
       goalReached: boolean;
       kind: 'lesson' | 'review' | 'practice';
       signup: { round: SignupRound; lessonsCompleted: number } | null;
-    };
+    }
+  /** An AI video call in progress, and its summary after hanging up. */
+  | { name: 'call-active'; persona: Persona }
+  | { name: 'call-summary'; result: CallResult };
 
 interface IntroState {
   unit: Unit;
@@ -86,11 +94,14 @@ interface IntroState {
 const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
   { name: 'path', icon: '🏠', label: 'לימוד' },
   { name: 'league', icon: '🏆', label: 'ליגה' },
+  { name: 'call', icon: '📞', label: 'שיחה' },
   { name: 'profile', icon: '👤', label: 'פרופיל' },
 ];
 
-// The league needs the API server, so static deploys leave it out.
-const TABS = ACCOUNTS_ENABLED ? ALL_TABS : ALL_TABS.filter((tab) => tab.name !== 'league');
+// The league and AI calls need a backend, so static deploys without one leave them out.
+const TABS = ALL_TABS.filter(
+  (tab) => (tab.name !== 'league' || ACCOUNTS_ENABLED) && (tab.name !== 'call' || CALLS_ENABLED),
+);
 
 /** `app_open` is sent once per launch (StrictMode mounts effects twice in development). */
 let appOpenSent = false;
@@ -112,6 +123,8 @@ function Screens() {
   const srs = useSrs(progress, account.user !== null);
   const [screen, setScreen] = useState<Screen>({ name: 'path' });
   const [intro, setIntro] = useState<IntroState | null>(null);
+  /** Premium and today's call count, as last heard from the server (the call tab refreshes it). */
+  const [callStatus, setCallStatus] = useState<CallStatusResponse | null>(null);
   const streak = visibleStreak(progress);
 
   useEffect(() => setSoundEnabled(settings.sound), [settings.sound]);
@@ -139,21 +152,27 @@ function Screens() {
   const onMistake = useCallback(() => update((p) => loseHeart(p)), [update]);
   const noop = useCallback(() => {}, []);
   const closeIntro = useCallback(() => setIntro(null), []);
+  const onCallsToday = useCallback((callsToday: number) => setCallStatus((s) => (s ? { ...s, callsToday } : s)), []);
 
-  function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom) {
+  // Another learner may sign in on this device: forget the last one's call status.
+  const userId = account.user?.id ?? null;
+  useEffect(() => setCallStatus(null), [userId]);
+
+  function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
     account.signIn(res);
     saveSignupPrompt(retire(loadSignupPrompt()));
     if (mode === 'register') track({ name: 'signup_complete', props: { from } });
     identify();
-    setScreen({ name: from === 'prompt' ? 'path' : 'profile' });
+    // Signing in from the call tab goes back to the characters.
+    setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
   }
 
   if (screen.name === 'auth') {
-    const { from } = screen;
+    const { from, back } = screen;
     return (
       <AuthScreen
         initialMode={screen.mode}
-        onSignedIn={(res, mode) => signedIn(res, mode, from)}
+        onSignedIn={(res, mode) => signedIn(res, mode, from, back)}
         onCancel={() => setScreen({ name: screen.back === 'onboarding' ? 'path' : screen.back })}
       />
     );
@@ -330,6 +349,35 @@ function Screens() {
     );
   }
 
+  if (screen.name === 'call-active') {
+    return (
+      <CallScreen
+        key={screen.persona.id}
+        persona={screen.persona}
+        onEnd={(result) => setScreen({ name: 'call-summary', result })}
+        onBack={() => setScreen({ name: 'call' })}
+        onCallsToday={onCallsToday}
+        onBlocked={(error) => {
+          if (error.status === 401) setCallStatus(null);
+          else
+            setCallStatus(
+              (s) => s && (error.status === 403 ? { ...s, premium: false } : { ...s, callsToday: s.callsPerDay }),
+            );
+        }}
+      />
+    );
+  }
+
+  if (screen.name === 'call-summary') {
+    return (
+      <CallSummary
+        result={screen.result}
+        onNewCall={() => setScreen({ name: 'call' })}
+        onBack={() => setScreen({ name: 'path' })}
+      />
+    );
+  }
+
   function openLesson(lessonId: string) {
     const found = findLesson(lessonId);
     if (!found) return;
@@ -407,6 +455,15 @@ function Screens() {
           />
         )}
         {screen.name === 'league' && <Leaderboard user={account.user} onSignIn={goAuth} />}
+        {screen.name === 'call' && (
+          <CallPicker
+            user={account.user}
+            status={callStatus}
+            onStatus={setCallStatus}
+            onSignIn={goAuth}
+            onCall={(persona) => setScreen({ name: 'call-active', persona })}
+          />
+        )}
         {screen.name === 'profile' && (
           <Profile
             progress={progress}

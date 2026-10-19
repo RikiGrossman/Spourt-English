@@ -1820,6 +1820,849 @@ button:disabled {
   font-weight: 600;
 }
 
+/* ==========================================================================
+   AI video call (src/components/call/)
+   The picker and summary follow the app theme; the call itself is always dark,
+   like a video call. `--persona` is the character's accent colour.
+   ========================================================================== */
+
+/* ---------- Picker ---------- */
+
+.call-picker h2 {
+  margin: 0 0 4px;
+}
+
+.call-picker > .muted {
+  margin: 0 0 16px;
+}
+
+.call-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--select-border);
+  border-radius: 16px;
+  background: var(--select-bg);
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.call-notice.warn {
+  border-color: var(--gold);
+  background: transparent;
+}
+
+.persona-grid {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.persona-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 8px 12px;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-bottom-width: 4px;
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.persona-avatar {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 2rem;
+  background: color-mix(in srgb, var(--persona) 22%, transparent);
+  border: 3px solid var(--persona);
+}
+
+.persona-info h3 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+}
+
+.persona-role {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.persona-info p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.persona-call {
+  justify-self: start;
+}
+
+/* Signed out, not premium or out of calls: the characters stay visible as a teaser. */
+.call-gate {
+  border-color: var(--select-border);
+  background: var(--select-bg);
+}
+
+.call-gate p:first-child {
+  margin-top: 0;
+}
+
+.call-gate .btn {
+  margin-top: 12px;
+}
+
+.call-gate-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.call-gate.limit {
+  border-color: var(--gold);
+  background: transparent;
+}
+
+.calls-left {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--select-bg);
+  color: var(--select-text);
+  font-weight: 700;
+}
+
+.persona-grid.locked .persona-avatar {
+  filter: grayscale(0.5);
+  opacity: 0.75;
+}
+
+.persona-card.skeleton {
+  min-height: 132px;
+  background: linear-gradient(90deg, var(--soft), var(--border), var(--soft));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* ---------- Call screen ---------- */
+
+.call-screen {
+  --call-bg: #0d1418;
+  --call-panel: rgb(255 255 255 / 8%);
+  --call-text: #f1f7fb;
+  --call-muted: #9fb3c0;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  color: var(--call-text);
+  background:
+    radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--persona) 30%, transparent), transparent 60%),
+    var(--call-bg);
+  color-scheme: dark;
+  animation: fade-in 0.25s ease;
+}
+
+.call-screen > * {
+  width: 100%;
+  max-width: 560px;
+}
+
+.call-top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'id timer'
+    'role timer';
+  align-items: center;
+  gap: 0 12px;
+}
+
+.call-id {
+  grid-area: id;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.call-name {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.ai-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--persona);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.call-role {
+  grid-area: role;
+  color: var(--call-muted);
+  font-size: 0.9rem;
+}
+
+.call-timer {
+  grid-area: timer;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--call-panel);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.call-stage {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 110px;
+  padding: 8px 0;
+}
+
+/* Sized by the space left above the captions, so the controls always stay on screen. */
+.call-avatar {
+  position: relative;
+  height: min(100%, 52vw, 200px);
+  aspect-ratio: 1;
+}
+
+.call-avatar::before,
+.call-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--persona);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.call-avatar.talking::before,
+.call-avatar.ringing::before {
+  animation: call-ring 1.4s ease-out infinite;
+}
+
+.call-avatar.talking::after,
+.call-avatar.ringing::after {
+  animation: call-ring 1.4s ease-out 0.7s infinite;
+}
+
+.call-avatar.ringing .call-face {
+  animation: call-shake 1.2s ease-in-out infinite;
+}
+
+.call-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
+}
+
+.face-bg {
+  fill: var(--persona);
+}
+
+.face-skin {
+  fill: #fff3e6;
+  fill: color-mix(in srgb, var(--persona) 12%, #fff3e6);
+}
+
+.face-hair {
+  fill: #2f2a33;
+  fill: color-mix(in srgb, var(--persona) 35%, #2f2a33);
+}
+
+.face-eye {
+  fill: #2b2b2b;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: call-blink 4.5s infinite;
+}
+
+.face-cheek {
+  fill: #ff8fa3;
+  opacity: 0.35;
+}
+
+.face-smile {
+  fill: none;
+  stroke: #7a2e3a;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.face-mouth {
+  fill: #7a2e3a;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.face-mouth.talking {
+  animation: call-talk 0.32s ease-in-out infinite alternate;
+}
+
+.call-avatar-emoji {
+  position: absolute;
+  bottom: 2%;
+  inset-inline-end: 2%;
+  display: grid;
+  place-items: center;
+  width: 30%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--call-bg);
+  border: 3px solid var(--persona);
+  font-size: clamp(1.2rem, 7vw, 2rem);
+}
+
+.self-view {
+  position: absolute;
+  top: 8px;
+  inset-inline-start: 0;
+  width: 96px;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgb(255 255 255 / 30%);
+  background: #000;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 40%);
+}
+
+.self-view video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.self-view-note {
+  position: absolute;
+  top: 8px;
+  inset-inline-start: 0;
+  max-width: 50%;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--call-panel);
+  color: var(--call-muted);
+  font-size: 0.8rem;
+}
+
+.call-captions {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.call-screen > .call-top,
+.call-screen > .call-status,
+.call-screen > .call-type,
+.call-screen > .call-controls {
+  flex: none;
+}
+
+.caption {
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--call-panel);
+  animation: fade-in 0.2s ease;
+}
+
+.caption.them {
+  border-inline-start: 4px solid var(--persona);
+}
+
+.caption.you {
+  background: rgb(255 255 255 / 4%);
+}
+
+.caption-who {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--call-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.caption-text {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.caption-translate {
+  padding: 4px 0 0;
+  color: #7ab8ff;
+  font-size: 0.9rem;
+}
+
+.caption-he {
+  margin: 4px 0 0;
+  color: var(--call-muted);
+}
+
+.caption-flag {
+  margin: 8px 0 0;
+  color: var(--call-muted);
+  font-size: 0.9rem;
+}
+
+.caption-error p {
+  margin: 0 0 8px;
+}
+
+.caption-error .btn.ghost {
+  color: var(--call-text);
+  border-color: rgb(255 255 255 / 25%);
+}
+
+.caption-corrections {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(121 214 52 / 12%);
+  border: 1px solid rgb(121 214 52 / 35%);
+}
+
+.caption-corrections-title {
+  display: block;
+  margin-bottom: 4px;
+  color: #a6e77a;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.correction + .correction {
+  margin-top: 8px;
+}
+
+.correction-line {
+  margin: 0;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.correction-line del {
+  color: var(--bad-text);
+  opacity: 0.85;
+}
+
+.correction-line ins {
+  color: var(--good-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.correction-why {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.call-screen .correction-line del {
+  color: #ff8a8a;
+}
+
+.call-screen .correction-line ins {
+  color: #a6e77a;
+}
+
+.call-screen .correction-why {
+  color: var(--call-muted);
+}
+
+.typing-dots {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.typing-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--call-muted);
+  animation: call-dot 1.2s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.call-status {
+  min-height: 1.4em;
+  color: var(--call-muted);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.call-type {
+  display: flex;
+  gap: 8px;
+}
+
+.call-input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 6%);
+  color: var(--call-text);
+  font: inherit;
+  font-size: 1.05rem;
+}
+
+.call-input::placeholder {
+  color: var(--call-muted);
+}
+
+.call-input:focus {
+  outline: none;
+  border-color: var(--persona);
+}
+
+.call-send {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.call-send:disabled {
+  background: rgb(255 255 255 / 12%);
+  color: var(--call-muted);
+}
+
+.call-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.call-ctrl,
+.call-hangup,
+.call-mic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  transition:
+    transform 0.08s,
+    background 0.15s;
+}
+
+.call-ctrl {
+  width: 52px;
+  height: 52px;
+  background: rgb(255 255 255 / 14%);
+  font-size: 1.35rem;
+}
+
+.call-ctrl.on {
+  background: rgb(255 255 255 / 28%);
+}
+
+.ctrl-slash {
+  position: absolute;
+  width: 60%;
+  height: 3px;
+  border-radius: 2px;
+  background: #fff;
+  transform: rotate(-45deg);
+}
+
+.call-mic {
+  width: 76px;
+  height: 76px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 2rem;
+  box-shadow: 0 5px 0 var(--brand-dark);
+}
+
+.call-mic.listening {
+  background: var(--red);
+  box-shadow: 0 5px 0 var(--red-dark);
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+.call-mic:disabled {
+  background: rgb(255 255 255 / 14%);
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.call-hangup {
+  width: 60px;
+  height: 60px;
+  background: var(--red);
+  color: #fff;
+  font-size: 1.6rem;
+  box-shadow: 0 4px 0 var(--red-dark);
+}
+
+.call-hangup span {
+  transform: rotate(135deg);
+}
+
+.call-ctrl:active:not(:disabled),
+.call-mic:active:not(:disabled),
+.call-hangup:active {
+  transform: translateY(2px);
+}
+
+.call-screen :focus-visible {
+  outline-color: #7ab8ff;
+}
+
+/* ---------- Summary ---------- */
+
+.call-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 32px 16px calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+  animation: fade-in 0.25s ease;
+}
+
+.call-summary-avatar {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  font-size: 3rem;
+  border: 4px solid var(--persona);
+  background: color-mix(in srgb, var(--persona) 20%, transparent);
+  animation: pop 0.4s ease;
+}
+
+.call-summary h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.call-summary h1:focus {
+  outline: none;
+}
+
+.call-summary-cheer {
+  margin: 0;
+  color: var(--muted);
+}
+
+.call-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.call-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+}
+
+.call-stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.call-stat-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.call-learned {
+  width: 100%;
+  text-align: start;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+}
+
+.call-learned h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+}
+
+.call-learned ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.call-learned li + li {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.call-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+@keyframes call-ring {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes call-shake {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30%,
+  50% {
+    transform: rotate(-4deg);
+  }
+  20%,
+  40% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes call-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes call-talk {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1.1);
+  }
+}
+
+@keyframes call-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-avatar::before,
+  .call-avatar::after,
+  .call-face,
+  .face-eye,
+  .face-mouth.talking,
+  .typing-dots span,
+  .call-mic.listening {
+    animation: none !important;
+  }
+  /* Still show that the character is speaking, without movement. */
+  .call-avatar.talking::before {
+    opacity: 0.8;
+    transform: scale(1.08);
+  }
+}
+
+@media (max-width: 380px) {
+  .call-controls {
+    gap: 10px;
+  }
+  .call-ctrl {
+    width: 46px;
+    height: 46px;
+    font-size: 1.2rem;
+  }
+  .call-mic {
+    width: 68px;
+    height: 68px;
+  }
+  .call-hangup {
+    width: 54px;
+    height: 54px;
+  }
+  .self-view {
+    width: 76px;
+  }
+}
+
+/* ========================= End AI video call ========================= */
+
 /* Daily reminder time picker */
 .time-input {
   padding: 6px 10px;

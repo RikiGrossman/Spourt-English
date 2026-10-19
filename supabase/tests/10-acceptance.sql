@@ -120,6 +120,51 @@ do $$ declare n bigint; begin
   if n = 0 then raise exception 'US-T1 AC7 failed: v_lesson_funnel is empty on the seed'; end if;
 end $$;
 
+-- Video-call usage: clients can neither read call_usage nor call increment_call_usage; the service
+-- role counts turns and calls and refuses past the limits.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000000a', false);
+do $$ begin
+  perform count(*) from public.call_usage;
+  raise exception 'call_usage: authenticated could read it';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.increment_call_usage('00000000-0000-4000-8000-00000000000a', current_date, true, 10, 400);
+  raise exception 'increment_call_usage: authenticated was allowed to call it';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+set role anon;
+do $$ begin
+  perform public.increment_call_usage('00000000-0000-4000-8000-00000000000a', current_date, true, 10, 400);
+  raise exception 'increment_call_usage: anon was allowed to call it';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+set role service_role;
+do $$ declare j json; a uuid := '00000000-0000-4000-8000-00000000000a'; d date := '2026-01-05'; begin
+  j := public.increment_call_usage(a, d, true, 2, 4);
+  if (j->>'allowed')::boolean is not true or (j->>'calls')::int <> 1 then raise exception 'call usage 1: %', j; end if;
+  j := public.increment_call_usage(a, d, false, 2, 4);
+  if (j->>'calls')::int <> 1 then raise exception 'call usage 2 (continuing turn counted as a call): %', j; end if;
+  j := public.increment_call_usage(a, d, true, 2, 4);
+  if (j->>'allowed')::boolean is not true or (j->>'calls')::int <> 2 then raise exception 'call usage 3: %', j; end if;
+  j := public.increment_call_usage(a, d, true, 2, 4);
+  if (j->>'allowed')::boolean or j->>'reason' <> 'calls' then raise exception 'call usage 4 (3rd call allowed): %', j; end if;
+  j := public.increment_call_usage(a, d, false, 2, 4);
+  if (j->>'allowed')::boolean is not true then raise exception 'call usage 5: %', j; end if;
+  j := public.increment_call_usage(a, d, false, 2, 4);
+  if (j->>'allowed')::boolean or j->>'reason' <> 'turns' then raise exception 'call usage 6 (5th turn allowed): %', j; end if;
+  if (select turns from public.call_usage where user_id = a and day = d) <> 4 then
+    raise exception 'call usage: refused turns were counted';
+  end if;
+  j := public.increment_call_usage(a, d + 1, true, 2, 4);
+  if (j->>'calls')::int <> 1 then raise exception 'call usage: the next day did not start from zero: %', j; end if;
+  perform public.increment_call_usage('00000000-0000-4000-8000-00000000000b', d, true, 2, 4);
+end $$;
+reset role;
+
 -- Account deletion: anon can't call delete_my_account; a learner deleting their account takes all
 -- their rows with them and leaves everyone else's.
 set role anon;
@@ -141,6 +186,7 @@ do $$ declare n int; b uuid := '00000000-0000-4000-8000-00000000000b'; begin
   select (select count(*) from auth.users where id = b) + (select count(*) from public.profiles where id = b)
        + (select count(*) from public.progress where user_id = b) + (select count(*) from public.xp_events where user_id = b)
        + (select count(*) from public.srs_state where user_id = b) + (select count(*) from public.events where user_id = b)
+       + (select count(*) from public.call_usage where user_id = b)
     into n;
   if n <> 0 then raise exception 'delete_my_account failed: % rows of B remain', n; end if;
   select count(*) into n from public.progress where user_id = '00000000-0000-4000-8000-00000000000a';
