@@ -34,19 +34,20 @@ const at = (d: number, hour = 12, min = 0) => new Date(2026, 9, d, hour, min).ge
 const MIN = 60 * 1000;
 
 describe('lesson structure (US-L1 … US-L4)', () => {
-  it('US-L1 AC1/AC2: 5 choices, then a match, then sentence exercises; 3 sentences → 12, 4 → 13', () => {
+  it('US-L1 AC1/AC2: 5 choices, then a match, then sentence and speaking exercises; 3 sentences → 14, 4 → 15', () => {
     for (const lesson of allLessons) {
       const n = lesson.sentences.length;
       const exercises = generateExercises(lesson, seededRng(1));
-      expect(exercises).toHaveLength(lesson.words.length + 1 + n + 2 + (n > 1 ? 1 : 0));
+      expect(exercises).toHaveLength(lesson.words.length + 1 + n + 2 + (n > 1 ? 1 : 0) + Math.min(2, n));
       expect(exercises.slice(0, lesson.words.length).every((e) => e.kind === 'choice')).toBe(true);
       expect(exercises[lesson.words.length].kind).toBe('match');
       const rest = exercises.slice(lesson.words.length + 1);
-      expect(rest.every((e) => e.kind === 'build')).toBe(true);
+      expect(rest.every((e) => e.kind === 'build' || e.kind === 'speak')).toBe(true);
+      expect(rest.filter((e) => e.kind === 'speak')).toHaveLength(Math.min(2, n));
       const builds = rest.filter((e) => e.kind === 'build');
       expect(builds.filter((e) => e.listen)).toHaveLength(n > 1 ? 2 : 1);
       expect(builds.filter((e) => e.answerLang === 'he')).toHaveLength(1);
-      if (lesson.words.length === 5) expect(exercises).toHaveLength(n === 3 ? 12 : 13);
+      if (lesson.words.length === 5) expect(exercises).toHaveLength(n === 3 ? 14 : 15);
     }
   });
 

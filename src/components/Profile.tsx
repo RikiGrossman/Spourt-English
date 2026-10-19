@@ -2,6 +2,7 @@ import type { User } from '../../shared/api';
 import { allLessons } from '../data/course';
 import type { SyncStatus } from '../lib/account';
 import { GOAL_OPTIONS, dailyGoalOf } from '../lib/goals';
+import { canListen } from '../lib/listen';
 import { MAX_HEARTS, msUntilNextHeart, type Progress } from '../lib/progress';
 import type { Settings, ThemeChoice } from '../lib/settings';
 
@@ -172,6 +173,21 @@ export function Profile(props: Props) {
             <span className="switch-knob" />
           </button>
         </div>
+        {canListen && (
+          <div className="setting-row">
+            <span id="speaking-label">תרגילי דיבור (מיקרופון)</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.speaking}
+              aria-labelledby="speaking-label"
+              className={`switch${settings.speaking ? ' on' : ''}`}
+              onClick={() => props.onSettings({ speaking: !settings.speaking })}
+            >
+              <span className="switch-knob" />
+            </button>
+          </div>
+        )}
         <div className="setting-row">
           <span id="analytics-label">שליחת נתוני שימוש אנונימיים</span>
           <button

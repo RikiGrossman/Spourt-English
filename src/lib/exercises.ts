@@ -74,9 +74,21 @@ export function buildSentence(
   };
 }
 
+/** Speaking: read one of the lesson's English sentences out loud. */
+export function speakSentence(lesson: Lesson, index: number): Exercise {
+  const sentence = lesson.sentences[index];
+  return { kind: 'speak', prompt: sentence.en, he: sentence.he, answers: [sentence.en, ...(sentence.alt ?? [])] };
+}
+
+/** Drops the speaking exercises – for devices without speech recognition, or when the learner turned them off. */
+export function withoutSpeaking(exercises: Exercise[]): Exercise[] {
+  return exercises.filter((e) => e.kind !== 'speak');
+}
+
 /** The exercise type reported to analytics (docs/spec/v2.md §6.1). */
 export function exerciseType(exercise: Exercise): ExerciseType {
   if (exercise.kind === 'match') return 'match';
+  if (exercise.kind === 'speak') return 'speak';
   if (exercise.kind === 'choice') return exercise.promptLang === 'he' ? 'choice-en' : 'choice-he';
   if (exercise.listen) return 'listen';
   return exercise.answerLang === 'en' ? 'build-en' : 'build-he';
@@ -84,8 +96,8 @@ export function exerciseType(exercise: Exercise): ExerciseType {
 
 /**
  * Builds the exercise sequence for a lesson: new words first (recognition),
- * then a matching round, then sentence building and listening.
- * Every exercise carries its spaced-repetition item key(s).
+ * then a matching round, then sentence building, listening and speaking.
+ * Every exercise but speaking carries its spaced-repetition item key(s).
  */
 export function generateExercises(lesson: Lesson, rng: Rng = Math.random): Exercise[] {
   const vocab = vocabularyUpTo(lesson);
@@ -103,6 +115,8 @@ export function generateExercises(lesson: Lesson, rng: Rng = Math.random): Exerc
   if (n > 1) {
     practice.push(buildSentence(lesson, 1, 'en', rng, true));
   }
+  // Two sentences to say out loud (Duolingo-style speaking practice).
+  for (const index of shuffle([...Array(n).keys()], rng).slice(0, 2)) practice.push(speakSentence(lesson, index));
   exercises.push(...shuffle(practice, rng));
   return exercises;
 }

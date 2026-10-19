@@ -17,7 +17,8 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
 import { ACCOUNTS_ENABLED } from './lib/config';
-import { generateExercises } from './lib/exercises';
+import { generateExercises, withoutSpeaking } from './lib/exercises';
+import { canListen } from './lib/listen';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-seen';
 import { completePractice } from './lib/practice';
@@ -267,7 +268,10 @@ function Screens() {
     setScreen({
       name: 'lesson',
       lessonId,
-      exercises: generateExercises(found.lesson),
+      exercises:
+        canListen && settings.speaking
+          ? generateExercises(found.lesson)
+          : withoutSpeaking(generateExercises(found.lesson)),
       tip: found.lesson.tip,
       tipTitle: found.lesson.title,
     });

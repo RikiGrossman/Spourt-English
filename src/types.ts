@@ -118,10 +118,26 @@ export type Exercise =
       pairs: Word[];
       /** Item keys in the same order as `pairs`. */
       itemKeys?: string[];
+    }
+  | {
+      /** Speaking: the learner reads an English sentence out loud (speech recognition). */
+      kind: 'speak';
+      /** The English sentence to say. */
+      prompt: string;
+      /** Its Hebrew translation, shown as a hint. */
+      he: string;
+      /** Accepted sentences (the prompt and its alternatives). */
+      answers: string[];
+      /** Speaking isn't scheduled for review, so it has no item key. */
+      itemKey?: never;
     };
 
-/** Exercise type as reported to analytics (docs/spec/v2.md §8). */
-export type ExerciseType = 'choice-en' | 'choice-he' | 'match' | 'build-en' | 'build-he' | 'listen';
+/**
+ * Exercise type as reported to analytics (docs/spec/v2.md §8).
+ * 'speak' is local only: speaking answers are not reported or scheduled for review,
+ * since a misheard sentence says more about the microphone than about the learner.
+ */
+export type ExerciseType = 'choice-en' | 'choice-he' | 'match' | 'build-en' | 'build-he' | 'listen' | 'speak';
 
 /**
  * One answered item, reported by LessonScreen through `onAnswer` – once per exercise,

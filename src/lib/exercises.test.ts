@@ -3,7 +3,7 @@ import { isItemKey, sentenceKey, wordKey } from '../../shared/item-keys';
 import { allLessons, course } from '../data/course';
 import type { Exercise, Lesson } from '../types';
 import { isCorrect, tokenize } from './answer';
-import { buildSentence, exerciseType, generateExercises } from './exercises';
+import { buildSentence, exerciseType, generateExercises, withoutSpeaking } from './exercises';
 import { seededRng } from './random';
 
 /** True when `answer` can be laid out from the bank's tiles (each tile used once). */
@@ -16,6 +16,19 @@ function buildable(bank: readonly string[], answer: string): boolean {
   }
   return true;
 }
+
+describe('speaking exercises', () => {
+  it('asks to say two of the lesson sentences, and can be left out', () => {
+    for (const lesson of allLessons) {
+      const exercises = generateExercises(lesson, seededRng(5));
+      const speak = exercises.filter((e) => e.kind === 'speak');
+      expect(speak).toHaveLength(Math.min(2, lesson.sentences.length));
+      expect(new Set(speak.map((e) => e.prompt)).size).toBe(speak.length);
+      expect(withoutSpeaking(exercises)).toHaveLength(exercises.length - speak.length);
+      expect(withoutSpeaking(exercises).some((e) => e.kind === 'speak')).toBe(false);
+    }
+  });
+});
 
 describe('course data', () => {
   it('has unique lesson ids and enough words for every lesson', () => {
@@ -49,6 +62,9 @@ describe('generateExercises', () => {
             bank.splice(i, 1);
           }
           expect(isCorrect(tiles.join(' '), ex.answers)).toBe(true);
+        } else if (ex.kind === 'speak') {
+          expect(lesson.sentences.map((s) => s.en)).toContain(ex.prompt);
+          expect(ex.answers[0]).toBe(ex.prompt);
         } else {
           expect(ex.pairs.length).toBeGreaterThanOrEqual(4);
         }
@@ -63,13 +79,15 @@ describe('generateExercises', () => {
 });
 
 describe('item keys and heAlt (v2 §7.5)', () => {
-  it('every generated exercise in every lesson carries valid item keys', () => {
+  it('every generated exercise in every lesson but speaking carries valid item keys', () => {
     for (const lesson of allLessons) {
       for (const ex of generateExercises(lesson, seededRng(13))) {
         if (ex.kind === 'match') {
           expect(ex.itemKeys).toHaveLength(ex.pairs.length);
           ex.pairs.forEach((pair, i) => expect(ex.itemKeys![i]).toBe(wordKey(pair)));
           for (const key of ex.itemKeys!) expect(isItemKey(key), key).toBe(true);
+        } else if (ex.kind === 'speak') {
+          expect(ex.itemKey).toBeUndefined();
         } else {
           expect(isItemKey(ex.itemKey), `${lesson.id}: ${ex.itemKey}`).toBe(true);
         }
@@ -133,6 +151,7 @@ describe('item keys and heAlt (v2 §7.5)', () => {
       [{ ...build, promptLang: 'en', answerLang: 'en', listen: true }, 'listen'],
       [{ ...build, promptLang: 'he', answerLang: 'en' }, 'build-en'],
       [{ ...build, promptLang: 'en', answerLang: 'he' }, 'build-he'],
+      [{ kind: 'speak', prompt: 'x', he: 'x', answers: ['x'] }, 'speak'],
     ];
     for (const [ex, type] of cases) expect(exerciseType(ex)).toBe(type);
   });
