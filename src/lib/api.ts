@@ -119,6 +119,8 @@ const restApi = {
   /** Spaced-repetition state (docs/spec/v2.md §6.4): the full state, and upload of a delta. */
   getSrs: () => request<SrsResponse>('GET', '/srs', undefined, true),
   putSrs: (items: ItemStates) => request<SrsResponse>('PUT', '/srs', { items } satisfies PutSrsRequest, true),
+  /** Forgets the whole review state (progress reset). */
+  deleteSrs: () => request<void>('DELETE', '/srs', undefined, true),
   /** Works signed out too; with a token the server marks the learner's own row (`isMe`). */
   leaderboard: () => request<LeaderboardResponse>('GET', '/leaderboard'),
   /** Tokens are stateless – signing out only forgets the stored one (see clearAuth). */

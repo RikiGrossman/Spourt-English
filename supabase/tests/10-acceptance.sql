@@ -20,6 +20,21 @@ do $$ declare c jsonb; begin
   if c is distinct from '{"u1l1":2,"u7l1":1}'::jsonb then raise exception 'US-U1 AC7 failed: %', c; end if;
 end $$;
 
+-- US-A5: a progress reset (newer resetAt) clears the lessons; an older save afterwards doesn't
+-- bring them back through the trigger.
+update public.progress set data = '{"xp":0,"completed":{},"resetAt":5000}'
+where user_id = '00000000-0000-4000-8000-00000000000a';
+do $$ declare c jsonb; begin
+  select data -> 'completed' into c from public.progress where user_id = '00000000-0000-4000-8000-00000000000a';
+  if c is distinct from '{}'::jsonb then raise exception 'US-A5 reset failed: %', c; end if;
+end $$;
+update public.progress set data = '{"xp":0,"completed":{"u1l1":1},"resetAt":5000}'
+where user_id = '00000000-0000-4000-8000-00000000000a';
+do $$ declare c jsonb; begin
+  select data -> 'completed' into c from public.progress where user_id = '00000000-0000-4000-8000-00000000000a';
+  if c is distinct from '{"u1l1":1}'::jsonb then raise exception 'US-A5 after reset failed: %', c; end if;
+end $$;
+
 -- US-R6 AC1/AC2/AC3: merge_srs – newer last wins, equal last keeps the lower box and max seen/wrong,
 -- invalid keys, box 7 and a due date two years ahead are skipped.
 select count(*) from public.merge_srs(jsonb_build_object(
@@ -53,6 +68,18 @@ do $$ declare n int; begin
   if n <> 0 then raise exception 'US-R6 AC4 failed: B sees % rows', n; end if;
   select count(*) into n from public.merge_srs('{}'::jsonb);
   if n <> 0 then raise exception 'US-R6 AC4 failed: merge_srs returned % rows to B', n; end if;
+  -- B deleting "all" review rows (as a reset does) leaves A's untouched.
+  delete from public.srs_state;
+end $$;
+
+-- US-A5: A's reset deletes A's own review rows.
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000000a', false);
+do $$ declare n int; begin
+  select count(*) into n from public.srs_state;
+  if n = 0 then raise exception 'US-A5 failed: B deleted A''s review rows'; end if;
+  delete from public.srs_state where user_id = '00000000-0000-4000-8000-00000000000a';
+  select count(*) into n from public.srs_state;
+  if n <> 0 then raise exception 'US-A5 failed: % review rows left after reset', n; end if;
 end $$;
 reset role;
 

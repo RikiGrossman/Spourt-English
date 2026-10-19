@@ -53,7 +53,7 @@ export function plausibleLocalDate(value: unknown, now = Date.now()): string | n
 export function sanitizeProgress(input: unknown, now = Date.now()): Progress | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const p = input as Record<string, unknown>;
-  const { xp, completed, streak, lastActiveDate, xpToday, hearts, heartsUpdatedAt } = p;
+  const { xp, completed, streak, lastActiveDate, xpToday, hearts, heartsUpdatedAt, resetAt } = p;
   if (!isNonNegNumber(xp) || !isNonNegNumber(streak) || !isNonNegNumber(xpToday)) return null;
   if (!isNonNegNumber(hearts) || !isNonNegNumber(heartsUpdatedAt)) return null;
   if (lastActiveDate !== null && (typeof lastActiveDate !== 'string' || !DATE_RE.test(lastActiveDate))) {
@@ -77,6 +77,8 @@ export function sanitizeProgress(input: unknown, now = Date.now()): Progress | n
     xpToday: future ? 0 : clampInt(xpToday, MAX_TOTAL_XP),
     hearts: clampInt(hearts, MAX_HEARTS),
     heartsUpdatedAt: Math.min(heartsUpdatedAt, now),
+    // A reset "in the future" would make the copy win every later merge, so it is capped at now.
+    ...(isNonNegNumber(resetAt) && resetAt > 0 ? { resetAt: Math.min(Math.floor(resetAt), now) } : {}),
   };
 }
 
@@ -88,10 +90,16 @@ export function sanitizeProgress(input: unknown, now = Date.now()): Progress | n
  *   (same date → the higher of each);
  * - hearts: after applying refills to both, the lower count with its clock
  *   (conservative, so syncing can't refill hearts).
+ * A progress reset comes first: the copy with the newer `resetAt` wins outright, so an upload
+ * from a device that still holds the progress from before the reset is ignored.
  */
 export function mergeProgress(stored: Progress, incoming: Progress, now = Date.now()): Progress {
   const a = refresh(stored, now);
   const b = refresh(incoming, now);
+  const resetA = a.resetAt ?? 0;
+  const resetB = b.resetAt ?? 0;
+  if (resetB > resetA) return b;
+  if (resetA > resetB) return a;
 
   const completed: Record<string, number> = { ...a.completed };
   for (const [id, count] of Object.entries(b.completed)) {
@@ -127,5 +135,6 @@ export function mergeProgress(stored: Progress, incoming: Progress, now = Date.n
     xpToday,
     hearts,
     heartsUpdatedAt,
+    ...(resetA > 0 ? { resetAt: resetA } : {}),
   };
 }

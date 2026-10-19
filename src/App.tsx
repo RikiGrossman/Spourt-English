@@ -22,7 +22,7 @@ import { canListen } from './lib/listen';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-seen';
 import { completePractice } from './lib/practice';
-import { completeLesson, dateKey, isCatchUp, loseHeart, visibleStreak } from './lib/progress';
+import { completeLesson, dateKey, isCatchUp, loseHeart, resetProgress, visibleStreak } from './lib/progress';
 import { syncReminders } from './lib/reminders';
 import { applyPlacement, placementDone, placementQuestions, unitsPassed } from './lib/placement';
 import { QuizScreen } from './components/QuizScreen';
@@ -421,8 +421,16 @@ function Screens() {
             onDeleteAccount={account.deleteAccount}
             onSync={() => void account.sync()}
             onReset={() => {
-              reset();
               srs.reset();
+              if (account.user) {
+                // Signed in: the reset is marked with its time so it wins over every older copy –
+                // on the server and on the learner's other devices.
+                const fresh = resetProgress(progress);
+                update(() => fresh);
+                void account.sync(fresh);
+              } else {
+                reset();
+              }
             }}
           />
         )}

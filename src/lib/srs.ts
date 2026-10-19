@@ -225,6 +225,20 @@ export function afterPull(store: SrsStore, server: ItemStates): SrsStore {
 export interface SrsClient {
   getSrs: () => Promise<SrsResponse>;
   putSrs: (items: ItemStates) => Promise<SrsResponse>;
+  deleteSrs?: () => Promise<void>;
+}
+
+/**
+ * Drops items answered before a progress reset (`resetAt`, ms) – e.g. on a device that still
+ * held the old state when the reset arrived – so they are neither reviewed nor uploaded again.
+ */
+export function forgetBefore(store: SrsStore, resetAt: number | undefined): SrsStore {
+  if (!resetAt) return store;
+  const stale = Object.keys(store.items).filter((key) => store.items[key].last < resetAt);
+  if (stale.length === 0) return store;
+  const items = { ...store.items };
+  for (const key of stale) delete items[key];
+  return { ...store, items, dirty: store.dirty.filter((key) => !stale.includes(key)) };
 }
 
 const serverItems = (res: SrsResponse | undefined) =>
@@ -236,7 +250,10 @@ export interface SrsApi {
   due: number;
   /** Records a finished lesson or review session and persists it. */
   record: (answers: ItemAnswer[], mode: AnswerMode) => void;
-  /** Forgets all review state on this device (Profile → reset progress). */
+  /**
+   * Forgets all review state on this device (Profile → reset progress) and, when signed in,
+   * on the server too.
+   */
   reset: () => void;
 }
 
@@ -256,9 +273,10 @@ export function useSrs(progress: Progress, signedIn = false, client: SrsClient =
     saveSrs(store);
   }, [store]);
 
-  // Progress that arrives after start-up (pulled from the server on sign-in) is seeded too.
+  // Progress that arrives after start-up (pulled from the server on sign-in) is seeded too,
+  // after dropping what was answered before a reset made on another device.
   useEffect(() => {
-    setStore((s) => seedFromProgress(s, progress));
+    setStore((s) => seedFromProgress(forgetBefore(s, progress.resetAt), progress));
   }, [progress]);
 
   const push = useCallback(async () => {
@@ -306,7 +324,10 @@ export function useSrs(progress: Progress, signedIn = false, client: SrsClient =
     setStore((s) => applyAnswers(s, answers, mode));
   }, []);
 
-  const reset = useCallback(() => setStore(emptySrs()), []);
+  const reset = useCallback(() => {
+    setStore(emptySrs());
+    if (signedIn) client.deleteSrs?.().catch(() => undefined);
+  }, [signedIn, client]);
 
   return { store, due: dueCount(store), record, reset };
 }

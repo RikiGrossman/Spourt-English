@@ -31,5 +31,11 @@ export function srsRouter(repo: Repo, requireAuth: RequestHandler) {
     res.json(body);
   });
 
+  /** Deletes the whole review state – the learner reset their progress. Responds 204. */
+  router.delete('/srs', requireAuth, (_req, res) => {
+    repo.deleteSrs(res.locals.userId!);
+    res.status(204).end();
+  });
+
   return router;
 }
