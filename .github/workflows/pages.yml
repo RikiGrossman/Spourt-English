@@ -22,9 +22,11 @@ permissions:
   pages: write
   id-token: write
 
+# A push deploys right away and the APK build redeploys a minute later. Queue the second deploy
+# instead of cancelling the first, so main doesn't show a cancelled (red) run after every merge.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
