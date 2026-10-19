@@ -62,7 +62,7 @@ export function ReminderSettings({ settings, onSettings }: Props) {
           {settings.reminder && <p className="muted">ביום שכבר תרגלת לא תגיע תזכורת.</p>}
           {denied && (
             <p className="form-error" role="alert">
-              לא קיבלנו הרשאה להתראות. אפשר לאשר אותה בהגדרות הטלפון ← אפליקציות ← Spourt English ← התראות.
+              לא קיבלנו הרשאה להתראות. אפשר לאשר אותה בהגדרות הטלפון ← אפליקציות ← אנגלית בקטנה ← התראות.
             </p>
           )}
         </>

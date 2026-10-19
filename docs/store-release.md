@@ -1,6 +1,6 @@
 # פרסום ב־Google Play – רשימת הכנה
 
-המסמך מרכז את מה שצריך כדי להעלות את Spourt English ל־Google Play: מה כבר מוכן בקוד, מה נשאר לעשות ידנית, ותשובות מוכנות לטפסים של Play Console.
+המסמך מרכז את מה שצריך כדי להעלות את אנגלית בקטנה ל־Google Play: מה כבר מוכן בקוד, מה נשאר לעשות ידנית, ותשובות מוכנות לטפסים של Play Console.
 App Store (אייפון) הוא שלב נפרד בהמשך (ראו בסוף).
 
 ## מה מוכן בקוד
@@ -57,7 +57,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 
 מהדחיפה הבאה ל־`main` (או בהרצה ידנית של ה־workflow ‏Android APK), הקובץ `SpourtEnglish-play-bundle` (‏`app-play-release.aab`) מופיע ב־Artifacts של הריצה.
 
-> **שימו לב:** ה־APK מ־GitHub וגרסת Play חתומים במפתחות שונים, ולכן אי אפשר לעדכן אחד מעל השני. מי שהתקין את ה־APK ורוצה לעבור ל־Play צריך להסיר אותו קודם. ההתקדמות נשמרת רק אם יש חשבון מסונכרן.
+> **שימו לב:** ה־APK מ־GitHub (`com.spourt.english`) וגרסת Play (`com.baktana.english`) הן שתי אפליקציות נפרדות בטלפון: מזהה שונה ומפתח חתימה שונה. אפשר להתקין את שתיהן, אבל ההתקדמות לא עוברת ביניהן לבד. מי שעובר ל־Play צריך חשבון מסונכרן כדי לשמור את ההתקדמות, ואז יכול להסיר את ה־APK.
 
 ### 5. לפתוח חשבון ב־Play Console
 - https://play.google.com/console, תשלום חד־פעמי של 25$ ואימות זהות.
@@ -65,7 +65,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 - גייסו מראש 12 ומעלה אנשים עם טלפון אנדרואיד וחשבון Google: משפחה, חברים, קבוצות לומדי אנגלית.
 
 ### 6. ליצור את האפליקציה ולהעלות
-1. Create app: שם `Spourt English`, שפת ברירת מחדל עברית, App, Free.
+1. Create app: שם `אנגלית בקטנה – לומדים אנגלית` (עד 30 תווים), שפת ברירת מחדל עברית, App, Free. מזהה החבילה של גרסת Play הוא `com.baktana.english`, ואי אפשר לשנות אותו אחרי ההעלאה הראשונה.
 2. Testing ← Closed testing ← יוצרים track, מוסיפים את הבודקים (רשימת אימיילים או Google Group), ומעלים את ה־`.aab`.
 3. שולחים לבודקים את קישור ההצטרפות. הם צריכים להצטרף, להתקין ולהשתמש באפליקציה לאורך 14 הימים.
 4. אחרי 14 יום: Apply for production. ממלאים את השאלון על הבדיקה ומעלים לפרודקשן.
@@ -73,7 +73,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 ### 7. למלא את טפסי App content
 תשובות לפי מה שהאפליקציה עושה היום. אם מוסיפים פרסומות, תשלומים או SDK חדש, צריך לעדכן.
 
-**Privacy policy:** `https://rikigrossman.github.io/Spourt-English/privacy.html`
+**Privacy policy:** `https://baktanaenglish.co.il/privacy.html` (אחרי המעבר לדומיין, [domain.md](domain.md). עד אז: `https://rikigrossman.github.io/Spourt-English/privacy.html`)
 
 **App access:** כל האפליקציה זמינה בלי התחברות (מצב אורח). כדאי בכל זאת לתת לבודקים של גוגל חשבון בדיקה (אימייל וסיסמה) כדי שיוכלו לבדוק את הליגה ואת מחיקת החשבון.
 
@@ -89,7 +89,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 |---|---|
 | Does your app collect or share user data? | Yes (collects; does **not** share) |
 | Is all data encrypted in transit? | Yes (HTTPS בלבד) |
-| Do you provide a way for users to request deletion? | Yes. URL: `https://rikigrossman.github.io/Spourt-English/privacy.html#delete` |
+| Do you provide a way for users to request deletion? | Yes. URL: `https://baktanaenglish.co.il/privacy.html#delete` |
 
 | סוג מידע (Play) | נאסף? | אופציונלי? | מטרה | הערות |
 |---|---|---|---|---|
@@ -108,7 +108,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 - **תיאור קצר** (עד 80 תווים), הצעה:
   > לומדים אנגלית בעברית: שיעורים קצרים, חזרה חכמה ותרגול דיבור – בלי הרשמה.
 - **תיאור מלא**, הצעה לפתיחה:
-  > Spourt English נבנתה במיוחד לדוברי עברית: ההסברים בעברית, והתרגילים מתמקדים בטעויות שישראלים עושים באנגלית (is/am/are, a/the, סדר מילים ועוד).
+  > אנגלית בקטנה נבנתה במיוחד לדוברי עברית: ההסברים בעברית, והתרגילים מתמקדים בטעויות שישראלים עושים באנגלית (is/am/are, a/the, סדר מילים ועוד).
   > • 12 יחידות ו־64 שיעורים קצרים, מרמת מתחילים ועד A2
   > • תרגילי בחירה, התאמה, בניית משפטים, האזנה ודיבור
   > • חזרה מרווחת שמזכירה בדיוק את המילים שצריך לחזור עליהן
