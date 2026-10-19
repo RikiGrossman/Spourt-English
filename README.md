@@ -104,7 +104,7 @@ docker run -p 3001:3001 -e JWT_SECRET=<סוד> -v spourt-data:/app/data spourt-e
 ## האתר החי (GitHub Pages)
 
 בכל דחיפה ל־`main` ה־workflow ‏`.github/workflows/pages.yml` בונה את האפליקציה ומפרסם אותה ב־
-https://rikigrossman.github.io/Spourt-English/
+https://rikigrossman.github.io/Spourt-English/ (עובר לדומיין https://baktanaenglish.co.il – ראו [docs/domain.md](docs/domain.md))
 
 ב־GitHub Pages אין שרת. לכן ההרשמה, ההתחברות והליגה עובדים שם (ובאפליקציית האנדרואיד) דרך Supabase, אחרי שמגדירים אותו לפי [docs/supabase.md](docs/supabase.md). עד אז האפליקציה עובדת במצב אורח מלא (שיעורים, לבבות, XP, רצף, תרגול והתקנה בטלפון).
 הפעלה חד־פעמית: ב־GitHub, ‏Settings → Pages → Source: **GitHub Actions**.
@@ -174,6 +174,7 @@ docs/                   תיעוד המוצר והמערכת
 - [docs/architecture.md](docs/architecture.md) – ארכיטקטורה, מודל נתונים וזרימת הסנכרון
 - [docs/roadmap.md](docs/roadmap.md) – שלבים הבאים וחוב טכני
 - [docs/android.md](docs/android.md) – אפליקציית האנדרואיד: התקנה, בנייה וחתימה
+- [docs/domain.md](docs/domain.md) – מעבר האתר לדומיין baktanaenglish.co.il
 - [docs/store-release.md](docs/store-release.md) – הכנה לפרסום ב־Google Play: מה מוכן בקוד, מה נשאר לעשות, ותשובות לטפסים
 - `public/privacy.html`, `public/terms.html` – מדיניות הפרטיות ותנאי השימוש (מתפרסמים עם האתר)
 - [docs/supabase.md](docs/supabase.md) – התחברות באתר ובאפליקציה: הקמת Supabase

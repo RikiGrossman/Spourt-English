@@ -10,9 +10,13 @@ export const SUPABASE_ANON_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY 
 export const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const ACCOUNTS_ENABLED = USE_SUPABASE || import.meta.env.VITE_ENABLE_ACCOUNTS !== 'false';
 
-/** The public web app, where links in Supabase emails (e.g. "confirm your account") open. */
+/**
+ * The public web app, where links in Supabase emails (e.g. "confirm your account") open.
+ * Builds set VITE_SITE_URL once the site has its own domain (docs/domain.md); until then the
+ * GitHub Pages address.
+ */
 export const PUBLIC_SITE_URL: string =
-  import.meta.env.VITE_SITE_URL ?? 'https://rikigrossman.github.io/Spourt-English/';
+  import.meta.env.VITE_SITE_URL || 'https://rikigrossman.github.io/Spourt-English/';
 
 /**
  * The privacy policy and terms (public/privacy.html, public/terms.html). Always the public

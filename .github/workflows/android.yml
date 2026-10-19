@@ -5,6 +5,8 @@
 # Google Play bundle (.aab, "play" flavor) and keeps it as an artifact to upload to Play Console.
 # Like GitHub Pages, sign-in and the league use Supabase when the repository variables
 # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (docs/supabase.md); otherwise guest-only.
+# The variable VITE_SITE_URL points the app's links (privacy page, emails) at the site's own
+# domain once it has one (docs/domain.md).
 name: Android APK
 
 on:
@@ -41,6 +43,7 @@ jobs:
       - run: npm run build
         env:
           VITE_ENABLE_ACCOUNTS: 'false'
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - run: npx cap sync android
