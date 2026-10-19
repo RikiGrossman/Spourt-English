@@ -52,7 +52,7 @@ export function reminderText(streak: number, day: number): { title: string; body
     'חמש דקות ביום עושות את ההבדל. נתרגל?',
     'יש לך כמה מילים לחזור עליהן 🧠',
   ];
-  return { title: 'Spourt English', body: bodies[day % bodies.length] };
+  return { title: 'אנגלית בקטנה', body: bodies[day % bodies.length] };
 }
 
 export interface ReminderState {
@@ -122,7 +122,7 @@ export function reminderCalendar(time: string, now = new Date()): string {
     `DTSTART:${day}T${pad(h)}${pad(m)}00`,
     'DURATION:PT10M',
     'RRULE:FREQ=DAILY',
-    'SUMMARY:🔥 תרגול אנגלית – Spourt English',
+    'SUMMARY:🔥 תרגול אנגלית – אנגלית בקטנה',
     'DESCRIPTION:כמה דקות של אנגלית: https://rikigrossman.github.io/Spourt-English/',
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
