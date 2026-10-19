@@ -120,6 +120,20 @@ export type Exercise =
       itemKeys?: string[];
     }
   | {
+      /** Typing: the learner types the English sentence – a translation or what they heard. */
+      kind: 'type';
+      /** The Hebrew sentence to translate, or the English one to play when `listen` is set. */
+      prompt: string;
+      /** When true the prompt is only spoken (type what you hear). */
+      listen?: boolean;
+      /** Accepted English sentences (the main one and its alternatives). */
+      answers: string[];
+      /** Key of the sentence (`s:<lessonId>:<index>`). */
+      itemKey?: string;
+      /** Error codes of the sentence, copied for analytics. */
+      errors?: ErrorCode[];
+    }
+  | {
       /** Speaking: the learner reads an English sentence out loud (speech recognition). */
       kind: 'speak';
       /** The English sentence to say. */

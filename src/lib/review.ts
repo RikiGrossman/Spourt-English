@@ -6,7 +6,7 @@ import { parseItemKey, wordId } from '../../shared/item-keys';
 import { REVIEW_LENGTH } from '../../shared/srs';
 import { allLessons } from '../data/course';
 import type { Exercise, Lesson, Word } from '../types';
-import { buildSentence, vocabularyUpTo, wordChoice } from './exercises';
+import { buildSentence, typeSentence, vocabularyUpTo, wordChoice } from './exercises';
 import { generatePractice } from './practice';
 import type { Progress } from './progress';
 import type { Rng } from './random';
@@ -17,6 +17,8 @@ export const MIN_REVIEW_ITEMS = 4;
 /** Probabilities of the sentence exercise kinds (the rest is build-en). */
 export const LISTEN_SHARE = 0.25;
 export const BUILD_HE_SHARE = 0.2;
+/** Sentences the learner already knows well (this box or higher) are typed instead of built. */
+export const TYPE_FROM_BOX = 3;
 
 /** Where the exercises of a session came from – reported with `review_start`. */
 export type ReviewSource = 'due' | 'mixed' | 'practice';
@@ -58,8 +60,11 @@ export function isReviewable(key: string): boolean {
   return lesson !== undefined && parsed.index! < lesson.sentences.length;
 }
 
-/** One exercise for one item key; undefined when the key is not in the course. */
-export function reviewExercise(key: string, rng: Rng): Exercise | undefined {
+/**
+ * One exercise for one item key; undefined when the key is not in the course. Sentences in a
+ * high box (`box` ≥ TYPE_FROM_BOX) are typed – free recall is the harder, stronger review.
+ */
+export function reviewExercise(key: string, rng: Rng, box = 0): Exercise | undefined {
   const parsed = parseItemKey(key);
   if (!parsed) return undefined;
   if (parsed.kind === 'word') {
@@ -71,6 +76,7 @@ export function reviewExercise(key: string, rng: Rng): Exercise | undefined {
   const index = parsed.index!;
   if (!lesson || index >= lesson.sentences.length) return undefined;
   const r = rng();
+  if (box >= TYPE_FROM_BOX) return typeSentence(lesson, index, r < LISTEN_SHARE);
   if (r < LISTEN_SHARE) return buildSentence(lesson, index, 'en', rng, true);
   if (r < LISTEN_SHARE + BUILD_HE_SHARE) return buildSentence(lesson, index, 'he', rng);
   return buildSentence(lesson, index, 'en', rng);
@@ -100,7 +106,9 @@ export function buildReview(
     const upcoming = upcomingKeys(srs, REVIEW_LENGTH * 2, now).filter((k) => isReviewable(k) && !keys.includes(k));
     keys.push(...upcoming.slice(0, REVIEW_LENGTH - keys.length));
   }
-  const exercises = keys.map((key) => reviewExercise(key, rng)).filter((e): e is Exercise => e !== undefined);
+  const exercises = keys
+    .map((key) => reviewExercise(key, rng, srs.items[key]?.box))
+    .filter((e): e is Exercise => e !== undefined);
   let source: ReviewSource = keys.length > due.length ? 'mixed' : 'due';
 
   if (exercises.length < MIN_REVIEW_ITEMS) {

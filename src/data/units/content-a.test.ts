@@ -3,6 +3,7 @@
  * Every lesson must produce solvable exercises and keep its words and ids unique.
  */
 import { describe, expect, it } from 'vitest';
+import { checkTyped } from '../../lib/typing';
 import { wordId } from '../../../shared/item-keys';
 import { isCorrect, tokenize } from '../../lib/answer';
 import { generateExercises } from '../../lib/exercises';
@@ -96,6 +97,8 @@ describe('content-a units: exercises', () => {
               bank.splice(i, 1);
             }
             expect(isCorrect(tiles.join(' '), ex.answers)).toBe(true);
+          } else if (ex.kind === 'type') {
+            expect(checkTyped(ex.answers[0], ex.answers).kind).toBe('correct');
           } else if (ex.kind === 'speak') {
             expect(isSpokenCorrectly([ex.prompt], ex.answers)).toBe(true);
           } else {

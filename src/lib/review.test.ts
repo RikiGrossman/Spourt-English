@@ -181,3 +181,27 @@ describe('reviewExercise', () => {
     expect([...kinds].sort()).toEqual(['build-en', 'build-he', 'listen']);
   });
 });
+
+describe('typing in reviews (US-K2)', () => {
+  const lesson = allLessons[0];
+  const key = sentenceKey(lesson.id, 0);
+
+  it('types sentences the learner knows well and builds the others', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      expect(reviewExercise(key, seededRng(seed), 3)?.kind).toBe('type');
+      expect(reviewExercise(key, seededRng(seed), 2)?.kind).toBe('build');
+    }
+  });
+
+  it('keeps words as multiple choice whatever the box', () => {
+    expect(reviewExercise(wordKey(lesson.words[0]), seededRng(1), 5)?.kind).toBe('choice');
+  });
+
+  it('uses each item box from the store', () => {
+    const today = dateKey(Date.now());
+    const state: ItemState = { box: 4, due: today, seen: 3, wrong: 0, last: 1 };
+    const srs: SrsStore = { ...emptySrs(), items: { [key]: state } };
+    const session = buildReview(srs, completeLesson(initialProgress(), lesson.id, 10), seededRng(3));
+    expect(session.exercises.find((e) => e.kind === 'type' || e.kind === 'build')?.kind).toBe('type');
+  });
+});

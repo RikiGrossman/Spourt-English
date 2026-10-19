@@ -9,6 +9,7 @@ import { BuildExercise } from './exercises/BuildExercise';
 import { ChoiceExercise } from './exercises/ChoiceExercise';
 import { MatchExercise } from './exercises/MatchExercise';
 import { SpeakExercise } from './exercises/SpeakExercise';
+import { TypeExercise } from './exercises/TypeExercise';
 import { TipCard } from './TipCard';
 
 /** XP and accuracy – what is reported to the server for a lesson. */
@@ -27,7 +28,7 @@ export interface LessonResult extends LessonScore {
 }
 
 /** Called when an exercise is checked, before the learner presses "continue". */
-export type CheckHandler = (correct: boolean, solution: string, missedPairs?: number[]) => void;
+export type CheckHandler = (correct: boolean, solution: string, missedPairs?: number[], note?: string) => void;
 
 interface Props {
   exercises: Exercise[];
@@ -50,6 +51,8 @@ interface Props {
 interface Feedback {
   correct: boolean;
   solution: string;
+  /** Shown with a correct answer, together with the solution (e.g. a spelling slip). */
+  note?: string;
 }
 
 const PRAISE = ['מצוין!', 'כל הכבוד!', 'נהדר!', 'מעולה!', 'יפה מאוד!'];
@@ -71,7 +74,8 @@ export function itemAnswers(exercise: Exercise, correct: boolean, missedPairs: r
     return (exercise.itemKeys ?? []).map((itemKey, i) => ({ itemKey, correct: !missedPairs.includes(i), exType }));
   }
   if (!exercise.itemKey) return [];
-  const errors: ErrorCode[] | undefined = exercise.kind === 'build' ? exercise.errors : undefined;
+  const errors: ErrorCode[] | undefined =
+    exercise.kind === 'build' || exercise.kind === 'type' ? exercise.errors : undefined;
   return [{ itemKey: exercise.itemKey, correct, exType, ...(errors?.length ? { errors } : {}) }];
 }
 
@@ -109,7 +113,7 @@ export function LessonScreen({
   const review = lessonId === null;
 
   const handleCheck = useCallback<CheckHandler>(
-    (correct, solution, missedPairs = []) => {
+    (correct, solution, missedPairs = [], note) => {
       const current = queue[position];
       // Repeats are appended after the original exercises, so a position inside the original
       // list is always a first attempt. Speaking isn't reported (see ExerciseType).
@@ -119,12 +123,13 @@ export function LessonScreen({
         firstTry.current.answered += 1;
         if (firstCorrect) firstTry.current.correct += 1;
         if (current.kind !== 'speak') {
-          const errors = current.kind === 'build' ? current.errors : undefined;
+          const errors = current.kind === 'build' || current.kind === 'type' ? current.errors : undefined;
           const itemKey = current.kind !== 'match' ? current.itemKey : undefined;
           const box = itemKey && boxOf ? boxOf(itemKey) : undefined;
           const props = {
             ...(errors?.length ? { errors: [...errors] } : {}),
             ...(box !== undefined ? { box } : {}),
+            ...(current.kind === 'type' ? { typed: true } : {}),
           };
           track({
             name: 'exercise_answer',
@@ -137,7 +142,7 @@ export function LessonScreen({
           });
         }
       }
-      setFeedback({ correct, solution });
+      setFeedback({ correct, solution, ...(note ? { note } : {}) });
       if (correct) {
         sounds.correct();
         setSolved((n) => n + 1);
@@ -258,6 +263,7 @@ export function LessonScreen({
           {exercise.kind === 'choice' && <ChoiceExercise exercise={exercise} {...props} />}
           {exercise.kind === 'build' && <BuildExercise exercise={exercise} {...props} />}
           {exercise.kind === 'match' && <MatchExercise exercise={exercise} {...props} />}
+          {exercise.kind === 'type' && <TypeExercise exercise={exercise} {...props} />}
           {exercise.kind === 'speak' && <SpeakExercise exercise={exercise} {...props} onSkip={skipSpeaking} />}
         </main>
       )}
@@ -278,6 +284,11 @@ export function LessonScreen({
             {!feedback.correct && (
               <div>
                 התשובה הנכונה: <span dir="auto">{feedback.solution}</span>
+              </div>
+            )}
+            {feedback.correct && feedback.note && (
+              <div>
+                {feedback.note}: <span dir="ltr">{feedback.solution}</span>
               </div>
             )}
           </div>

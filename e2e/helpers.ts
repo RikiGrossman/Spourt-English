@@ -134,7 +134,7 @@ export async function token(page: Page): Promise<string | null> {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null')?.token ?? null, AUTH_KEY);
 }
 
-type Kind = 'choice' | 'build' | 'listen' | 'match' | 'speak';
+type Kind = 'choice' | 'build' | 'listen' | 'match' | 'speak' | 'type';
 
 /** Identifies the exercise on screen and the prompt that identifies it. */
 async function current(page: Page): Promise<{ kind: Kind; prompt: string }> {
@@ -143,6 +143,14 @@ async function current(page: Page): Promise<{ kind: Kind; prompt: string }> {
   if (await page.locator('.match-grid').count()) return { kind: 'match', prompt: 'match' };
   if (await page.locator('.mic-btn').count()) {
     return { kind: 'speak', prompt: `speak:${(await page.locator('.speak-prompt').textContent())!.trim()}` };
+  }
+  if (await page.locator('.type-input').count()) {
+    // Typing: the Hebrew prompt is shown, or (type what you hear) only spoken.
+    const bubble = page.locator('.prompt-bubble');
+    const prompt = (await bubble.count())
+      ? (await bubble.textContent())!.trim()
+      : `listen:${await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken.at(-1) ?? '')}`;
+    return { kind: 'type', prompt };
   }
   if (await page.locator('.prompt-word').count()) {
     return { kind: 'choice', prompt: (await page.locator('.prompt-word').textContent())!.trim() };
@@ -179,6 +187,12 @@ export async function answer(page: Page, l: Lesson, correct = true): Promise<str
   } else if (ex.kind === 'speak') {
     // Needs fakeRecognition(); speaking can't be answered wrong, only retried.
     await page.getByRole('button', { name: 'לחצו ודברו' }).click();
+  } else if (ex.kind === 'type') {
+    const text = ex.prompt.replace(/^listen:/, '');
+    const sentence = l.sentences.find((s) => s.en === text || s.he === text)!;
+    expect(sentence, `sentence for "${text}"`).toBeTruthy();
+    await page.locator('.type-input').fill(correct ? sentence.en : 'zzz');
+    await page.getByRole('button', { name: 'בדיקה' }).click();
   } else if (ex.kind === 'choice') {
     const word = l.words.find((w) => w.he === ex.prompt || w.en === ex.prompt)!;
     const right = word.he === ex.prompt ? word.en : word.he;

@@ -4,6 +4,7 @@
  * from its bank, and words / ids must be unique.
  */
 import { describe, expect, it } from 'vitest';
+import { checkTyped } from '../../lib/typing';
 import { wordId } from '../../../shared/item-keys';
 import { isCorrect, tokenize } from '../../lib/answer';
 import { generateExercises } from '../../lib/exercises';
@@ -89,6 +90,8 @@ describe('content-b units', () => {
             expect(new Set(ex.options).size).toBe(ex.options.length);
           } else if (ex.kind === 'match') {
             expect(ex.pairs.length).toBe(5);
+          } else if (ex.kind === 'type') {
+            expect(checkTyped(ex.answers[0], ex.answers).kind).toBe('correct');
           } else if (ex.kind === 'speak') {
             expect(isSpokenCorrectly([ex.prompt], ex.answers)).toBe(true);
           } else {
