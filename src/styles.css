@@ -1845,3 +1845,12 @@ button:disabled {
 .placement-card p {
   margin: 0;
 }
+
+/* End-of-unit test node */
+.unit-test-node .test-btn {
+  font-size: 1.8rem;
+}
+
+.unit-test-node .test-btn.done {
+  background: var(--gold) !important;
+}

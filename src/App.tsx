@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MAX_DURATION_MS } from '../shared/analytics';
 import type { AuthResponse } from '../shared/api';
 import { REVIEW_XP } from '../shared/srs';
-import { findLesson } from './data/course';
+import { course, findLesson } from './data/course';
 import { AuthScreen, type Mode as AuthMode } from './components/AuthScreen';
 import { LearningPath } from './components/LearningPath';
 import { Leaderboard } from './components/Leaderboard';
@@ -27,6 +27,8 @@ import { syncReminders } from './lib/reminders';
 import { applyPlacement, placementDone, placementQuestions, unitsPassed } from './lib/placement';
 import { QuizScreen } from './components/QuizScreen';
 import { PlacementResult } from './components/PlacementResult';
+import { UnitTestResult } from './components/UnitTestResult';
+import { applyUnitTest, unitTestQuestions, unitTestScore } from './lib/unit-test';
 import { buildReview, type ReviewSource } from './lib/review';
 import {
   dismiss,
@@ -54,6 +56,8 @@ type Screen =
   | { name: Tab }
   | { name: 'placement'; exercises: Exercise[] }
   | { name: 'placement-done'; units: number }
+  | { name: 'unit-test'; unit: Unit; exercises: Exercise[] }
+  | { name: 'unit-test-done'; unit: Unit; right: number; passed: boolean }
   | { name: 'auth'; back: Tab | 'onboarding'; mode?: AuthMode; from: AuthFrom }
   /** `lessonId` is null for a review session. */
   | {
@@ -266,6 +270,38 @@ function Screens() {
     return <PlacementResult units={screen.units} onContinue={() => setScreen({ name: 'path' })} />;
   }
 
+  if (screen.name === 'unit-test') {
+    const { unit } = screen;
+    return (
+      <QuizScreen
+        badge="🏆 מבחן יחידה"
+        exercises={screen.exercises}
+        onQuit={() => setScreen({ name: 'path' })}
+        onFinish={(answers) => {
+          const { right, passed } = unitTestScore(answers);
+          if (passed) {
+            const after = applyUnitTest(progress, unit);
+            update((p) => applyUnitTest(p, unit));
+            void account.sync(after);
+          }
+          setScreen({ name: 'unit-test-done', unit, right, passed });
+        }}
+      />
+    );
+  }
+
+  if (screen.name === 'unit-test-done') {
+    return (
+      <UnitTestResult
+        unit={screen.unit}
+        right={screen.right}
+        passed={screen.passed}
+        onRetry={() => startUnitTest(screen.unit)}
+        onContinue={() => setScreen({ name: 'path' })}
+      />
+    );
+  }
+
   if (screen.name === 'complete') {
     const { signup } = screen;
     return (
@@ -349,6 +385,10 @@ function Screens() {
     setScreen({ name: 'lesson', lessonId: null, exercises: session.exercises, source: session.source });
   }
 
+  function startUnitTest(unit: Unit) {
+    setScreen({ name: 'unit-test', unit, exercises: unitTestQuestions(unit, course.indexOf(unit)) });
+  }
+
   const goAuth = () => setScreen({ name: 'auth', back: screen.name, from: 'profile' });
 
   return (
@@ -363,6 +403,7 @@ function Screens() {
             onReview={startReview}
             onIntro={showIntro}
             onPlacement={() => setScreen({ name: 'placement', exercises: placementQuestions() })}
+            onUnitTest={startUnitTest}
           />
         )}
         {screen.name === 'league' && <Leaderboard user={account.user} onSignIn={goAuth} />}

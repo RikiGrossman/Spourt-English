@@ -5,6 +5,7 @@ import { dailyGoalOf } from '../lib/goals';
 import { canPractice } from '../lib/practice';
 import { currentLessonId, isCatchUp, isUnlocked, type Progress } from '../lib/progress';
 import type { Unit } from '../types';
+import { unitTestOpen, unitTestPassed } from '../lib/unit-test';
 import { ReviewCard } from './ReviewCard';
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   onIntro: (unit: Unit) => void;
   /** Starts the placement test (offered until the learner gets past unit 1). */
   onPlacement?: () => void;
+  /** Starts the end-of-unit test (open once every lesson of the unit is done). */
+  onUnitTest?: (unit: Unit) => void;
 }
 
 export interface ReviewButtonState {
@@ -40,7 +43,7 @@ export function offerPlacement(progress: Progress): boolean {
   return !course.slice(1).some((unit) => unit.lessons.some((l) => (progress.completed[l.id] ?? 0) > 0));
 }
 
-export function LearningPath({ progress, due, onStart, onReview, onIntro, onPlacement }: Props) {
+export function LearningPath({ progress, due, onStart, onReview, onIntro, onPlacement, onUnitTest }: Props) {
   const current = currentLessonId(progress);
   const goal = dailyGoalOf(progress);
   const goalPercent = Math.min(100, (progress.xpToday / goal) * 100);
@@ -100,7 +103,15 @@ export function LearningPath({ progress, due, onStart, onReview, onIntro, onPlac
         <section key={unit.id} className="unit">
           <div className="unit-banner" style={{ background: unit.color }}>
             <div className="unit-banner-text">
-              <h2>{unit.title}</h2>
+              <h2>
+                {unit.title}
+                {unitTestPassed(progress, unit) && (
+                  <span className="unit-crown" title="עברת את מבחן היחידה">
+                    {' '}
+                    👑
+                  </span>
+                )}
+              </h2>
               <p>{unit.description}</p>
             </div>
             <div className="unit-banner-side">
@@ -156,9 +167,43 @@ export function LearningPath({ progress, due, onStart, onReview, onIntro, onPlac
                 </div>
               );
             })}
+            {onUnitTest && unit.lessons.length > 0 && (
+              <UnitTestNode
+                passed={unitTestPassed(progress, unit)}
+                open={unitTestOpen(progress, unit)}
+                color={unit.color}
+                onStart={() => onUnitTest(unit)}
+              />
+            )}
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+interface UnitTestNodeProps {
+  passed: boolean;
+  open: boolean;
+  color: string;
+  onStart: () => void;
+}
+
+/** The end-of-unit test at the bottom of each unit: locked, open (🏆) or passed (👑, retakable). */
+function UnitTestNode({ passed, open, color, onStart }: UnitTestNodeProps) {
+  return (
+    <div className="lesson-node unit-test-node">
+      <button
+        type="button"
+        className={`node-btn test-btn${passed ? ' done' : ''}`}
+        style={open ? { background: color } : undefined}
+        disabled={!open}
+        onClick={onStart}
+        aria-label={`מבחן יחידה${passed ? ' (עברת)' : open ? '' : ' (נעול – סיימו את כל השיעורים)'}`}
+      >
+        {passed ? '👑' : open ? '🏆' : '🔒'}
+      </button>
+      <span className="node-title">מבחן יחידה</span>
     </div>
   );
 }
