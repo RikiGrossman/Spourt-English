@@ -40,6 +40,9 @@
 | 404 | `lesson_not_found` | `lessonId` שאינו בקורס |
 | 409 | `email_taken` | הרשמה עם אימייל שכבר קיים (ללא תלות ברישיות) |
 | 429 | `rate_limited` | יותר מ־20 ניסיונות הרשמה/התחברות ב־15 דקות מאותה כתובת IP |
+| 400 | `invalid_call` | גוף `POST /api/call/turn` לא תקין (דמות לא מוכרת, הודעה ריקה או ארוכה מ־400 תווים) |
+| 502 | `call_failed` | שיחת וידאו: תקלה או timeout מול שירות ה־AI |
+| 503 | `call_unavailable` | שיחת וידאו: `ANTHROPIC_API_KEY` לא מוגדר בשרת |
 | 500 | `server_error` | תקלה פנימית |
 
 ---
@@ -262,6 +265,30 @@ Content-Type: application/json
 - עד 50 אירועים בבקשה (השאר נזרקים).
 - אירוע עם שם לא מוכר, `anonId` שאינו UUID, תאריך/שעה לא תקינים, `props` מעל 1KB או שדה מחוץ למגבלות העמודות – נזרק. אם לא נשאר אף אירוע תקין: `400 invalid_events`.
 - הגבלת קצב: 60 בקשות לדקה לכל IP (`429 rate_limited`).
+
+### `POST /api/call/turn` (שיחת וידאו עם AI)
+תור אחד בשיחת "וידאו" באנגלית עם דמות AI (`shared/call.ts`). **אימות אופציונלי.** הלומד אמר משהו – השרת מחזיר את תשובת הדמות. השרת לא שומר ולא מתעד את תוכן השיחה.
+
+```http
+POST /api/call/turn
+Content-Type: application/json
+
+{ "persona": "teacher",
+  "history": [ { "role": "assistant", "text": "Hi! I'm Emma, your English teacher. How are you today?" } ],
+  "message": "I goed to school today" }
+```
+```json
+200 { "reply": "Oh, you went to school! What did you learn?", "replyHe": "הו, הלכת לבית הספר! מה למדת?",
+      "corrections": [ { "original": "I goed", "corrected": "I went", "explanationHe": "went הוא העבר של go" } ] }
+```
+- `persona`: `teacher` | `friend` | `barista` | `interviewer`. רק `teacher` מחזיר `corrections`; אצל השאר זה תמיד `[]`.
+- `history`: השיחה עד עכשיו (כולל הברכה הראשונה), מהישן לחדש, **בלי** `message`. השרת שומר רק את 20 השורות האחרונות.
+- `message`: עד 400 תווים.
+- הודעה עם פרטים אישיים, תוכן לא הולם או מצוקה – המודל לא נקרא, ומוחזרת תשובה בטוחה עם `flagged` (`personal_info` | `inappropriate` | `self_harm`). גם תשובת מודל לא הולמת מוחלפת בתשובה בטוחה.
+- אחרי 40 תורות של הלומד ב־`history` מוחזרת פרידה עם `"ended": true`, בלי קריאה למודל.
+- המודל: Claude דרך ה־Messages API (`ANTHROPIC_API_KEY`, ובאופן אופציונלי `CALL_MODEL`, ברירת מחדל `claude-haiku-5-5`). timeout של 20 שניות.
+- שגיאות: `400 invalid_call`, `429 rate_limited` (יותר מ־30 בקשות לדקה לכל IP), `502 call_failed`, `503 call_unavailable`.
+- באתר ב־GitHub Pages ובאפליקציה (בלי שרת Express) אותה לוגיקה רצה כ־Supabase Edge Function בשם `call-turn` – ראו [supabase.md](supabase.md).
 
 ---
 

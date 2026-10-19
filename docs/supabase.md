@@ -64,6 +64,27 @@
 DATABASE_URL=postgres://postgres@localhost:5432/scratch npm run test:supabase
 ```
 
+## שיחות וידאו עם AI (Edge Function)
+
+באתר ובאפליקציה אין שרת Express, לכן שיחות הווידאו עם דמות ה־AI רצות דרך Supabase Edge Function בשם `call-turn` ([`supabase/functions/call-turn/index.ts`](../supabase/functions/call-turn/index.ts)). היא מממשת בדיוק את `POST /api/call/turn` (ראו [api.md](api.md)) עם אותם קבצים משותפים מ־`shared/`. מפתח ה־API נשמר כסוד ב־Supabase ולא מגיע לדפדפן.
+
+פריסה (פעם אחת, ושוב אחרי כל שינוי ב־`shared/call*.ts` או בפונקציה), מתיקיית השורש של ה־repo עם [Supabase CLI](https://supabase.com/docs/guides/cli):
+
+```bash
+supabase login
+supabase link --project-ref <project-ref>
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# אופציונלי: supabase secrets set CALL_MODEL=claude-haiku-5-5
+supabase functions deploy call-turn
+```
+
+- הפונקציה מייבאת את `shared/call.ts`, `shared/call-prompts.ts` ו־`shared/call-safety.ts` בנתיב יחסי. הקבצים המשותפים מייבאים `'./call'` בלי סיומת `.ts`, ו־Deno דורש סיומת, לכן [`deno.json`](../supabase/functions/call-turn/deno.json) שליד הפונקציה ממפה את הנתיב הזה ל־`shared/call.ts`. חשוב להריץ את ה־deploy מתוך ה־repo המלא (לא להעתיק רק את תיקיית `supabase/`).
+- CORS מותר רק מהאתר (`https://rikigrossman.github.io`), מהאפליקציה (`https://localhost`) ומ־localhost בפיתוח.
+- הלקוח קורא לפונקציה עם ה־anon key (`supabase.functions.invoke('call-turn', …)`), כך שאימות JWT של Supabase נשאר פעיל. משתמש מחובר לא נדרש. אם הפרויקט משתמש במפתח publishable (`sb_publishable_…`, שאינו JWT), פורסים עם `supabase functions deploy call-turn --no-verify-jwt` – ממילא ה־anon key ציבורי, וההגנה היא ה־CORS והגבלת הקצב.
+- הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה (הגנה בסיסית; מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console).
+- בלי הסוד `ANTHROPIC_API_KEY` הפונקציה מחזירה `503 call_unavailable` והאפליקציה מציגה "שיחות הווידאו לא זמינות כרגע".
+- בדיקה מקומית: `supabase functions serve call-turn --env-file .env`.
+
 ## פיתוח מקומי מול Supabase
 
 ```bash

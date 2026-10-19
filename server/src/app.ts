@@ -6,6 +6,7 @@ import type { Db } from './db';
 import { HttpError, errorHandler } from './errors';
 import { createRepo } from './repo';
 import { authRouter } from './routes/auth';
+import { callRouter, type CallModelOptions } from './routes/call';
 import { eventsRouter } from './routes/events';
 import { healthRouter } from './routes/health';
 import { leaderboardRouter } from './routes/leaderboard';
@@ -19,6 +20,10 @@ export interface AppOptions {
   authRateLimit?: { max: number; windowMs: number };
   /** Requests per window on POST /api/events, per IP (default 60 per minute). */
   eventsRateLimit?: { max: number; windowMs: number };
+  /** Requests per window on POST /api/call/turn, per IP (default 30 per minute). */
+  callRateLimit?: { max: number; windowMs: number };
+  /** Anthropic API settings for the AI video call (defaults: ANTHROPIC_API_KEY, CALL_MODEL env). */
+  anthropic?: CallModelOptions;
   /** Directory of the built web app to serve; defaults to ../dist in production. */
   staticDir?: string | false;
   /** Allow cross-origin requests from localhost (dev only by default). */
@@ -57,6 +62,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
   const optionalAuth = authenticate(secret, userExists, false);
   const limiter = rateLimit(options.authRateLimit ?? { max: 20, windowMs: 15 * 60 * 1000 });
   const eventsLimiter = rateLimit(options.eventsRateLimit ?? { max: 60, windowMs: 60 * 1000 });
+  const callLimiter = rateLimit(options.callRateLimit ?? { max: 30, windowMs: 60 * 1000 });
 
   const app = express();
   app.disable('x-powered-by');
@@ -76,6 +82,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
   api.use(leaderboardRouter(repo, optionalAuth));
   api.use(srsRouter(repo, requireAuth));
   api.use(eventsRouter(repo, optionalAuth, eventsLimiter));
+  api.use(callRouter(options.anthropic ?? {}, optionalAuth, callLimiter));
   api.use((_req, _res, next) => next(new HttpError(404, 'not_found', 'הנתיב המבוקש לא נמצא')));
   app.use('/api', api);
 
