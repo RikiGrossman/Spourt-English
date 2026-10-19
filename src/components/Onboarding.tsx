@@ -18,7 +18,7 @@ export function Onboarding({ onDone, onSignIn }: Props) {
       <div className="onboarding">
         <img className="mascot pop" src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />
         <h1>
-          ברוכים הבאים ל<bdi>אנגלית בקטנה</bdi>!
+          ברוכים הבאים ל־<bdi dir="ltr">Baktana English</bdi>!
         </h1>
         <p className="lead">לומדים אנגלית בכמה דקות ביום – בחינם, בכיף ובעברית.</p>
         <ul className="features">

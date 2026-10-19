@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">אנגלית בקטנה</string>
-    <string name="title_activity_main">אנגלית בקטנה</string>
+    <string name="app_name">Baktana English</string>
+    <string name="title_activity_main">Baktana English</string>
     <string name="package_name">com.spourt.english</string>
     <string name="custom_url_scheme">com.spourt.english</string>
 </resources>

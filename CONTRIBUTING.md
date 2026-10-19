@@ -1,4 +1,4 @@
-# Contributing to אנגלית בקטנה (Spourt English)
+# Contributing to Baktana English (formerly Spourt English)
 
 ## Setup
 
