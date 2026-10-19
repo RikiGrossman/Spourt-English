@@ -216,7 +216,10 @@ export function Profile(props: Props) {
         type="button"
         className="btn ghost"
         onClick={() => {
-          if (confirm('לאפס את כל ההתקדמות במכשיר הזה?')) props.onReset();
+          const question = user
+            ? 'לאפס את כל ההתקדמות – גם בחשבון ובכל המכשירים? אי אפשר לבטל.'
+            : 'לאפס את כל ההתקדמות במכשיר הזה?';
+          if (confirm(question)) props.onReset();
         }}
       >
         איפוס התקדמות

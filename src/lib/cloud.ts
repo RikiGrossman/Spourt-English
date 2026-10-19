@@ -244,6 +244,14 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       return { items: rowsToItems(data as SrsRow[] | null) };
     },
 
+    /** Forgets the whole review state (progress reset); RLS lets learners delete their own rows. */
+    async deleteSrs(): Promise<void> {
+      const client = await getClient();
+      const id = await userId(client);
+      const { error } = await client.from('srs_state').delete().eq('user_id', id);
+      if (error) throw cloudError(error);
+    },
+
     async leaderboard(): Promise<LeaderboardResponse> {
       const client = await getClient();
       const { data, error } = await client.rpc('weekly_leaderboard');

@@ -17,6 +17,19 @@ export interface Progress {
   heartsUpdatedAt: number;
   /** Daily XP goal chosen in onboarding. Missing in older saves – fall back to DAILY_GOAL_XP. */
   dailyGoal?: number;
+  /**
+   * When the signed-in learner last reset their progress (ms). A newer reset wins every merge
+   * outright, so another device's older copy can't bring the old progress back.
+   */
+  resetAt?: number;
+}
+
+/**
+ * A signed-in learner's reset: fresh progress stamped with `resetAt`, keeping the daily goal.
+ * Merges let the newest reset win, so older copies elsewhere don't bring the progress back.
+ */
+export function resetProgress(p: Progress, now = Date.now()): Progress {
+  return { ...initialProgress(now), ...(p.dailyGoal ? { dailyGoal: p.dailyGoal } : {}), resetAt: now };
 }
 
 export function initialProgress(now = Date.now()): Progress {

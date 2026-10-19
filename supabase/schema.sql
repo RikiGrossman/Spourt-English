@@ -92,10 +92,17 @@ grant execute on function public.weekly_leaderboard() to anon, authenticated;
 -- v2 additions (docs/spec/v2.md §6.6). Idempotent like everything above.
 -- ============================================================================================
 
--- (1) Keeps lesson ids that newer clients wrote when an older client saves progress without them.
+-- (1) Keeps lesson ids that newer clients wrote when an older client saves progress without them –
+-- except when the save is a progress reset (a newer `resetAt`), which must clear them.
 create or replace function public.keep_completed_lessons()
 returns trigger language plpgsql set search_path = '' as $$
+declare
+  new_reset numeric := case when jsonb_typeof(new.data -> 'resetAt') = 'number' then (new.data ->> 'resetAt')::numeric else 0 end;
+  old_reset numeric := case when jsonb_typeof(old.data -> 'resetAt') = 'number' then (old.data ->> 'resetAt')::numeric else 0 end;
 begin
+  if new_reset > old_reset then
+    return new;
+  end if;
   if jsonb_typeof(old.data -> 'completed') = 'object' then
     new.data := jsonb_set(new.data, '{completed}',
       (old.data -> 'completed') || coalesce(new.data -> 'completed', '{}'::jsonb));

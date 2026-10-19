@@ -68,6 +68,7 @@ export function createRepo(db: Db) {
        LIMIT ?`,
     ),
     getSrs: db.prepare('SELECT item_key, box, due, seen, wrong, last FROM srs_state WHERE user_id = ?'),
+    deleteSrs: db.prepare('DELETE FROM srs_state WHERE user_id = ?'),
     upsertSrs: db.prepare(
       `INSERT INTO srs_state (user_id, item_key, box, due, seen, wrong, last) VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id, item_key) DO UPDATE SET
@@ -156,6 +157,10 @@ export function createRepo(db: Db) {
       return items;
     },
     /** Writes changed spaced-repetition items in one transaction. */
+    /** Forgets the learner's whole review state (progress reset). */
+    deleteSrs(userId: string): void {
+      q.deleteSrs.run(userId);
+    },
     saveSrs(userId: string, changed: ItemStates): void {
       transaction(() => {
         for (const [key, s] of Object.entries(changed)) {
