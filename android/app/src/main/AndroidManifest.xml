@@ -47,4 +47,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Speaking exercises: the learner reads sentences out loud (SpeechRecognizerPlugin). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- AI video call: the optional self-view tile (getUserMedia, stays on the device). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

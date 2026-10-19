@@ -5,7 +5,7 @@ name: Supabase
 
 on:
   push:
-    branches: [main, ccr-37fc634b-8x1foh]
+    branches: [main]
     paths:
       - 'supabase/**'
       - 'shared/call*.ts'

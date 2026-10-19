@@ -40,7 +40,7 @@ const securityHeaders: RequestHandler = (_req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(self), geolocation=()');
   next();
 };
 
