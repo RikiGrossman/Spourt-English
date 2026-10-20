@@ -25,6 +25,11 @@ interface Props {
   onDeleteAccount: (password: string) => Promise<void>;
   onSync: () => void;
   onReset: () => void;
+  /** The avatar bought with gems, if one was chosen. */
+  avatar?: string | null;
+  gems?: number;
+  /** Opens the gem shop. */
+  onShop?: () => void;
 }
 
 const SYNC_TEXT: Record<SyncStatus, string> = {
@@ -50,8 +55,8 @@ export function Profile(props: Props) {
   return (
     <div className="profile">
       <section className="account-card">
-        <div className="avatar" aria-hidden="true">
-          {user ? user.displayName.trim().charAt(0).toUpperCase() || '🙂' : '🙂'}
+        <div className={`avatar${props.avatar ? ' bought' : ''}`} aria-hidden="true">
+          {props.avatar ?? (user ? user.displayName.trim().charAt(0).toUpperCase() || '🙂' : '🙂')}
         </div>
         <div className="account-info">
           <h2 dir="auto">{user ? user.displayName : 'אורח/ת'}</h2>
@@ -101,6 +106,12 @@ export function Profile(props: Props) {
           <span className="label">סה״כ XP</span>
           <span className="value">⭐ {progress.xp}</span>
         </div>
+        {props.gems !== undefined && (
+          <button type="button" className="stat-card gems" onClick={props.onShop} aria-label="יהלומים – לחנות">
+            <span className="label">יהלומים</span>
+            <span className="value">💎 {props.gems}</span>
+          </button>
+        )}
         <div className="stat-card accuracy">
           <span className="label">שיעורים</span>
           <span className="value">

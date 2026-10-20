@@ -27,13 +27,26 @@ import { canListen } from './lib/listen';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-seen';
 import { completePractice } from './lib/practice';
+import {
+  applyStreakFreeze,
+  avatarEmoji,
+  buy,
+  chooseAvatar,
+  openChest,
+  rewardActivity,
+  rewardUnitTest,
+  useGems,
+  type Reward,
+} from './lib/gems';
+import { DailyRewards } from './components/DailyRewards';
+import { Shop } from './components/Shop';
 import { completeLesson, dateKey, isCatchUp, loseHeart, resetProgress, visibleStreak } from './lib/progress';
 import { syncReminders } from './lib/reminders';
 import { applyPlacement, placementDone, placementQuestions, unitsPassed } from './lib/placement';
 import { QuizScreen } from './components/QuizScreen';
 import { PlacementResult } from './components/PlacementResult';
 import { UnitTestResult } from './components/UnitTestResult';
-import { applyUnitTest, unitTestQuestions, unitTestScore } from './lib/unit-test';
+import { applyUnitTest, unitTestPassed, unitTestQuestions, unitTestScore } from './lib/unit-test';
 import { buildReview, type ReviewSource } from './lib/review';
 import {
   dismiss,
@@ -45,14 +58,14 @@ import {
   signupRound,
   type SignupRound,
 } from './lib/signup-prompt';
-import { setSoundEnabled } from './lib/sound';
+import { setSoundEnabled, sounds } from './lib/sound';
 import { useSettings } from './lib/settings';
 import { useSrs } from './lib/srs';
 import { useProgress } from './lib/store';
 import { useAppUpdate } from './lib/update';
 import type { Exercise, Unit } from './types';
 
-type Tab = 'path' | 'league' | 'call' | 'profile';
+type Tab = 'path' | 'shop' | 'league' | 'call' | 'profile';
 
 /** Where a sign-up started, reported with `signup_complete`. */
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
@@ -62,7 +75,7 @@ type Screen =
   | { name: 'placement'; exercises: Exercise[] }
   | { name: 'placement-done'; units: number }
   | { name: 'unit-test'; unit: Unit; exercises: Exercise[] }
-  | { name: 'unit-test-done'; unit: Unit; right: number; passed: boolean }
+  | { name: 'unit-test-done'; unit: Unit; right: number; passed: boolean; rewards: Reward[] }
   | { name: 'auth'; back: Tab | 'onboarding'; mode?: AuthMode; from: AuthFrom }
   /** `lessonId` is null for a review session. */
   | {
@@ -78,6 +91,7 @@ type Screen =
       result: LessonResult;
       goalReached: boolean;
       kind: 'lesson' | 'review' | 'practice';
+      rewards: Reward[];
       signup: { round: SignupRound; lessonsCompleted: number } | null;
     }
   /** An AI video call in progress, and its summary after hanging up. */
@@ -93,6 +107,7 @@ interface IntroState {
 
 const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
   { name: 'path', icon: '🏠', label: 'לימוד' },
+  { name: 'shop', icon: '💎', label: 'חנות' },
   { name: 'league', icon: '🏆', label: 'ליגה' },
   { name: 'call', icon: '📞', label: 'שיחה' },
   { name: 'profile', icon: '👤', label: 'פרופיל' },
@@ -121,6 +136,9 @@ function Screens() {
   const { settings, change: changeSettings } = useSettings();
   const account = useAccount(progress, update);
   const srs = useSrs(progress, account.user !== null);
+  const { gems, update: updateGems, reset: resetGems } = useGems();
+  /** Days a streak freeze covered since the app opened (shown once on the path). */
+  const [frozeDays, setFrozeDays] = useState(0);
   const [screen, setScreen] = useState<Screen>({ name: 'path' });
   const [intro, setIntro] = useState<IntroState | null>(null);
   /** Premium and today's call count, as last heard from the server (the call tab refreshes it). */
@@ -149,7 +167,25 @@ function Screens() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onMistake = useCallback(() => update((p) => loseHeart(p)), [update]);
+  // A missed day is covered by a streak freeze bought with gems, so the streak survives.
+  const today = dateKey(Date.now());
+  useEffect(() => {
+    const frozen = applyStreakFreeze(progress, gems.freezes);
+    if (!frozen) return;
+    update(() => frozen.progress);
+    updateGems((s) => ({ ...s, freezes: Math.max(0, s.freezes - frozen.used) }));
+    setFrozeDays((n) => n + frozen.used);
+    void account.sync(frozen.progress);
+    // Only a change of the last active day (or of the date) can call for a freeze.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress.lastActiveDate, gems.freezes, today]);
+
+  // Bonus hearts (from the gem shop) are spent before the regular ones.
+  const bonusHearts = gems.bonusHearts;
+  const onMistake = useCallback(() => {
+    if (bonusHearts > 0) updateGems((s) => ({ ...s, bonusHearts: Math.max(0, s.bonusHearts - 1) }));
+    else update((p) => loseHeart(p));
+  }, [update, updateGems, bonusHearts]);
   const noop = useCallback(() => {}, []);
   const closeIntro = useCallback(() => setIntro(null), []);
   const onCallsToday = useCallback((callsToday: number) => setCallStatus((s) => (s ? { ...s, callsToday } : s)), []);
@@ -201,7 +237,7 @@ function Screens() {
       <LessonScreen
         exercises={exercises}
         lessonId={lessonId}
-        hearts={review ? null : progress.hearts}
+        hearts={review ? null : progress.hearts + gems.bonusHearts}
         onMistake={review ? noop : onMistake}
         onQuit={() => setScreen({ name: 'path' })}
         tip={screen.tip}
@@ -216,6 +252,10 @@ function Screens() {
             // Review XP only reaches the server through a sync; send the updated progress itself.
             void account.sync(after);
             srs.record(result.answers, 'review');
+            const kind = source === 'practice' ? 'practice' : 'review';
+            const goalReached = reachesGoal(progress, after);
+            const earned = rewardActivity(gems, { kind, flawless: raw.mistakes === 0, goalReached });
+            updateGems(() => earned.state);
             track({
               name: 'review_complete',
               durationMs,
@@ -224,8 +264,9 @@ function Screens() {
             setScreen({
               name: 'complete',
               result,
-              goalReached: reachesGoal(progress, after),
-              kind: source === 'practice' ? 'practice' : 'review',
+              goalReached,
+              kind,
+              rewards: earned.rewards,
               signup: null,
             });
             return;
@@ -234,6 +275,9 @@ function Screens() {
           update((p) => completeLesson(p, lessonId, raw.xp));
           account.reportLesson(lessonId, { xp: raw.xp, accuracy: raw.accuracy });
           srs.record(raw.answers, 'lesson');
+          const goalReached = reachesGoal(progress, after);
+          const earned = rewardActivity(gems, { kind: 'lesson', flawless: raw.mistakes === 0, goalReached });
+          updateGems(() => earned.state);
           track({
             name: 'lesson_complete',
             lessonId,
@@ -255,8 +299,9 @@ function Screens() {
           setScreen({
             name: 'complete',
             result: raw,
-            goalReached: reachesGoal(progress, after),
+            goalReached,
             kind: 'lesson',
+            rewards: earned.rewards,
             signup: round ? { round, lessonsCompleted: done } : null,
           });
         }}
@@ -298,12 +343,18 @@ function Screens() {
         onQuit={() => setScreen({ name: 'path' })}
         onFinish={(answers) => {
           const { right, passed } = unitTestScore(answers);
+          let rewards: Reward[] = [];
+          if (passed && !unitTestPassed(progress, unit)) {
+            const earned = rewardUnitTest(gems);
+            updateGems(() => earned.state);
+            rewards = earned.rewards;
+          }
           if (passed) {
             const after = applyUnitTest(progress, unit);
             update((p) => applyUnitTest(p, unit));
             void account.sync(after);
           }
-          setScreen({ name: 'unit-test-done', unit, right, passed });
+          setScreen({ name: 'unit-test-done', unit, right, passed, rewards });
         }}
       />
     );
@@ -315,6 +366,7 @@ function Screens() {
         unit={screen.unit}
         right={screen.right}
         passed={screen.passed}
+        rewards={screen.rewards}
         onRetry={() => startUnitTest(screen.unit)}
         onContinue={() => setScreen({ name: 'path' })}
       />
@@ -329,6 +381,7 @@ function Screens() {
         streak={streak}
         goalReached={screen.goalReached}
         kind={screen.kind}
+        rewards={screen.rewards}
         onContinue={() => setScreen({ name: 'path' })}
         signupPrompt={
           signup && (
@@ -438,11 +491,48 @@ function Screens() {
   }
 
   const goAuth = () => setScreen({ name: 'auth', back: screen.name, from: 'profile' });
+  const goShop = () => {
+    setIntro(null);
+    setScreen({ name: 'shop' });
+  };
+
+  function spend(next: typeof gems | null) {
+    if (!next) return;
+    sounds.gem();
+    updateGems(() => next);
+  }
 
   return (
     <div className="app">
-      <TopBar streak={streak} xp={progress.xp} hearts={progress.hearts} />
+      <TopBar
+        streak={streak}
+        xp={progress.xp}
+        hearts={progress.hearts + gems.bonusHearts}
+        gems={gems.gems}
+        onGems={goShop}
+      />
       <main className="content" key={screen.name}>
+        {screen.name === 'path' && frozeDays > 0 && (
+          <p className="freeze-banner pop" role="status">
+            🧊 הקפאת רצף שמרה על הרצף שלכם ({frozeDays === 1 ? 'יום אחד' : `${frozeDays} ימים`}). עכשיו תורכם!
+          </p>
+        )}
+        {screen.name === 'path' && (
+          <DailyRewards
+            gems={gems}
+            today={today}
+            onOpenChest={() => {
+              const opened = openChest(gems);
+              if (!opened) return null;
+              sounds.gem();
+              updateGems(() => opened.state);
+              return opened.amount;
+            }}
+          />
+        )}
+        {screen.name === 'shop' && (
+          <Shop gems={gems} onBuy={(id) => spend(buy(gems, id))} onAvatar={(id) => spend(chooseAvatar(gems, id))} />
+        )}
         {screen.name === 'path' && (
           <LearningPath
             progress={progress}
@@ -477,8 +567,12 @@ function Screens() {
             onSignOut={account.signOut}
             onDeleteAccount={account.deleteAccount}
             onSync={() => void account.sync()}
+            avatar={avatarEmoji(gems)}
+            gems={gems.gems}
+            onShop={goShop}
             onReset={() => {
               srs.reset();
+              resetGems();
               if (account.user) {
                 // Signed in: the reset is marked with its time so it wins over every older copy –
                 // on the server and on the learner's other devices.

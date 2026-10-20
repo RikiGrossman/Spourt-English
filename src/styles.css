@@ -2725,3 +2725,313 @@ button:disabled {
   background: var(--select-bg);
   color: var(--select-text);
 }
+
+/* ---------- Gems 💎: daily chest, quests, shop ---------- */
+
+:root {
+  --gem: #1cb0f6;
+  --gem-dark: #1899d6;
+  --gem-soft: #ddf4ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --gem-dark: #49c0f8;
+    --gem-soft: #1b3a4b;
+  }
+}
+
+:root[data-theme='dark'] {
+  --gem-dark: #49c0f8;
+  --gem-soft: #1b3a4b;
+}
+
+.gem-stat {
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 700;
+  color: var(--gem-dark);
+}
+
+.freeze-banner {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--gem-soft);
+  color: var(--gem-dark);
+  font-weight: 700;
+}
+
+.daily-rewards {
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  animation: rise 0.4s ease both;
+}
+
+.chest-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chest-btn {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border: none;
+  border-radius: 16px;
+  background: var(--soft);
+  font-size: 2rem;
+}
+
+.chest-btn.ready {
+  background: var(--gold);
+  box-shadow: 0 4px 0 var(--gold-dark);
+  animation: chest-wiggle 1.6s ease-in-out infinite;
+}
+
+.chest-btn.opened {
+  animation: pop 0.45s cubic-bezier(0.3, 1.6, 0.6, 1) both;
+}
+
+.chest-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gem-amount {
+  color: var(--gem-dark);
+}
+
+.quests-title {
+  margin: 14px 0 8px;
+  font-size: 1rem;
+}
+
+.quests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quests li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quests li.done .quest-head span:first-child {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.quest-icon {
+  font-size: 1.4rem;
+}
+
+.quest-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.quest-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.quest-gems {
+  color: var(--gem-dark);
+  white-space: nowrap;
+}
+
+.progress-fill.gem {
+  background: var(--gem);
+}
+
+.stat-card.gems {
+  border-color: var(--gem);
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.stat-card.gems .label {
+  background: var(--gem);
+}
+
+.reward-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reward-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--soft);
+  font-weight: 700;
+}
+
+.reward-label {
+  flex: 1;
+  text-align: start;
+}
+
+.reward-gems {
+  color: var(--gem-dark);
+  white-space: nowrap;
+}
+
+.shop h2 {
+  margin: 24px 0 12px;
+}
+
+.gem-balance {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--gem-soft);
+  color: var(--gem-dark);
+}
+
+.gem-balance > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.gem-big {
+  font-size: 2.6rem;
+  animation: bob 2s ease-in-out infinite;
+}
+
+.gem-count {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.shop-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.shop-icon {
+  font-size: 2rem;
+}
+
+.shop-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+
+.buy-btn {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.avatar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 6px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 3px 0 var(--border);
+}
+
+.avatar-item:disabled {
+  opacity: 0.45;
+}
+
+.avatar-item.owned {
+  border-color: var(--gem);
+}
+
+.avatar-item.selected {
+  background: var(--gem-soft);
+  border-color: var(--gem-dark);
+}
+
+.avatar-emoji {
+  font-size: 2.2rem;
+}
+
+.avatar-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.avatar-price {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gem-dark);
+}
+
+.avatar.bought {
+  font-size: 2.6rem;
+  border-style: solid;
+  border-color: var(--gem);
+}
+
+@keyframes chest-wiggle {
+  0%,
+  60%,
+  100% {
+    transform: none;
+  }
+  70% {
+    transform: rotate(-8deg) scale(1.05);
+  }
+  80% {
+    transform: rotate(8deg) scale(1.05);
+  }
+  90% {
+    transform: rotate(-4deg);
+  }
+}

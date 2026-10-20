@@ -209,7 +209,10 @@ export function LessonScreen({
       <div className="lesson out-of-hearts">
         <div className="big-emoji pop">💔</div>
         <h2>נגמרו הלבבות</h2>
-        <p>לב חדש מתמלא כל 30 דקות. בינתיים אפשר לעשות חזרה על מה שלמדתם – בחזרה אין הורדת לבבות.</p>
+        <p>
+          לב חדש מתמלא כל 30 דקות. בינתיים אפשר לעשות חזרה על מה שלמדתם – בחזרה אין הורדת לבבות. ובחנות 💎 אפשר לקנות
+          לבבות בונוס.
+        </p>
         <button type="button" className="btn primary" onClick={onQuit} autoFocus>
           חזרה למסלול
         </button>
@@ -249,7 +252,7 @@ export function LessonScreen({
         ) : (
           <span
             className={`hearts${feedback && !feedback.correct ? ' hit' : ''}`}
-            aria-label={`${hearts} לבבות מתוך ${MAX_HEARTS}`}
+            aria-label={hearts > MAX_HEARTS ? `${hearts} לבבות` : `${hearts} לבבות מתוך ${MAX_HEARTS}`}
           >
             ❤️ {hearts}
           </span>
