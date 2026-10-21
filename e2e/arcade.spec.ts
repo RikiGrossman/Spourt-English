@@ -33,6 +33,16 @@ async function openArcade(page: Page, completed: Record<string, number>, gems: n
   await expect(page.locator('.arcade')).toBeVisible();
 }
 
+test('the arcade has its own tab, also on a narrow phone', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await recordSpeech(page);
+  await seedProgress(page, { completed: { [course[0].lessons[0].id]: 1 } });
+  await page.goto('/');
+  await page.locator('.bottom-nav').getByRole('button', { name: 'משחקים' }).click();
+  await expect(page.locator('.arcade')).toBeVisible();
+  await shot(page, '9-nav');
+});
+
 test('the word rush is locked until unit 1 is done', async ({ page }) => {
   await openArcade(page, { [course[0].lessons[0].id]: 1 }, 20);
   const rush = page.locator('.game-card[data-game="rush"]');

@@ -71,16 +71,13 @@ import { useProgress } from './lib/store';
 import { useAppUpdate } from './lib/update';
 import type { Exercise, Unit } from './types';
 
-type Tab = 'path' | 'shop' | 'league' | 'call' | 'profile';
-
-/** The arcade is opened from the path, so it isn't a tab. */
-type Page = Tab | 'arcade';
+type Tab = 'path' | 'arcade' | 'shop' | 'league' | 'call' | 'profile';
 
 /** Where a sign-up started, reported with `signup_complete`. */
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
 
 type Screen =
-  | { name: Page }
+  | { name: Tab }
   /** An arcade game; `round` remounts it for "another round". */
   | { name: 'game'; game: GameId; round: number }
   | { name: 'game-done'; game: GameId; score: number; record: boolean; rewards: Reward[] }
@@ -119,6 +116,7 @@ interface IntroState {
 
 const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
   { name: 'path', icon: '🏠', label: 'לימוד' },
+  { name: 'arcade', icon: '🎮', label: 'משחקים' },
   { name: 'shop', icon: '💎', label: 'חנות' },
   { name: 'league', icon: '🏆', label: 'ליגה' },
   { name: 'call', icon: '📞', label: 'שיחה' },
@@ -547,8 +545,7 @@ function Screens() {
     setScreen({ name: 'unit-test', unit, exercises: unitTestQuestions(unit, course.indexOf(unit)) });
   }
 
-  const goAuth = () =>
-    setScreen({ name: 'auth', back: screen.name === 'arcade' ? 'path' : screen.name, from: 'profile' });
+  const goAuth = () => setScreen({ name: 'auth', back: screen.name, from: 'profile' });
   const goShop = () => {
     setIntro(null);
     setScreen({ name: 'shop' });
