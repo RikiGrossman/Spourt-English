@@ -234,6 +234,29 @@ button:disabled {
   color: var(--gold-dark);
 }
 
+.premium-badge {
+  align-self: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  box-shadow: 0 2px 0 var(--gold-dark);
+  color: #3d2c00;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.account-info .premium-badge {
+  align-self: flex-start;
+}
+
+/* Narrow phones: the top bar keeps only the crown. */
+@media (max-width: 420px) {
+  .top-bar .premium-label {
+    display: none;
+  }
+}
+
 .top-stats {
   display: flex;
   gap: 16px;

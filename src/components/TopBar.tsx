@@ -7,14 +7,17 @@ interface Props {
   gems: number;
   /** Opens the gem shop. */
   onGems: () => void;
+  /** The signed-in learner is a premium member (shows a badge next to the logo). */
+  premium?: boolean;
 }
 
-export function TopBar({ streak, xp, hearts, gems, onGems }: Props) {
+export function TopBar({ streak, xp, hearts, gems, onGems, premium }: Props) {
   return (
     <header className="top-bar">
       <span className="brand" dir="ltr">
         <img className="brand-logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
         Baktana<b>English</b>
+        {premium && <PremiumBadge />}
       </span>
       <div className="top-stats">
         <span title="רצף ימים" className={streak > 0 ? 'streak-stat on' : 'streak-stat'}>
@@ -27,5 +30,14 @@ export function TopBar({ streak, xp, hearts, gems, onGems }: Props) {
         </button>
       </div>
     </header>
+  );
+}
+
+/** The "you're premium" mark, used in the top bar and on the profile. */
+export function PremiumBadge() {
+  return (
+    <span className="premium-badge" dir="rtl" title="מנוי פרימיום פעיל">
+      👑<span className="premium-label"> פרימיום</span>
+    </span>
   );
 }
