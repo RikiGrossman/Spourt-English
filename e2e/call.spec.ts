@@ -193,11 +193,39 @@ test('a guest is invited to sign in, and the characters are a teaser', async ({ 
 test('a signed-in learner without premium sees the locked teaser', async ({ page }) => {
   await openSignedIn(page, { premium: false, callsToday: 0, callsPerDay: 10 });
   await openCallTab(page);
-  await expect(page.getByText('🔒 בקרוב! שיחות וידאו יהיו חלק מפרימיום')).toBeVisible();
+  await expect(page.getByText('🔒 שיחות וידאו הן חלק מפרימיום')).toBeVisible();
   await expect(page.locator('.persona-card')).toHaveCount(4);
   for (const button of await page.locator('.persona-call').all()) await expect(button).toBeDisabled();
   await expect(page.locator('.calls-left')).toHaveCount(0);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/premium-locked.png`, fullPage: true });
+});
+
+test('the premium screen opens from the call tab; on the website it points to the Play app', async ({ page }) => {
+  await openSignedIn(page, { premium: false, callsToday: 0, callsPerDay: 10 });
+  await openCallTab(page);
+  await page.getByRole('button', { name: '👑 לפרטים על פרימיום' }).click();
+  await expect(page.getByRole('heading', { name: /פרימיום/ })).toBeVisible();
+  await expect(page.getByText('עד 10 שיחות וידאו ביום', { exact: false })).toBeVisible();
+  // Billing is only in the Google Play build: no plans or buy button here.
+  await expect(page.getByText('ההצטרפות לפרימיום נעשית באפליקציה', { exact: false })).toBeVisible();
+  await expect(page.locator('.paywall-plan')).toHaveCount(0);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/paywall-web.png`, fullPage: true });
+  await page.getByRole('button', { name: 'חזרה' }).click();
+  await expect(page.getByText('🔒 שיחות וידאו הן חלק מפרימיום')).toBeVisible();
+});
+
+test('a subscriber sees when premium renews on the profile and the premium screen', async ({ page }) => {
+  await openSignedIn(page, { ...premium(), premiumUntil: '2026-11-21T12:00:00.000Z', willRenew: true });
+  await expect(page.locator('.top-bar .premium-badge')).toBeVisible();
+  await page.locator('.bottom-nav').getByRole('button', { name: 'פרופיל' }).click();
+  const card = page.locator('.premium-card');
+  await expect(card).toContainText('מתחדש ב־21 בנובמבר 2026');
+  await card.getByRole('button', { name: 'פרטי המנוי' }).click();
+  await expect(page.getByText('המנוי שלך פעיל.')).toBeVisible();
+  await expect(page.getByText('מתחדש ב־21 בנובמבר 2026')).toBeVisible();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/paywall-subscriber.png`, fullPage: true });
+  await page.getByRole('button', { name: 'לשיחות 📞' }).click();
+  await expect(page.locator('.calls-left')).toBeVisible();
 });
 
 test('after 10 calls today the characters wait for tomorrow', async ({ page }) => {

@@ -1,6 +1,7 @@
 # Keeps Supabase in step with the repo: schema.sql, Edge Function secrets and functions.
 # Needs the repository secret SUPABASE_ACCESS_TOKEN (supabase.com → Account → Access Tokens);
-# ANTHROPIC_API_KEY and PREMIUM_EMAILS are optional secrets that are copied to the functions.
+# ANTHROPIC_API_KEY, PREMIUM_EMAILS, REVENUECAT_WEBHOOK_SECRET and REVENUECAT_API_KEY are optional
+# secrets that are copied to the functions.
 name: Supabase
 
 on:
@@ -10,6 +11,7 @@ on:
       - 'supabase/**'
       - 'shared/call*.ts'
       - 'shared/premium.ts'
+      - 'shared/billing.ts'
       - '.github/scripts/supabase-deploy.sh'
       - '.github/workflows/supabase.yml'
   workflow_dispatch:
@@ -39,4 +41,6 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PREMIUM_EMAILS: ${{ secrets.PREMIUM_EMAILS }}
+          REVENUECAT_WEBHOOK_SECRET: ${{ secrets.REVENUECAT_WEBHOOK_SECRET }}
+          REVENUECAT_API_KEY: ${{ secrets.REVENUECAT_API_KEY }}
           CALL_MODEL: ${{ vars.CALL_MODEL }}

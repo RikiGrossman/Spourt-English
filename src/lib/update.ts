@@ -18,6 +18,19 @@ interface AppUpdatePlugin {
 
 const AppUpdate = registerPlugin<AppUpdatePlugin>('AppUpdate');
 
+/**
+ * Whether this is the Google Play edition of the Android app (the "play" flavor, which has no in-app
+ * updates). Store billing (src/lib/billing.ts) is only offered there.
+ */
+export async function isPlayBuild(): Promise<boolean> {
+  if (Capacitor.getPlatform() !== 'android') return false;
+  try {
+    return (await AppUpdate.getInstalledVersion()).inAppUpdates === false;
+  } catch {
+    return false;
+  }
+}
+
 export interface LatestVersion {
   versionCode: number;
   versionName: string;

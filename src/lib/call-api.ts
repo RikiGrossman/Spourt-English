@@ -70,11 +70,16 @@ export function parseStatusResponse(data: unknown): CallStatusResponse | null {
   if (typeof data !== 'object' || data === null) return null;
   const d = data as Partial<CallStatusResponse>;
   if (typeof d.premium !== 'boolean') return null;
-  return {
+  const res: CallStatusResponse = {
     premium: d.premium,
     callsToday: isCount(d.callsToday) ? Math.floor(d.callsToday) : 0,
     callsPerDay: isCount(d.callsPerDay) && d.callsPerDay > 0 ? Math.floor(d.callsPerDay) : CALL_LIMITS.callsPerDay,
   };
+  if (typeof d.premiumUntil === 'string' && Number.isFinite(Date.parse(d.premiumUntil))) {
+    res.premiumUntil = d.premiumUntil;
+  }
+  if (typeof d.willRenew === 'boolean') res.willRenew = d.willRenew;
+  return res;
 }
 
 const signedOut = () => new ApiRequestError(401, 'unauthorized', CALL_SIGNED_OUT_MESSAGE);

@@ -17,6 +17,10 @@ interface Props {
   user: User | null;
   /** The signed-in learner is a premium member. */
   premium?: boolean;
+  /** "מתחדש ב־…" / "בתוקף עד …" for a paid subscription; empty otherwise. */
+  subscription?: string;
+  /** Opens the premium screen; omitted when this build has no calls. */
+  onPremium?: () => void;
   syncStatus: SyncStatus;
   settings: Settings;
   onSettings: (patch: Partial<Settings>) => void;
@@ -99,6 +103,24 @@ export function Profile(props: Props) {
           )
         )}
       </div>
+
+      {user && props.onPremium && (
+        <section className="panel premium-card">
+          <div>
+            <h3>{props.premium ? '👑 מנוי פרימיום' : '👑 פרימיום'}</h3>
+            <p className="muted">
+              {props.premium ? props.subscription || 'המנוי שלך פעיל' : 'שיחות וידאו באנגלית עם דמויות AI'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`btn small ${props.premium ? 'ghost' : 'secondary'}`}
+            onClick={props.onPremium}
+          >
+            {props.premium ? 'פרטי המנוי' : 'לפרטים'}
+          </button>
+        </section>
+      )}
 
       <h2>ההתקדמות שלי</h2>
       <div className="stat-cards">
@@ -289,6 +311,10 @@ function DeleteAccount({ onDelete }: { onDelete: (password: string) => Promise<v
       <p>
         החשבון יימחק לצמיתות, ואיתו ההתקדמות השמורה בשרת, המקום בליגה ונתוני השימוש שקשורים אליו. אי אפשר לבטל את זה.
         ההתקדמות במכשיר הזה תישאר, ואפשר לאפס אותה בנפרד.
+      </p>
+      <p>
+        <strong>יש לך מנוי פרימיום?</strong> מחיקת החשבון לא מבטלת אותו. כדי שלא תחויבו שוב, בטלו אותו קודם ב־Google
+        Play ← תשלומים ומינויים.
       </p>
       <label className="field">
         <span>הסיסמה שלך, לאישור</span>

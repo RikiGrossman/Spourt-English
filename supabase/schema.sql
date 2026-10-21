@@ -235,8 +235,10 @@ $$;
 revoke execute on function public.purge_old_events() from public, anon, authenticated;
 
 -- (4) Account deletion from inside the app (required by Google Play and the App Store).
--- Removes the caller's auth user; profiles, progress, xp_events, srs_state, events and call_usage
--- (section 5, below) all reference auth.users with ON DELETE CASCADE, so everything stored about them goes too.
+-- Removes the caller's auth user; profiles, progress, xp_events, srs_state, events, call_usage and
+-- entitlements (sections 5 and 6, below) all reference auth.users with ON DELETE CASCADE, so everything
+-- stored about them goes too. A store subscription is not cancelled by this – the learner does that in
+-- Google Play (the app says so before deleting).
 -- The app asks for the password again before calling this (src/lib/cloud.ts).
 create or replace function public.delete_my_account()
 returns void language plpgsql security definer set search_path = '' as $$
@@ -289,3 +291,31 @@ end; $$;
 revoke execute on function public.increment_call_usage(uuid, date, boolean, integer, integer)
   from public, anon, authenticated;
 grant execute on function public.increment_call_usage(uuid, date, boolean, integer, integer) to service_role;
+
+-- (6) Paid premium (docs/subscriptions.md). The billing-webhook Edge Function writes the learner's
+-- subscription here (from RevenueCat, with the service role key) and call-turn reads it: a learner is
+-- premium while premium_until (plus a day's grace, shared/premium.ts) is in the future, or when their
+-- email is in PREMIUM_EMAILS. Like call_usage, clients have no access at all – the app learns about
+-- premium from call-turn's status answer.
+create table if not exists public.entitlements (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  premium_until timestamptz,              -- null: no premium from a subscription
+  source text check (source in ('play', 'app_store', 'web', 'manual')),
+  product_id text,
+  will_renew boolean,
+  updated_at timestamptz not null default now()
+);
+alter table public.entitlements enable row level security;
+revoke all on public.entitlements from public, anon, authenticated;
+grant select, insert, update, delete on public.entitlements to service_role;
+
+-- RevenueCat webhook events already handled, so a retried delivery is skipped. Only the event id
+-- and type are kept, never who it was about.
+create table if not exists public.billing_events (
+  event_id text primary key,
+  type text not null,
+  received_at timestamptz not null default now()
+);
+alter table public.billing_events enable row level security;
+revoke all on public.billing_events from public, anon, authenticated;
+grant select, insert, update, delete on public.billing_events to service_role;

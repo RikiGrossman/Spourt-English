@@ -1,6 +1,7 @@
 /**
- * Premium access for the AI video call (shared/call.ts). For now premium is a server-side
- * allowlist of emails in the PREMIUM_EMAILS environment variable – never hardcode an email here.
+ * Premium access for the AI video call (shared/call.ts). A learner is premium when their email is on
+ * the server-side allowlist in the PREMIUM_EMAILS environment variable (the owner, testers, gifts –
+ * never hardcode an email here), or, on Supabase, when a paid subscription is still valid (isEntitled).
  * Pure TypeScript, no imports, so the Supabase Edge Function (Deno) can import it as is.
  */
 
@@ -19,6 +20,26 @@ export function isPremium(email: string | null | undefined, premium: Set<string>
   if (typeof email !== 'string') return false;
   const normalized = email.trim().toLowerCase();
   return normalized !== '' && premium.has(normalized);
+}
+
+/**
+ * Extra time past `premium_until` before a subscription stops counting: Google renews a day or so
+ * before the period ends, but the webhook that moves `premium_until` forward can lag behind.
+ */
+export const PREMIUM_GRACE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Whether a paid subscription (public.entitlements.premium_until, docs/subscriptions.md) still
+ * counts at `now`. Missing or unreadable dates are not premium.
+ */
+export function isEntitled(
+  premiumUntil: string | null | undefined,
+  now: number = Date.now(),
+  graceMs: number = PREMIUM_GRACE_MS,
+): boolean {
+  if (typeof premiumUntil !== 'string' || !premiumUntil) return false;
+  const until = Date.parse(premiumUntil);
+  return Number.isFinite(until) && until + graceMs > now;
 }
 
 /**

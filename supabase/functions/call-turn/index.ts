@@ -11,7 +11,8 @@
  *   Errors: 401 unauthorized, 403 premium_required (POST only; GET answers premium: false),
  *   429 daily_limit / rate_limited, 400 invalid_call / invalid_json, 502 call_failed, 503 call_unavailable.
  *
- * Premium = the token's email is in the PREMIUM_EMAILS secret (comma-separated). Usage is counted per
+ * Premium = the token's email is in the PREMIUM_EMAILS secret (comma-separated), or the learner's paid
+ * subscription in public.entitlements (written by the billing-webhook function) is still valid. Usage is counted per
  * learner and Asia/Jerusalem day in public.call_usage through public.increment_call_usage (schema.sql),
  * called with the auto-provided SUPABASE_SERVICE_ROLE_KEY. A valid turn is counted before the model call
  * (flagged and goodbye turns too; a 502 is not refunded); invalid requests and 503s are not counted.
@@ -26,7 +27,7 @@ import { CALL_LIMITS, findPersona } from '../../../shared/call.ts';
 import type { CallMessage, CallStatusResponse, CallTurnResponse } from '../../../shared/call.ts';
 import { buildSystemPrompt, parseModelOutput } from '../../../shared/call-prompts.ts';
 import { checkModelReply, checkUserMessage, safeReply, sanitizeTurnRequest } from '../../../shared/call-safety.ts';
-import { isNewCall, isPremium, parsePremiumEmails, usageDay } from '../../../shared/premium.ts';
+import { isEntitled, isNewCall, isPremium, parsePremiumEmails, usageDay } from '../../../shared/premium.ts';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_CALL_MODEL = 'claude-haiku-5-5';
@@ -88,7 +89,7 @@ class HttpError extends Error {
 const failed = () => new HttpError(502, 'call_failed', 'השיחה נתקעה לרגע, נסו לומר את זה שוב');
 const unavailable = () => new HttpError(503, 'call_unavailable', 'שיחות הווידאו לא זמינות כרגע');
 const unauthorized = () => new HttpError(401, 'unauthorized', 'יש להתחבר כדי להמשיך');
-const premiumRequired = () => new HttpError(403, 'premium_required', 'שיחות וידאו זמינות כרגע רק למנויי פרימיום');
+const premiumRequired = () => new HttpError(403, 'premium_required', 'שיחות וידאו זמינות רק למנויי פרימיום');
 const callsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!');
 const turnsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלת השיחות להיום. נתראה מחר!');
 
@@ -179,6 +180,36 @@ async function signedInUser(request: Request): Promise<SignedInUser> {
 }
 
 const premiumEmails = () => parsePremiumEmails(Deno.env.get('PREMIUM_EMAILS'));
+
+interface Premium {
+  premium: boolean;
+  /** Set when the learner has (or had) a subscription. */
+  premiumUntil?: string;
+  willRenew?: boolean;
+}
+
+/** Whether the learner is premium: on the PREMIUM_EMAILS allowlist, or with a valid subscription. */
+async function premiumOf(user: SignedInUser): Promise<Premium> {
+  const listed = isPremium(user.email, premiumEmails());
+  const { url, serviceKey } = supabaseEnv();
+  const query = `select=premium_until,will_renew&user_id=eq.${encodeURIComponent(user.id)}`;
+  const res = await fetch(`${url}/rest/v1/entitlements?${query}`, { headers: serviceHeaders(serviceKey) }).catch(
+    () => null,
+  );
+  if (!res?.ok) {
+    console.warn(`[call-turn] entitlement read failed${res ? ` (${res.status})` : ''}`);
+    // The allowlist alone still decides; without it, a failed read is not a "no".
+    if (listed) return { premium: true };
+    throw failed();
+  }
+  const rows = (await res.json().catch(() => null)) as
+    { premium_until?: string | null; will_renew?: boolean | null }[] | null;
+  const row = rows?.[0];
+  const result: Premium = { premium: listed || isEntitled(row?.premium_until) };
+  if (row?.premium_until) result.premiumUntil = new Date(row.premium_until).toISOString();
+  if (typeof row?.will_renew === 'boolean') result.willRenew = row.will_renew;
+  return result;
+}
 
 /** Today's calls for the learner (0 without a row). */
 async function callsToday(userId: string): Promise<number> {
@@ -289,11 +320,8 @@ async function callTurn(body: unknown, user: SignedInUser): Promise<CallTurnResp
 }
 
 async function callStatus(user: SignedInUser): Promise<CallStatusResponse> {
-  return {
-    premium: isPremium(user.email, premiumEmails()),
-    callsToday: await callsToday(user.id),
-    callsPerDay: CALL_LIMITS.callsPerDay,
-  };
+  const [premium, calls] = await Promise.all([premiumOf(user), callsToday(user.id)]);
+  return { ...premium, callsToday: calls, callsPerDay: CALL_LIMITS.callsPerDay };
 }
 
 Deno.serve(async (request) => {
@@ -321,7 +349,7 @@ Deno.serve(async (request) => {
   try {
     const user = await signedInUser(request);
     if (request.method === 'GET') return json(200, await callStatus(user));
-    if (!isPremium(user.email, premiumEmails())) throw premiumRequired();
+    if (!(await premiumOf(user)).premium) throw premiumRequired();
 
     let body: unknown;
     try {
