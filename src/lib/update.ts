@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // In-app updates for the Android app: CI publishes version.json next to the APK in the
 // "android-latest" release (.github/workflows/android.yml); the native AppUpdate plugin
@@ -47,26 +47,45 @@ export type UpdateState =
   | { status: 'downloading'; version: LatestVersion; percent: number }
   | { status: 'failed'; version: LatestVersion };
 
-/** Checks once on launch (the sideloaded Android app only) and drives the download + install. */
+/** How often returning to the app checks for an update again. */
+const RECHECK_MS = 10 * 60 * 1000;
+
+/**
+ * Checks on launch and whenever the app comes back to the foreground (at most every RECHECK_MS),
+ * for the sideloaded Android app only, and drives the download + install. Android keeps the app
+ * alive in the background, so a launch-only check would miss updates for days.
+ */
 export function useAppUpdate() {
   const [state, setState] = useState<UpdateState>({ status: 'idle' });
+  const dismissed = useRef(0);
 
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'android') return;
     let cancelled = false;
-    void (async () => {
+    let lastCheck = 0;
+    const check = async () => {
+      if (Date.now() - lastCheck < RECHECK_MS) return;
+      lastCheck = Date.now();
       try {
         const installed = await AppUpdate.getInstalledVersion();
         if (installed.inAppUpdates === false) return;
         const { text } = await AppUpdate.fetchText({ url: `${VERSION_URL}?t=${Date.now()}` });
         const version = newerVersion(installed.versionCode, parseLatestVersion(text));
-        if (version && !cancelled) setState({ status: 'available', version });
+        if (!version || cancelled || version.versionCode <= dismissed.current) return;
+        setState((s) => (s.status === 'idle' ? { status: 'available', version } : s));
       } catch {
-        // Offline, or the release is being republished – try again next launch.
+        // Offline, or the release is being republished – try again later.
+        lastCheck = 0;
       }
-    })();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check();
+    };
+    void check();
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
@@ -88,7 +107,13 @@ export function useAppUpdate() {
     }
   }, [state]);
 
-  const dismiss = useCallback(() => setState({ status: 'idle' }), []);
+  // "Later" hides this version until the next launch; a newer one is offered again.
+  const dismiss = useCallback(() => {
+    setState((s) => {
+      if (s.status !== 'idle') dismissed.current = s.version.versionCode;
+      return { status: 'idle' };
+    });
+  }, []);
 
   return { state, install, dismiss };
 }
