@@ -14,12 +14,14 @@ interface Props {
 export function TopBar({ streak, xp, hearts, gems, onGems, premium }: Props) {
   return (
     <header className="top-bar">
-      <div className="brand-block" dir="ltr">
-        <span className="brand">
+      <div className="brand">
+        <div className="brand-mark">
           <img className="brand-logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+          {premium && <PremiumBadge />}
+        </div>
+        <span className="brand-name" dir="ltr">
           Baktana<b>English</b>
         </span>
-        {premium && <PremiumBadge />}
       </div>
       <div className="top-stats">
         <span title="רצף ימים" className={streak > 0 ? 'stat streak-stat on' : 'stat streak-stat'}>
