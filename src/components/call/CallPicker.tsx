@@ -5,6 +5,7 @@ import { ApiRequestError, errorMessage } from '../../lib/api';
 import { callsLeft, remainingText } from '../../lib/call';
 import { getCallStatus } from '../../lib/call-api';
 import { canListen } from '../../lib/listen';
+import { PersonaPortrait } from './PersonaPortrait';
 import { personaStyle } from './persona-style';
 
 interface Props {
@@ -133,7 +134,7 @@ export function CallPicker({ user, status, onStatus, onSignIn, onCall }: Props) 
           {PERSONAS.map((p) => (
             <li key={p.id} className="persona-card" style={personaStyle(p.color)}>
               <span className="persona-avatar" aria-hidden="true">
-                {p.emoji}
+                <PersonaPortrait persona={p} />
               </span>
               <div className="persona-info">
                 <h3>
