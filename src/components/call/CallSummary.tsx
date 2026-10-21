@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Correction, Persona } from '../../../shared/call';
 import { formatDuration } from '../../lib/call';
+import { PersonaPortrait } from './PersonaPortrait';
 import { personaStyle } from './persona-style';
 
 export interface CallResult {
@@ -33,7 +34,7 @@ export function CallSummary({ result, onNewCall, onBack }: Props) {
   return (
     <div className="call-summary">
       <div className="call-summary-avatar" style={personaStyle(persona.color)} aria-hidden="true">
-        {persona.emoji}
+        <PersonaPortrait persona={persona} />
       </div>
       <h1 ref={heading} tabIndex={-1}>
         השיחה עם <span dir="ltr">{persona.name}</span> הסתיימה

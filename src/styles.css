@@ -1883,7 +1883,7 @@ button:disabled {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  font-size: 2rem;
+  overflow: hidden;
   background: color-mix(in srgb, var(--persona) 22%, transparent);
   border: 3px solid var(--persona);
 }
@@ -2082,61 +2082,46 @@ button:disabled {
   box-shadow: 0 10px 40px rgb(0 0 0 / 45%);
 }
 
-.face-bg {
-  fill: var(--persona);
+/* ---------- Character portraits (components/call/PersonaPortrait.tsx) ---------- */
+
+.portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.face-skin {
-  fill: #fff3e6;
-  fill: color-mix(in srgb, var(--persona) 12%, #fff3e6);
+.portrait .pp-figure {
+  animation: pp-breathe 4.5s ease-in-out infinite;
 }
 
-.face-hair {
-  fill: #2f2a33;
-  fill: color-mix(in srgb, var(--persona) 35%, #2f2a33);
+.portrait .pp-head {
+  transform-origin: 100px 140px;
 }
 
-.face-eye {
-  fill: #2b2b2b;
+.portrait.talking .pp-head {
+  animation: pp-nod 2.6s ease-in-out infinite;
+}
+
+.portrait .pp-eye {
   transform-box: fill-box;
   transform-origin: center;
   animation: call-blink 4.5s infinite;
 }
 
-.face-cheek {
-  fill: #ff8fa3;
-  opacity: 0.35;
+.portrait .pp-mouth,
+.portrait.talking .pp-smile {
+  display: none;
 }
 
-.face-smile {
-  fill: none;
-  stroke: #7a2e3a;
-  stroke-width: 5;
-  stroke-linecap: round;
-}
-
-.face-mouth {
-  fill: #7a2e3a;
+.portrait.talking .pp-mouth {
+  display: inline;
   transform-box: fill-box;
-  transform-origin: center;
+  transform-origin: center top;
+  animation: pp-speak 0.9s ease-in-out infinite;
 }
 
-.face-mouth.talking {
-  animation: call-talk 0.32s ease-in-out infinite alternate;
-}
-
-.call-avatar-emoji {
-  position: absolute;
-  bottom: 2%;
-  inset-inline-end: 2%;
-  display: grid;
-  place-items: center;
-  width: 30%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--call-bg);
-  border: 3px solid var(--persona);
-  font-size: clamp(1.2rem, 7vw, 2rem);
+.portrait.talking .pp-brows {
+  animation: pp-brows 2.6s ease-in-out infinite;
 }
 
 .self-view {
@@ -2476,7 +2461,7 @@ button:disabled {
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  font-size: 3rem;
+  overflow: hidden;
   border: 4px solid var(--persona);
   background: color-mix(in srgb, var(--persona) 20%, transparent);
   animation: pop 0.4s ease;
@@ -2600,12 +2585,60 @@ button:disabled {
   }
 }
 
-@keyframes call-talk {
-  from {
-    transform: scaleY(0.35);
+@keyframes pp-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
   }
-  to {
-    transform: scaleY(1.1);
+  50% {
+    transform: translateY(1.5px);
+  }
+}
+
+@keyframes pp-nod {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30% {
+    transform: rotate(-2deg);
+  }
+  70% {
+    transform: rotate(1.5deg);
+  }
+}
+
+@keyframes pp-speak {
+  0% {
+    transform: scaleY(0.3);
+  }
+  15% {
+    transform: scaleY(1);
+  }
+  30% {
+    transform: scaleY(0.5);
+  }
+  45% {
+    transform: scaleY(0.9);
+  }
+  60% {
+    transform: scaleY(0.25);
+  }
+  80% {
+    transform: scaleY(0.75);
+  }
+  100% {
+    transform: scaleY(0.3);
+  }
+}
+
+@keyframes pp-brows {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-2px);
   }
 }
 
@@ -2626,8 +2659,7 @@ button:disabled {
   .call-avatar::before,
   .call-avatar::after,
   .call-face,
-  .face-eye,
-  .face-mouth.talking,
+  .portrait *,
   .typing-dots span,
   .call-mic.listening {
     animation: none !important;

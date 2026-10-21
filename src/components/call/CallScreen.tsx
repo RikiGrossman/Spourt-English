@@ -21,6 +21,7 @@ import { canListen, listen, type ListenError, type Listening } from '../../lib/l
 import { speakAsync, stopSpeaking } from '../../lib/speech';
 import type { CallResult } from './CallSummary';
 import { CorrectionView } from './CallSummary';
+import { PersonaPortrait } from './PersonaPortrait';
 import { personaStyle } from './persona-style';
 
 interface Props {
@@ -503,25 +504,11 @@ function lastIndexOf(lines: CallLine[], role: CallLine['role']): number {
   return -1;
 }
 
-/** The character's face:the persona's colours, blinking eyes and a mouth that moves while speaking. */
+/** The character on the call: an animated portrait with call rings while ringing or speaking. */
 function Avatar({ persona, talking, ringing }: { persona: Persona; talking: boolean; ringing: boolean }) {
   return (
     <div className={`call-avatar${talking ? ' talking' : ''}${ringing ? ' ringing' : ''}`} aria-hidden="true">
-      <svg viewBox="0 0 200 200" className="call-face">
-        <circle cx="100" cy="100" r="100" className="face-bg" />
-        <circle cx="100" cy="112" r="64" className="face-skin" />
-        <path d="M36 104 C36 50 164 50 164 104 C150 78 120 70 100 70 C80 70 50 78 36 104 Z" className="face-hair" />
-        <ellipse cx="78" cy="110" rx="7" ry="9" className="face-eye" />
-        <ellipse cx="122" cy="110" rx="7" ry="9" className="face-eye" />
-        <circle cx="64" cy="132" r="9" className="face-cheek" />
-        <circle cx="136" cy="132" r="9" className="face-cheek" />
-        {talking ? (
-          <ellipse cx="100" cy="142" rx="15" ry="10" className="face-mouth talking" />
-        ) : (
-          <path d="M84 138 Q100 152 116 138" className="face-smile" />
-        )}
-      </svg>
-      <span className="call-avatar-emoji">{persona.emoji}</span>
+      <PersonaPortrait persona={persona} talking={talking} className="call-face" />
     </div>
   );
 }
