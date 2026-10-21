@@ -20,7 +20,7 @@ import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
-import { CALLS_ENABLED } from './lib/call-api';
+import { CALLS_ENABLED, getCallStatus } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
 import { canListen } from './lib/listen';
@@ -190,9 +190,22 @@ function Screens() {
   const closeIntro = useCallback(() => setIntro(null), []);
   const onCallsToday = useCallback((callsToday: number) => setCallStatus((s) => (s ? { ...s, callsToday } : s)), []);
 
-  // Another learner may sign in on this device: forget the last one's call status.
+  // Another learner may sign in on this device: forget the last one's call status, then ask the
+  // server again so the premium badge shows without opening the call tab first.
   const userId = account.user?.id ?? null;
-  useEffect(() => setCallStatus(null), [userId]);
+  useEffect(() => {
+    setCallStatus(null);
+    if (!userId || !CALLS_ENABLED) return;
+    const controller = new AbortController();
+    getCallStatus(controller.signal).then(
+      (res) => {
+        if (!controller.signal.aborted) setCallStatus(res);
+      },
+      () => {}, // Offline or signed out: no badge until the call tab or a sign-in tries again.
+    );
+    return () => controller.abort();
+  }, [userId]);
+  const premium = account.user !== null && callStatus?.premium === true;
 
   function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
     account.signIn(res);
@@ -510,6 +523,7 @@ function Screens() {
         hearts={progress.hearts + gems.bonusHearts}
         gems={gems.gems}
         onGems={goShop}
+        premium={premium}
       />
       <main className="content" key={screen.name}>
         {screen.name === 'path' && frozeDays > 0 && (
@@ -559,6 +573,7 @@ function Screens() {
             progress={progress}
             streak={streak}
             user={account.user}
+            premium={premium}
             syncStatus={account.status}
             settings={settings}
             onSettings={changeSettings}
