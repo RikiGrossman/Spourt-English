@@ -330,6 +330,11 @@ button:disabled {
   font-weight: 700;
 }
 
+.bottom-nav button.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .bottom-nav button.active {
   border-color: var(--select-border);
   background: var(--select-bg);

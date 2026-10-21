@@ -19,6 +19,12 @@ import { ACCOUNTS_ENABLED, SUPABASE_ANON_KEY, SUPABASE_URL, USE_SUPABASE } from 
 /** Calls need a backend: the Express server or Supabase. A static build without either has none. */
 export const CALLS_ENABLED = USE_SUPABASE || ACCOUNTS_ENABLED;
 
+/**
+ * Calls are still in development: the tab shows a lock and does not open until the feature is
+ * tested. Builds with VITE_CALLS_UNLOCKED=true (the e2e tests) open it.
+ */
+export const CALLS_LOCKED = import.meta.env.VITE_CALLS_UNLOCKED !== 'true';
+
 /** The model can take a while to answer. */
 const TURN_TIMEOUT_MS = 25_000;
 const STATUS_TIMEOUT_MS = 10_000;
