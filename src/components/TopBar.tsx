@@ -7,18 +7,20 @@ interface Props {
   gems: number;
   /** Opens the gem shop. */
   onGems: () => void;
-  /** The signed-in learner is a premium member (shows a badge next to the logo). */
+  /** The signed-in learner is a premium member (shows a badge under the logo). */
   premium?: boolean;
 }
 
 export function TopBar({ streak, xp, hearts, gems, onGems, premium }: Props) {
   return (
     <header className="top-bar">
-      <span className="brand" dir="ltr">
-        <img className="brand-logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
-        Baktana<b>English</b>
+      <div className="brand-block" dir="ltr">
+        <span className="brand">
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+          Baktana<b>English</b>
+        </span>
         {premium && <PremiumBadge />}
-      </span>
+      </div>
       <div className="top-stats">
         <span title="רצף ימים" className={streak > 0 ? 'streak-stat on' : 'streak-stat'}>
           🔥 {streak}
