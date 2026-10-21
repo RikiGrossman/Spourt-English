@@ -3,7 +3,7 @@
 המסמך מרכז את מה שצריך כדי למכור מנוי "פרימיום" ב־Spourt English: המנוי פותח את שיחות הווידאו עם ה־AI (עד 10 שיחות ביום, `CALL_LIMITS.callsPerDay` ב־`shared/call.ts`).
 פרימיום נקבע בצד השרת: אימייל ברשימה `PREMIUM_EMAILS` (`shared/premium.ts`), **או** מנוי בתוקף בטבלה `entitlements` ב־Supabase.
 
-> **מצב ב־21 באוקטובר 2026: הקוד מוכן ומחכה להגדרות.** הטבלאות, ה־webhook (`billing-webhook`), הבדיקה ב־`call-turn`, החיבור ל־RevenueCat באפליקציה ומסך המנוי ממומשים (שלב 3 למטה). כל עוד לא הוגדרו המפתחות שום דבר לא נמכר: באפליקציה מה־Play מסך המנוי אומר "המנוי ייפתח בקרוב", ובאתר וב־APK להורדה הוא מסביר שמצטרפים דרך האפליקציה מ־Google Play. מה שנשאר הוא בעיקר שלבים 0–2 ו־4–5, ו[פרק 7](#7-מה-צריך-ממך-רק-הבעלים-יכולה).
+> **מצב ב־21 באוקטובר 2026: הקוד מוכן ומחכה להגדרות.** הטבלאות, ה־webhook (`billing-webhook`), הבדיקה ב־`call-turn`, החיבור ל־RevenueCat באפליקציה ומסך המנוי ממומשים (שלב 3 למטה). כל עוד המשתנה `VITE_REVENUECAT_ANDROID_KEY` לא הוגדר, שום דבר לא נמכר והאפליקציה נראית כמו קודם: בלשונית השיחות "בקרוב! שיחות וידאו יהיו חלק מפרימיום", בלי מסך מנוי ובלי כרטיס פרימיום בפרופיל (`PREMIUM_ON_SALE` ב־`src/lib/billing.ts`). כשמגדירים אותו, האפליקציה מ־Google Play מוכרת, והאתר וה־APK להורדה מסבירים שמצטרפים דרך האפליקציה מ־Google Play. הסעיפים על המנוי בתנאי השימוש ובמדיניות הפרטיות מחכים ב־[legal-premium-draft.md](legal-premium-draft.md). מה שנשאר הוא בעיקר שלבים 0–2 ו־4–5, ו[פרק 7](#7-מה-צריך-ממך-רק-הבעלים-יכולה).
 
 > **נבדק ב־19 באוקטובר 2026.** עמלות ומדיניות של Google ו־Apple השתנו כמה פעמים ב־2025–2026, בעיקר בעקבות תביעות Epic. כל טענה על עמלה או מדיניות מגיעה עם קישור. סימון ⚠️ מציין דבר שלא הצלחתי לאמת במקור רשמי, או שהמקורות סותרים בו. **זה לא ייעוץ משפטי או ייעוץ מס.** את פרק 5 צריך לאשר מול רואה חשבון.
 >
@@ -409,7 +409,7 @@ revoke all on public.billing_events from public, anon, authenticated;
 - [x] ‏`logIn` עם ה־user id של Supabase אחרי התחברות, ו־`logOut` ביציאה
 - [x] מסך מנוי (`src/components/Paywall.tsx`): מחירים מ־Offerings, ניסיון חינם, חיסכון בשנתי, תנאי חידוש וביטול, "שחזור רכישה", "ניהול המנוי", הודעה לקטינים, ו"מפעילים את המנוי…" עד שה־webhook מעדכן. נפתח מלשונית השיחות ומהפרופיל
 - [x] בפרופיל: "מתחדש ב־…" / "בתוקף עד …". במחיקת חשבון: אזהרה שהמנוי ב־Google Play לא מתבטל
-- [x] עדכון `terms.html` ו־`privacy.html` (טיוטה – **לעבור עם עורך דין**)
+- [x] סעיפי מנוי ל־`terms.html` ול־`privacy.html`: טיוטה ב־[legal-premium-draft.md](legal-premium-draft.md), **לא מפורסמת**. לעבור עם עורך דין ולהחזיר לפני ההשקה
 - [ ] תשובות Data safety ב־Play Console (הבעלים): ‏"Purchase history" נאסף, לא משותף, לצורך App functionality. ‏RevenueCat ו־Google מעבדים את הרכישה
 - [x] תיעוד ב־`docs/supabase.md` (סודות חדשים: `REVENUECAT_WEBHOOK_SECRET`, ‏`REVENUECAT_API_KEY`)
 
@@ -427,6 +427,8 @@ revoke all on public.billing_events from public, anon, authenticated;
 
 **שלב 5 – השקה:**
 
+- [ ] להחזיר את סעיפי המנוי לתנאים ולפרטיות ([legal-premium-draft.md](legal-premium-draft.md)), אחרי עורך דין
+- [ ] להגדיר את `VITE_REVENUECAT_ANDROID_KEY` ב־GitHub Variables: זה מה ש"פותח את המכירה" באפליקציה ובאתר
 - [ ] ‏Closed testing של 14 יום עם 12 בודקים (חובה בחשבון אישי, ‏[store-release.md](store-release.md))
 - [ ] ‏Production. לעקוב בשבוע הראשון אחרי עלות AI לתור, אחוז ההמרה מניסיון, ושגיאות ב־webhook
 - [ ] בהמשך: מכירה באתר (Paddle או סולק ישראלי), ואחר כך iOS עם אותו entitlement

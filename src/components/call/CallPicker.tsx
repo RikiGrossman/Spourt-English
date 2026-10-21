@@ -15,8 +15,8 @@ interface Props {
   onStatus: (status: CallStatusResponse | null) => void;
   onSignIn: () => void;
   onCall: (persona: Persona) => void;
-  /** Opens the premium screen. */
-  onPremium: () => void;
+  /** Opens the premium screen; omitted until premium is on sale ("coming soon"). */
+  onPremium?: () => void;
 }
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'signed-out' } | { kind: 'ready' };
@@ -93,11 +93,20 @@ export function CallPicker({ user, status, onStatus, onSignIn, onCall, onPremium
 
       {load.kind !== 'error' && shown && !shown.premium && (
         <div className="panel center call-gate locked">
-          <p className="call-gate-title">🔒 שיחות וידאו הן חלק מפרימיום</p>
-          <p className="muted">הכירו את הדמויות שמחכות לכם, והצטרפו כדי לדבר איתן.</p>
-          <button type="button" className="btn secondary" onClick={onPremium}>
-            👑 לפרטים על פרימיום
-          </button>
+          {onPremium ? (
+            <>
+              <p className="call-gate-title">🔒 שיחות וידאו הן חלק מפרימיום</p>
+              <p className="muted">הכירו את הדמויות שמחכות לכם, והצטרפו כדי לדבר איתן.</p>
+              <button type="button" className="btn secondary" onClick={onPremium}>
+                👑 לפרטים על פרימיום
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="call-gate-title">🔒 בקרוב! שיחות וידאו יהיו חלק מפרימיום</p>
+              <p className="muted">בינתיים אפשר להכיר את הדמויות שמחכות לכם.</p>
+            </>
+          )}
         </div>
       )}
 

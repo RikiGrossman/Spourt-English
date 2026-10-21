@@ -48,7 +48,9 @@ export default defineConfig({
     {
       command: `npx vite --port ${WEB_PORT} --strictPort`,
       url: `http://localhost:${WEB_PORT}`,
-      env: { API_URL: `http://localhost:${API_PORT}` },
+      // A RevenueCat key puts premium "on sale" (src/lib/billing.ts), so the premium screen is tested;
+      // in the browser there is no store, so nothing can actually be bought.
+      env: { API_URL: `http://localhost:${API_PORT}`, VITE_REVENUECAT_ANDROID_KEY: 'goog_e2e' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

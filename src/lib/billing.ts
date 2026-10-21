@@ -15,6 +15,12 @@ import { isPlayBuild } from './update';
 
 export const REVENUECAT_ANDROID_KEY: string = import.meta.env.VITE_REVENUECAT_ANDROID_KEY ?? '';
 
+/**
+ * Premium is on sale once the RevenueCat key is set (the website and APK builds get it too). Until
+ * then the app shows "coming soon" everywhere and doesn't offer the premium screen.
+ */
+export const PREMIUM_ON_SALE = Boolean(REVENUECAT_ANDROID_KEY);
+
 /** The Play edition's application id (android/app/build.gradle, flavor "play"). */
 export const PLAY_PACKAGE = 'com.baktana.english';
 /** The subscription's product id in Play Console → Monetize → Subscriptions. */

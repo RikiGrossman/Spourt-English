@@ -21,7 +21,7 @@ import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
-import { subscriptionText, syncBillingUser } from './lib/billing';
+import { PREMIUM_ON_SALE, subscriptionText, syncBillingUser } from './lib/billing';
 import { CALLS_ENABLED, getCallStatus } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
@@ -655,7 +655,7 @@ function Screens() {
             onStatus={setCallStatus}
             onSignIn={goAuth}
             onCall={(persona) => setScreen({ name: 'call-active', persona })}
-            onPremium={() => setScreen({ name: 'premium', back: 'call' })}
+            onPremium={PREMIUM_ON_SALE ? () => setScreen({ name: 'premium', back: 'call' }) : undefined}
           />
         )}
         {screen.name === 'profile' && (
@@ -665,7 +665,9 @@ function Screens() {
             user={account.user}
             premium={premium}
             subscription={premium ? subscriptionText(callStatus) : ''}
-            onPremium={CALLS_ENABLED ? () => setScreen({ name: 'premium', back: 'profile' }) : undefined}
+            onPremium={
+              CALLS_ENABLED && PREMIUM_ON_SALE ? () => setScreen({ name: 'premium', back: 'profile' }) : undefined
+            }
             syncStatus={account.status}
             settings={settings}
             onSettings={changeSettings}

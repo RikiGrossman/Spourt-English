@@ -93,7 +93,7 @@ export function Profile(props: Props) {
             <button type="button" className="btn ghost small" onClick={props.onSignOut}>
               התנתקות
             </button>
-            <DeleteAccount onDelete={props.onDeleteAccount} />
+            <DeleteAccount onDelete={props.onDeleteAccount} subscriptions={props.onPremium !== undefined} />
           </>
         ) : (
           props.onSignIn && (
@@ -276,7 +276,14 @@ export function Profile(props: Props) {
 }
 
 /** "Delete account" – required by the app stores. Asks for the password before deleting. */
-function DeleteAccount({ onDelete }: { onDelete: (password: string) => Promise<void> }) {
+function DeleteAccount({
+  onDelete,
+  subscriptions,
+}: {
+  onDelete: (password: string) => Promise<void>;
+  /** Premium is on sale, so warn that deleting the account doesn't cancel a store subscription. */
+  subscriptions: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -312,10 +319,12 @@ function DeleteAccount({ onDelete }: { onDelete: (password: string) => Promise<v
         החשבון יימחק לצמיתות, ואיתו ההתקדמות השמורה בשרת, המקום בליגה ונתוני השימוש שקשורים אליו. אי אפשר לבטל את זה.
         ההתקדמות במכשיר הזה תישאר, ואפשר לאפס אותה בנפרד.
       </p>
-      <p>
-        <strong>יש לך מנוי פרימיום?</strong> מחיקת החשבון לא מבטלת אותו. כדי שלא תחויבו שוב, בטלו אותו קודם ב־Google
-        Play ← תשלומים ומינויים.
-      </p>
+      {subscriptions && (
+        <p>
+          <strong>יש לך מנוי פרימיום?</strong> מחיקת החשבון לא מבטלת אותו. כדי שלא תחויבו שוב, בטלו אותו קודם ב־Google
+          Play ← תשלומים ומינויים.
+        </p>
+      )}
       <label className="field">
         <span>הסיסמה שלך, לאישור</span>
         <input
