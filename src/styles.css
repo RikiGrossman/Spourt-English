@@ -3058,3 +3058,256 @@ button:disabled {
     transform: rotate(-4deg);
   }
 }
+
+/* ---------- Arcade 🎮 ---------- */
+
+.arcade-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 2px solid #ce82ff;
+  border-bottom-width: 4px;
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: start;
+  animation: rise 0.4s ease both;
+}
+
+.arcade-card-icon {
+  font-size: 2rem;
+  animation: bob 2s ease-in-out infinite;
+}
+
+.arcade-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.arcade-card-go {
+  font-size: 1.8rem;
+  color: #ce82ff;
+}
+
+.arcade-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ce82ff, #1cb0f6);
+  color: #fff;
+}
+
+.arcade-head h2 {
+  margin: 0;
+}
+
+.arcade-head .muted {
+  color: rgb(255 255 255 / 90%);
+}
+
+.arcade-big {
+  font-size: 2.8rem;
+}
+
+.game-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+}
+
+.game-card.open {
+  border-color: #ce82ff;
+}
+
+.game-card.locked .game-icon {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.game-icon {
+  font-size: 2.4rem;
+}
+
+.game-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.game-text h3 {
+  margin: 0 0 4px;
+}
+
+.game-text p {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.game-meta {
+  font-weight: 700;
+  color: var(--gem-dark);
+}
+
+.play-btn {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.game {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.rush-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.rush-time {
+  font-weight: 800;
+  min-width: 48px;
+}
+
+.progress-fill.hurry {
+  background: var(--red);
+}
+
+.rush-stats {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  min-height: 36px;
+}
+
+.rush-combo {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+}
+
+.rush-word {
+  font-size: 2.4rem;
+  font-weight: 800;
+  padding: 12px 24px;
+  border-radius: 16px;
+  animation: pop 0.3s ease both;
+}
+
+.rush-word.good {
+  background: var(--good-bg);
+  color: var(--good-text);
+}
+
+.rush-word.bad {
+  background: var(--bad-bg);
+  color: var(--bad-text);
+  animation: shake 0.35s;
+}
+
+.rush-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.rush-option {
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+}
+
+.rush-option.correct {
+  border-color: var(--good-text);
+  background: var(--good-bg);
+  color: var(--good-text);
+}
+
+.rush-option.wrong {
+  border-color: var(--bad-text);
+  background: var(--bad-bg);
+  color: var(--bad-text);
+}
+
+.rush-penalty {
+  margin: 0;
+  font-weight: 800;
+  color: var(--red);
+}
+
+.memory-moves {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.memory-title {
+  text-align: center;
+  margin-top: 0;
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.memory-card {
+  aspect-ratio: 1 / 0.8;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  border: 2px solid #ce82ff;
+  border-bottom-width: 4px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ce82ff, #1cb0f6);
+  color: #fff;
+  font-size: 1.6rem;
+  transition: transform 0.25s;
+}
+
+.memory-card.shown {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--select-border);
+  font-size: 1.05rem;
+  font-weight: 700;
+  transform: rotateY(180deg);
+}
+
+.memory-card.shown .memory-face {
+  transform: rotateY(180deg);
+}
+
+.memory-card.matched {
+  border-color: var(--good-text);
+  background: var(--good-bg);
+  color: var(--good-text);
+}
+
+.memory-face {
+  overflow-wrap: anywhere;
+}
+
+.game-result .btn {
+  min-width: 200px;
+}

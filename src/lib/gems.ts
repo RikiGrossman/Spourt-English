@@ -98,6 +98,22 @@ export interface GemState {
   avatars: string[];
   /** The chosen avatar id, or null for the default. */
   avatar: string | null;
+  /** Arcade games (see games.ts). */
+  games: GameStats;
+}
+
+export type GameId = 'rush' | 'memory';
+export const GAME_IDS: GameId[] = ['rush', 'memory'];
+
+export interface GameStats {
+  /** Games bought with gems. */
+  unlocked: GameId[];
+  /** The date `plays` belongs to. */
+  date: string | null;
+  /** Games played today. */
+  plays: Record<GameId, number>;
+  /** Best score ever. */
+  best: Record<GameId, number>;
 }
 
 export interface Reward {
@@ -121,6 +137,7 @@ export function initialGems(): GemState {
     freezes: 0,
     avatars: [],
     avatar: null,
+    games: { unlocked: [], date: null, plays: { rush: 0, memory: 0 }, best: { rush: 0, memory: 0 } },
   };
 }
 
@@ -140,6 +157,11 @@ export function parseGems(raw: string | null): GemState {
     const ids = (v: unknown, known: string[]) =>
       Array.isArray(v) ? [...new Set(v.filter((id): id is string => known.includes(id)))] : [];
     const avatars = ids(data.avatars, AVATAR_IDS);
+    const games = (data.games && typeof data.games === 'object' ? data.games : {}) as Record<string, unknown>;
+    const perGame = (v: unknown) => {
+      const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+      return { rush: count(o.rush), memory: count(o.memory) };
+    };
     return {
       gems: count(data.gems),
       earned: count(data.earned),
@@ -152,6 +174,12 @@ export function parseGems(raw: string | null): GemState {
       freezes: count(data.freezes, MAX_FREEZES),
       avatars,
       avatar: typeof data.avatar === 'string' && avatars.includes(data.avatar) ? data.avatar : null,
+      games: {
+        unlocked: ids(games.unlocked, GAME_IDS) as GameId[],
+        date: date(games.date),
+        plays: perGame(games.plays),
+        best: perGame(games.best),
+      },
     };
   } catch {
     return initialGems();
@@ -164,7 +192,7 @@ export function forToday(s: GemState, today: string): GemState {
   return { ...s, questDate: today, quests: { ...NO_QUESTS }, claimed: [] };
 }
 
-function earn(s: GemState, gems: number): GemState {
+export function earn(s: GemState, gems: number): GemState {
   return { ...s, gems: s.gems + gems, earned: s.earned + gems };
 }
 
