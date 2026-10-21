@@ -22,13 +22,17 @@ export function TopBar({ streak, xp, hearts, gems, onGems, premium }: Props) {
         {premium && <PremiumBadge />}
       </div>
       <div className="top-stats">
-        <span title="רצף ימים" className={streak > 0 ? 'streak-stat on' : 'streak-stat'}>
-          🔥 {streak}
+        <span title="רצף ימים" className={streak > 0 ? 'stat streak-stat on' : 'stat streak-stat'}>
+          <span>🔥</span> {streak}
         </span>
-        <span title="נקודות ניסיון">⭐ {xp}</span>
-        <span title={`לבבות (מקסימום ${MAX_HEARTS}, ועוד לבבות בונוס)`}>❤️ {hearts}</span>
-        <button type="button" className="gem-stat" onClick={onGems} aria-label={`${gems} יהלומים – לחנות`}>
-          💎 {gems}
+        <span title="נקודות ניסיון" className="stat">
+          <span>⭐</span> {xp}
+        </span>
+        <span className="stat" title={`לבבות (מקסימום ${MAX_HEARTS}, ועוד לבבות בונוס)`}>
+          <span>❤️</span> {hearts}
+        </span>
+        <button type="button" className="stat gem-stat" onClick={onGems} aria-label={`${gems} יהלומים – לחנות`}>
+          <span>💎</span> {gems}
         </button>
       </div>
     </header>
