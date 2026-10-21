@@ -36,10 +36,16 @@ import {
   rewardActivity,
   rewardUnitTest,
   useGems,
+  type GameId,
   type Reward,
 } from './lib/gems';
 import { DailyRewards } from './components/DailyRewards';
 import { Shop } from './components/Shop';
+import { Arcade } from './components/Arcade';
+import { GameResult } from './components/games/GameResult';
+import { MemoryGame } from './components/games/MemoryGame';
+import { WordRush } from './components/games/WordRush';
+import { finishGame, gameInfo, gameUnlocked, unlockGame, wordPool } from './lib/games';
 import { completeLesson, dateKey, isCatchUp, loseHeart, resetProgress, visibleStreak } from './lib/progress';
 import { syncReminders } from './lib/reminders';
 import { applyPlacement, placementDone, placementQuestions, unitsPassed } from './lib/placement';
@@ -67,11 +73,17 @@ import type { Exercise, Unit } from './types';
 
 type Tab = 'path' | 'shop' | 'league' | 'call' | 'profile';
 
+/** The arcade is opened from the path, so it isn't a tab. */
+type Page = Tab | 'arcade';
+
 /** Where a sign-up started, reported with `signup_complete`. */
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
 
 type Screen =
-  | { name: Tab }
+  | { name: Page }
+  /** An arcade game; `round` remounts it for "another round". */
+  | { name: 'game'; game: GameId; round: number }
+  | { name: 'game-done'; game: GameId; score: number; record: boolean; rewards: Reward[] }
   | { name: 'placement'; exercises: Exercise[] }
   | { name: 'placement-done'; units: number }
   | { name: 'unit-test'; unit: Unit; exercises: Exercise[] }
@@ -402,6 +414,38 @@ function Screens() {
     );
   }
 
+  if (screen.name === 'game') {
+    const { game, round } = screen;
+    const Game = game === 'rush' ? WordRush : MemoryGame;
+    return (
+      <Game
+        key={round}
+        pool={wordPool(progress)}
+        onQuit={() => setScreen({ name: 'arcade' })}
+        onFinish={(score) => {
+          const done = finishGame(gems, game, score);
+          updateGems(() => done.state);
+          if (done.rewards.length) sounds.gem();
+          setScreen({ name: 'game-done', game, score, record: done.record, rewards: done.rewards });
+        }}
+      />
+    );
+  }
+
+  if (screen.name === 'game-done') {
+    return (
+      <GameResult
+        title={gameInfo(screen.game).title}
+        score={screen.score}
+        best={gems.games.best[screen.game]}
+        record={screen.record}
+        rewards={screen.rewards}
+        onAgain={() => setScreen({ name: 'game', game: screen.game, round: Date.now() })}
+        onBack={() => setScreen({ name: 'arcade' })}
+      />
+    );
+  }
+
   if (screen.name === 'call-active') {
     return (
       <CallScreen
@@ -490,7 +534,8 @@ function Screens() {
     setScreen({ name: 'unit-test', unit, exercises: unitTestQuestions(unit, course.indexOf(unit)) });
   }
 
-  const goAuth = () => setScreen({ name: 'auth', back: screen.name, from: 'profile' });
+  const goAuth = () =>
+    setScreen({ name: 'auth', back: screen.name === 'arcade' ? 'path' : screen.name, from: 'profile' });
   const goShop = () => {
     setIntro(null);
     setScreen({ name: 'shop' });
@@ -528,6 +573,31 @@ function Screens() {
               updateGems(() => opened.state);
               return opened.amount;
             }}
+          />
+        )}
+        {screen.name === 'path' && (
+          <button type="button" className="arcade-card" onClick={() => setScreen({ name: 'arcade' })}>
+            <span className="arcade-card-icon" aria-hidden="true">
+              🎮
+            </span>
+            <span className="arcade-card-text">
+              <strong>ארקייד</strong>
+              <span className="muted">משחקי מילים שנפתחים בהתקדמות וביהלומים</span>
+            </span>
+            <span className="arcade-card-go" aria-hidden="true">
+              ‹
+            </span>
+          </button>
+        )}
+        {screen.name === 'arcade' && (
+          <Arcade
+            gems={gems}
+            progress={progress}
+            today={today}
+            onPlay={(game) => {
+              if (gameUnlocked(gems, progress, game)) setScreen({ name: 'game', game, round: 0 });
+            }}
+            onUnlock={(game) => spend(unlockGame(gems, game))}
           />
         )}
         {screen.name === 'shop' && (
