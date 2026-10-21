@@ -4,9 +4,12 @@ interface Props {
   streak: number;
   xp: number;
   hearts: number;
+  gems: number;
+  /** Opens the gem shop. */
+  onGems: () => void;
 }
 
-export function TopBar({ streak, xp, hearts }: Props) {
+export function TopBar({ streak, xp, hearts, gems, onGems }: Props) {
   return (
     <header className="top-bar">
       <span className="brand" dir="ltr">
@@ -18,7 +21,10 @@ export function TopBar({ streak, xp, hearts }: Props) {
           🔥 {streak}
         </span>
         <span title="נקודות ניסיון">⭐ {xp}</span>
-        <span title={`לבבות (מקסימום ${MAX_HEARTS})`}>❤️ {hearts}</span>
+        <span title={`לבבות (מקסימום ${MAX_HEARTS}, ועוד לבבות בונוס)`}>❤️ {hearts}</span>
+        <button type="button" className="gem-stat" onClick={onGems} aria-label={`${gems} יהלומים – לחנות`}>
+          💎 {gems}
+        </button>
       </div>
     </header>
   );

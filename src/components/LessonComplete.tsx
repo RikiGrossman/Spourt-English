@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import type { Reward } from '../lib/gems';
 import { sounds } from '../lib/sound';
 import type { LessonResult } from './LessonScreen';
 
@@ -11,6 +12,8 @@ interface Props {
   kind?: 'lesson' | 'review' | 'practice';
   /** Optional sign-up card (guests only, docs/spec/v2.md §7.4). */
   signupPrompt?: ReactNode;
+  /** Gems earned by this session. */
+  rewards?: Reward[];
   onContinue: () => void;
 }
 
@@ -25,11 +28,13 @@ export function LessonComplete({
   goalReached = false,
   kind = 'lesson',
   signupPrompt,
+  rewards = [],
   onContinue,
 }: Props) {
   useEffect(() => {
     sounds.complete();
   }, []);
+  const gems = rewards.reduce((sum, r) => sum + r.gems, 0);
 
   return (
     <div className="lesson-complete">
@@ -66,11 +71,33 @@ export function LessonComplete({
           <span className="label">רצף ימים</span>
           <span className="value">🔥 {streak}</span>
         </div>
+        {gems > 0 && (
+          <div className="stat-card gems rise" style={{ animationDelay: '0.4s' }}>
+            <span className="label">יהלומים</span>
+            <span className="value">💎 +{gems}</span>
+          </div>
+        )}
       </div>
+      {rewards.length > 0 && <RewardList rewards={rewards} />}
       {signupPrompt}
       <button type="button" className="btn primary" onClick={onContinue} autoFocus>
         המשך
       </button>
     </div>
+  );
+}
+
+/** What the gems were for, one line each. */
+export function RewardList({ rewards }: { rewards: Reward[] }) {
+  return (
+    <ul className="reward-list" aria-label="יהלומים שהרווחתם">
+      {rewards.map((r, i) => (
+        <li key={i} className="rise" style={{ animationDelay: `${0.5 + i * 0.12}s` }}>
+          <span aria-hidden="true">{r.icon}</span>
+          <span className="reward-label">{r.label}</span>
+          <span className="reward-gems">💎 +{r.gems}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
