@@ -211,22 +211,14 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   padding: 12px 16px;
   background: var(--bg);
   border-bottom: 2px solid var(--border);
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 1.3rem;
-  color: var(--brand);
-  font-weight: 800;
-}
-
-/* The logo with the premium badge (if any) under it, to the right of the name. */
+/* The logo with the premium badge (if any) under it. */
 .brand-mark {
   display: flex;
   flex-direction: column;
@@ -234,9 +226,15 @@ button:disabled {
   gap: 4px;
 }
 
+/* The app name gets its own centered row under the logo and stats. */
 .brand-name {
+  flex-basis: 100%;
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
+  font-size: 1.7rem;
+  color: var(--brand);
+  font-weight: 800;
 }
 
 .brand-logo {
@@ -244,7 +242,7 @@ button:disabled {
   height: 28px;
 }
 
-.brand b {
+.brand-name b {
   color: var(--gold-dark);
 }
 
