@@ -49,7 +49,7 @@ export function progressRouter(repo: Repo, requireAuth: RequestHandler) {
     }
     const today = plausibleLocalDate(b.date, now) ?? dateKey(now);
     const progress = completeLesson(current, lessonId, xp, now, today);
-    repo.saveLessonResult(userId, progress, xp, now);
+    repo.saveLessonResult(userId, progress, xp, now, true);
     const body: ProgressResponse = { progress };
     res.json(body);
   });

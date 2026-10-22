@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AuthResponse,
   CompleteLessonRequest,
+  GroupLeaderboardResponse,
+  GroupMembersResponse,
+  GroupResponse,
+  GroupsResponse,
   ItemStates,
   LeaderboardResponse,
   LoginRequest,
@@ -10,6 +14,21 @@ import type {
   SrsResponse,
   User,
 } from '../../shared/api';
+import {
+  GROUP_ERRORS,
+  cleanGroupName,
+  groupRank,
+  normalizeInviteCode,
+  periodRange,
+  previousPeriodRange,
+  rankGroups,
+  rankMembers,
+  summarizeGroup,
+  type GroupErrorCode,
+  type GroupTotals,
+  type Period,
+  type PeriodRange,
+} from '../../shared/groups';
 import { MAX_LESSON_XP, mergeProgress, plausibleLocalDate, sanitizeProgress } from '../../shared/progress-merge';
 import { MAX_ITEMS_PER_REQUEST } from '../../shared/srs';
 import { sanitizeItemStates } from '../../shared/srs-merge';
@@ -80,6 +99,48 @@ export function cloudError(
   return new ApiRequestError(error?.status && error.status < 500 ? error.status : 0, code || 'cloud', OFFLINE_MESSAGE);
 }
 
+const GROUP_STATUS: Record<GroupErrorCode, number> = {
+  invalid_name: 400,
+  invalid_code: 400,
+  invalid_period: 400,
+  group_not_found: 404,
+  not_member: 404,
+  group_full: 409,
+  too_many_groups: 409,
+  already_member: 409,
+};
+
+/** The group functions in schema.sql raise the error code as the message (e.g. `group_full`). */
+function groupError(error: { message?: string; status?: number; code?: string }): ApiRequestError {
+  const code = (error.message ?? '').trim();
+  if (code in GROUP_ERRORS) {
+    const known = code as GroupErrorCode;
+    return new ApiRequestError(GROUP_STATUS[known], known, GROUP_ERRORS[known]);
+  }
+  if (code === 'not_signed_in') return new ApiRequestError(401, 'unauthorized', NOT_SIGNED_IN);
+  return cloudError(error);
+}
+
+const iso = (t: number | null) => (t === null ? null : new Date(t).toISOString());
+const rangeArgs = (r: PeriodRange) => ({ since: iso(r.start), until: iso(r.end) });
+
+interface GroupTotalsRow {
+  id: string;
+  name: string;
+  member_count: number;
+  total_xp: number | string;
+  is_mine: boolean;
+}
+
+const toTotals = (rows: GroupTotalsRow[] | null): GroupTotals[] =>
+  (rows ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    memberCount: Number(r.member_count),
+    totalXp: Number(r.total_xp),
+    isMine: r.is_mine,
+  }));
+
 export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
   async function userId(client: SupabaseClient): Promise<string> {
     const { data, error } = await client.auth.getSession();
@@ -95,15 +156,70 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
     return (data && sanitizeProgress(data.data, now)) || initialProgress(now);
   }
 
-  async function save(client: SupabaseClient, id: string, progress: Progress, xp: number) {
+  async function save(client: SupabaseClient, id: string, progress: Progress, xp: number, lesson = false) {
     const { error } = await client
       .from('progress')
       .upsert({ user_id: id, data: progress, updated_at: new Date().toISOString() });
     if (error) throw cloudError(error);
     if (xp > 0) {
-      const { error: xpError } = await client.from('xp_events').insert({ user_id: id, xp });
+      let { error: xpError } = await client
+        .from('xp_events')
+        .insert({ user_id: id, xp, ...(lesson ? { lesson } : {}) });
+      // A database from before the groups update has no `lesson` column yet – the XP still counts.
+      if (xpError && lesson && /lesson/.test(xpError.message ?? '')) {
+        ({ error: xpError } = await client.from('xp_events').insert({ user_id: id, xp }));
+      }
       if (xpError) throw cloudError(xpError);
     }
+  }
+
+  async function groupTotals(client: SupabaseClient, range: PeriodRange): Promise<GroupTotals[]> {
+    const { data, error } = await client.rpc('group_totals', rangeArgs(range));
+    if (error) throw groupError(error);
+    return toTotals(data as GroupTotalsRow[] | null);
+  }
+
+  /** Same as GET /api/groups: the learner's groups, this week's rank and challenges. */
+  async function myGroups(client: SupabaseClient): Promise<GroupsResponse> {
+    await userId(client);
+    const week = periodRange('week');
+    const { data, error } = await client.rpc('my_groups', { week_start: iso(week.start), week_end: iso(week.end) });
+    if (error) throw groupError(error);
+    const totals = await groupTotals(client, week);
+    const rows = (data ?? []) as {
+      id: string;
+      name: string;
+      invite_code: string;
+      member_count: number;
+      is_owner: boolean;
+      joined_at: string;
+      xp: number | string;
+      lessons: number | string;
+      active_days: number | string;
+    }[];
+    return {
+      groups: rows.map((r) =>
+        summarizeGroup(
+          {
+            id: r.id,
+            name: r.name,
+            inviteCode: r.invite_code,
+            memberCount: Number(r.member_count),
+            isOwner: r.is_owner,
+            joinedAt: Date.parse(r.joined_at),
+          },
+          { xp: Number(r.xp), lessons: Number(r.lessons), activeDays: Number(r.active_days) },
+          groupRank(totals, r.id),
+          week,
+        ),
+      ),
+    };
+  }
+
+  async function groupById(client: SupabaseClient, id: string): Promise<GroupResponse> {
+    const group = (await myGroups(client)).groups.find((g) => g.id === id);
+    if (!group) throw groupError({ message: 'not_member' });
+    return { group };
   }
 
   async function toAuthResponse(
@@ -206,7 +322,7 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       const xp = Math.max(0, Math.min(MAX_LESSON_XP, Math.round(req.xp)));
       const today = plausibleLocalDate(req.date, now) ?? dateKey(now);
       const progress = completeLesson(current, lessonId, xp, now, today);
-      await save(client, id, progress, xp);
+      await save(client, id, progress, xp, true);
       return { progress };
     },
 
@@ -252,8 +368,24 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       if (error) throw cloudError(error);
     },
 
-    async leaderboard(): Promise<LeaderboardResponse> {
+    /** The personal league by period (GET /api/leaderboard?period=); without one, the last 7 days. */
+    async leaderboard(period?: Period): Promise<LeaderboardResponse> {
       const client = await getClient();
+      if (period) {
+        const range = periodRange(period);
+        const { data, error } = await client.rpc('xp_leaderboard', rangeArgs(range));
+        if (error) throw cloudError(error);
+        const rows = (data ?? []) as { rank: number; display_name: string; xp: number | string; is_me: boolean }[];
+        return {
+          entries: rows.map((r) => ({
+            rank: r.rank,
+            displayName: r.display_name,
+            weeklyXp: Number(r.xp),
+            isMe: r.is_me,
+          })),
+          endsAt: range.end,
+        };
+      }
       const { data, error } = await client.rpc('weekly_leaderboard');
       if (error) throw cloudError(error);
       const rows = (data ?? []) as { rank: number; display_name: string; weekly_xp: number; is_me: boolean }[];
@@ -264,6 +396,77 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
           weeklyXp: Number(r.weekly_xp),
           isMe: r.is_me,
         })),
+      };
+    },
+
+    async groups(): Promise<GroupsResponse> {
+      return myGroups(await getClient());
+    },
+
+    async createGroup(name: string): Promise<GroupResponse> {
+      const clean = cleanGroupName(name);
+      if (!clean) throw groupError({ message: 'invalid_name' });
+      const client = await getClient();
+      await userId(client);
+      const { data, error } = await client.rpc('create_group', { group_name: clean });
+      if (error) throw groupError(error);
+      return groupById(client, data as string);
+    },
+
+    async joinGroup(code: string): Promise<GroupResponse> {
+      const clean = normalizeInviteCode(code);
+      if (!clean) throw groupError({ message: 'invalid_code' });
+      const client = await getClient();
+      await userId(client);
+      const { data, error } = await client.rpc('join_group', { code: clean });
+      if (error) throw groupError(error);
+      return groupById(client, data as string);
+    },
+
+    async leaveGroup(id: string): Promise<void> {
+      const client = await getClient();
+      await userId(client);
+      const { error } = await client.rpc('leave_group', { gid: id });
+      if (error) throw groupError(error);
+    },
+
+    async groupMembers(id: string, period: Period): Promise<GroupMembersResponse> {
+      const client = await getClient();
+      await userId(client);
+      const { data, error } = await client.rpc('group_member_stats', { gid: id, ...rangeArgs(periodRange(period)) });
+      if (error) throw groupError(error);
+      const rows = (data ?? []) as {
+        display_name: string;
+        xp: number | string;
+        is_me: boolean;
+        is_owner: boolean;
+        joined_at: string;
+      }[];
+      return {
+        members: rankMembers(
+          rows.map((r) => ({
+            displayName: r.display_name,
+            xp: Number(r.xp),
+            isMe: r.is_me,
+            isOwner: r.is_owner,
+            joinedAt: Date.parse(r.joined_at),
+          })),
+        ),
+      };
+    },
+
+    async groupLeaderboard(period: Period): Promise<GroupLeaderboardResponse> {
+      const client = await getClient();
+      const range = periodRange(period);
+      const previous = previousPeriodRange(period);
+      const [current, before] = await Promise.all([
+        groupTotals(client, range),
+        previous ? groupTotals(client, previous) : Promise.resolve([]),
+      ]);
+      return {
+        entries: rankGroups(current),
+        endsAt: range.end,
+        previousWinners: rankGroups(before, 3).slice(0, 3),
       };
     },
   };

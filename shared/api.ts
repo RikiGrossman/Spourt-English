@@ -7,6 +7,7 @@
  * non-2xx status.
  */
 import type { Progress } from '../src/lib/progress';
+import type { GroupLeaderboardEntry, GroupMember, GroupSummary, Period } from './groups';
 import type { ItemStates } from './srs';
 
 export type { Progress };
@@ -86,16 +87,66 @@ export interface ProgressResponse {
   progress: Progress;
 }
 
-/** GET /api/leaderboard – top learners by XP over the last 7 days. */
+/**
+ * GET /api/leaderboard[?period=week|month|all] (auth optional) – top learners by XP.
+ * Without `period`: the last 7 days (older clients). With it: the calendar week, month or all
+ * time in Israel time (shared/groups.ts periodRange); the caller's row is added below the top
+ * 20 when it is lower.
+ */
 export interface LeaderboardEntry {
   rank: number;
   displayName: string;
+  /** XP in the requested period (the name dates from the weekly-only league). */
   weeklyXp: number;
   isMe: boolean;
 }
 
 export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
+  /** Set when `period` was asked for: when the period ends (ms), null for all time. */
+  endsAt?: number | null;
+}
+
+// ---- Groups, challenges and the group leaderboard (shared/groups.ts) ----
+
+export type { GroupLeaderboardEntry, GroupMember, GroupSummary, Period };
+export type { ChallengeStatus } from './groups';
+
+/** GET /api/groups (auth) – the learner's groups with this week's standing and challenges. */
+export interface GroupsResponse {
+  groups: GroupSummary[];
+}
+
+/** POST /api/groups (auth) – creates a private group with the learner as its first member. */
+export interface CreateGroupRequest {
+  name: string;
+}
+
+/** POST /api/groups/join (auth) – joins with an invite code. */
+export interface JoinGroupRequest {
+  code: string;
+}
+
+/** Response of creating and joining. */
+export interface GroupResponse {
+  group: GroupSummary;
+}
+
+/** GET /api/groups/:id/members?period=week|month|all (auth, members only). */
+export interface GroupMembersResponse {
+  members: GroupMember[];
+}
+
+/**
+ * GET /api/groups/leaderboard?period=week|month|all (auth optional) – groups ranked by
+ * groupScore (average XP per member). DELETE /api/groups/:id/membership (auth) leaves a group (204).
+ */
+export interface GroupLeaderboardResponse {
+  entries: GroupLeaderboardEntry[];
+  /** When the period ends (ms), null for all time. */
+  endsAt: number | null;
+  /** The top three of the previous week or month (empty for all time). */
+  previousWinners: GroupLeaderboardEntry[];
 }
 
 /** GET /api/health */

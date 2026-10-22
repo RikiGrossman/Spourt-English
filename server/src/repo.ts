@@ -1,6 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type { AnalyticsEvent } from '../../shared/analytics';
 import type { ItemStates, LeaderboardEntry, User } from '../../shared/api';
+import {
+  LEADERBOARD_SIZE,
+  MAX_GROUP_MEMBERS,
+  MAX_GROUPS_PER_USER,
+  newInviteCode,
+  type GroupBase,
+  type GroupErrorCode,
+  type GroupTotals,
+  type MemberXpEvent,
+} from '../../shared/groups';
 import type { Box } from '../../shared/srs';
 import { initialProgress, type Progress } from '../../src/lib/progress';
 import type { Db } from './db';
@@ -52,6 +62,18 @@ export interface CallUsage {
 export type CallTurnCharge =
   { allowed: true; calls: number } | { allowed: false; reason: 'calls' | 'turns'; calls: number };
 
+/** Outcome of creating or joining a group: its id, or the reason it was refused. */
+export type GroupChange = { ok: true; groupId: string } | { ok: false; error: GroupErrorCode };
+
+interface GroupRow {
+  id: string;
+  name: string;
+  invite_code: string;
+  owner_id: string | null;
+  joined_at: number;
+  member_count: number;
+}
+
 /** Data access for the API, kept in one place so routes stay small. */
 export function createRepo(db: Db) {
   const q = {
@@ -66,7 +88,59 @@ export function createRepo(db: Db) {
       `INSERT INTO progress (user_id, json, updated_at) VALUES (?, ?, ?)
        ON CONFLICT(user_id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at`,
     ),
-    insertXp: db.prepare('INSERT INTO xp_events (user_id, xp, created_at) VALUES (?, ?, ?)'),
+    insertXp: db.prepare('INSERT INTO xp_events (user_id, xp, created_at, lesson) VALUES (?, ?, ?, ?)'),
+    periodBoard: db.prepare(
+      `SELECT u.id AS id, u.display_name AS displayName, SUM(e.xp) AS xp, MAX(e.created_at) AS lastAt
+       FROM xp_events e JOIN users u ON u.id = e.user_id
+       WHERE e.created_at >= ? AND e.created_at < ?
+       GROUP BY u.id
+       HAVING xp > 0
+       ORDER BY xp DESC, lastAt ASC`,
+    ),
+    insertGroup: db.prepare('INSERT INTO groups (id, name, invite_code, owner_id, created_at) VALUES (?, ?, ?, ?, ?)'),
+    groupByCode: db.prepare('SELECT id FROM groups WHERE invite_code = ?'),
+    insertMember: db.prepare('INSERT INTO group_members (group_id, user_id, joined_at) VALUES (?, ?, ?)'),
+    deleteMember: db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?'),
+    memberCount: db.prepare('SELECT COUNT(*) AS n FROM group_members WHERE group_id = ?'),
+    groupCount: db.prepare('SELECT COUNT(*) AS n FROM group_members WHERE user_id = ?'),
+    membership: db.prepare('SELECT joined_at FROM group_members WHERE group_id = ? AND user_id = ?'),
+    myGroups: db.prepare(
+      `SELECT g.id, g.name, g.invite_code, g.owner_id, m.joined_at,
+         (SELECT COUNT(*) FROM group_members c WHERE c.group_id = g.id) AS member_count
+       FROM group_members m JOIN groups g ON g.id = m.group_id
+       WHERE m.user_id = ?
+       ORDER BY m.joined_at`,
+    ),
+    // Each member's XP counts from when they joined the group.
+    groupEvents: db.prepare(
+      `SELECT e.user_id AS userId, e.xp, e.lesson, e.created_at AS at
+       FROM group_members m JOIN xp_events e ON e.user_id = m.user_id
+       WHERE m.group_id = ? AND e.created_at >= MAX(?, m.joined_at) AND e.created_at < ?`,
+    ),
+    groupMembers: db.prepare(
+      `SELECT u.id, u.display_name AS displayName, m.joined_at AS joinedAt, g.owner_id AS ownerId,
+         COALESCE((SELECT SUM(e.xp) FROM xp_events e
+           WHERE e.user_id = m.user_id AND e.created_at >= MAX(?, m.joined_at) AND e.created_at < ?), 0) AS xp
+       FROM group_members m JOIN users u ON u.id = m.user_id JOIN groups g ON g.id = m.group_id
+       WHERE m.group_id = ?`,
+    ),
+    groupTotals: db.prepare(
+      `SELECT g.id, g.name,
+         (SELECT COUNT(*) FROM group_members c WHERE c.group_id = g.id) AS memberCount,
+         COALESCE(SUM(e.xp), 0) AS totalXp,
+         MAX(CASE WHEN m.user_id = ? THEN 1 ELSE 0 END) AS isMine
+       FROM groups g
+       JOIN group_members m ON m.group_id = g.id
+       LEFT JOIN xp_events e ON e.user_id = m.user_id AND e.created_at >= MAX(?, m.joined_at) AND e.created_at < ?
+       GROUP BY g.id`,
+    ),
+    // Groups left without members go; a group whose owner left passes to its longest-standing member.
+    dropEmptyGroups: db.prepare('DELETE FROM groups WHERE id NOT IN (SELECT group_id FROM group_members)'),
+    reassignOwners: db.prepare(
+      `UPDATE groups SET owner_id = (
+         SELECT m.user_id FROM group_members m WHERE m.group_id = groups.id ORDER BY m.joined_at, m.user_id LIMIT 1)
+       WHERE owner_id IS NULL OR owner_id NOT IN (SELECT user_id FROM group_members WHERE group_id = groups.id)`,
+    ),
     leaderboard: db.prepare(
       `SELECT u.id AS id, u.display_name AS displayName, SUM(e.xp) AS weeklyXp, MAX(e.created_at) AS lastAt
        FROM xp_events e JOIN users u ON u.id = e.user_id
@@ -135,7 +209,11 @@ export function createRepo(db: Db) {
     },
     /** Deletes the user; progress, XP, review state, events and call usage go with it (ON DELETE CASCADE). */
     deleteUser(id: string): void {
-      q.deleteUser.run(id);
+      transaction(() => {
+        q.deleteUser.run(id);
+        q.dropEmptyGroups.run();
+        q.reassignOwners.run();
+      });
     },
     getProgress(userId: string, now = Date.now()): Progress {
       const row = q.getProgress.get(userId) as { json: string } | undefined;
@@ -144,12 +222,12 @@ export function createRepo(db: Db) {
     saveProgress(userId: string, progress: Progress, now = Date.now()): void {
       q.upsertProgress.run(userId, JSON.stringify(progress), now);
     },
-    /** Saves progress and records earned XP atomically. */
-    saveLessonResult(userId: string, progress: Progress, xp: number, now = Date.now()): void {
+    /** Saves progress and records earned XP atomically; `lesson` marks XP from a finished lesson. */
+    saveLessonResult(userId: string, progress: Progress, xp: number, now = Date.now(), lesson = false): void {
       db.exec('BEGIN');
       try {
         q.upsertProgress.run(userId, JSON.stringify(progress), now);
-        if (xp > 0) q.insertXp.run(userId, xp, now);
+        if (xp > 0) q.insertXp.run(userId, xp, now, lesson ? 1 : 0);
         db.exec('COMMIT');
       } catch (err) {
         db.exec('ROLLBACK');
@@ -243,6 +321,119 @@ export function createRepo(db: Db) {
         displayName: r.displayName,
         weeklyXp: Number(r.weeklyXp),
         isMe: r.id === meId,
+      }));
+    },
+    /**
+     * Learners by XP in [start, end): the top LEADERBOARD_SIZE, plus the caller's own row with
+     * its true rank when it is lower.
+     */
+    periodLeaderboard(meId: string | undefined, start: number, end: number): LeaderboardEntry[] {
+      const rows = q.periodBoard.all(start, end) as { id: string; displayName: string; xp: number }[];
+      return rows
+        .map((r, i) => ({ rank: i + 1, displayName: r.displayName, weeklyXp: Number(r.xp), isMe: r.id === meId }))
+        .filter((e) => e.rank <= LEADERBOARD_SIZE || e.isMe);
+    },
+    createGroup(userId: string, name: string, now = Date.now()): GroupChange {
+      let result: GroupChange = { ok: false, error: 'too_many_groups' };
+      transaction(() => {
+        if (Number((q.groupCount.get(userId) as { n: number }).n) >= MAX_GROUPS_PER_USER) return;
+        let code = newInviteCode();
+        while (q.groupByCode.get(code)) code = newInviteCode();
+        const id = randomUUID();
+        q.insertGroup.run(id, name, code, userId, now);
+        q.insertMember.run(id, userId, now);
+        result = { ok: true, groupId: id };
+      });
+      return result;
+    },
+    joinGroup(userId: string, code: string, now = Date.now()): GroupChange {
+      let result: GroupChange = { ok: false, error: 'group_not_found' };
+      transaction(() => {
+        const group = q.groupByCode.get(code) as { id: string } | undefined;
+        if (!group) return;
+        if (q.membership.get(group.id, userId)) result = { ok: false, error: 'already_member' };
+        else if (Number((q.memberCount.get(group.id) as { n: number }).n) >= MAX_GROUP_MEMBERS) {
+          result = { ok: false, error: 'group_full' };
+        } else if (Number((q.groupCount.get(userId) as { n: number }).n) >= MAX_GROUPS_PER_USER) {
+          result = { ok: false, error: 'too_many_groups' };
+        } else {
+          q.insertMember.run(group.id, userId, now);
+          result = { ok: true, groupId: group.id };
+        }
+      });
+      return result;
+    },
+    /** Leaves the group; false when the learner wasn't a member. */
+    leaveGroup(userId: string, groupId: string): boolean {
+      let left = false;
+      transaction(() => {
+        left = Number(q.deleteMember.run(groupId, userId).changes) > 0;
+        if (!left) return;
+        q.dropEmptyGroups.run();
+        q.reassignOwners.run();
+      });
+      return left;
+    },
+    isMember(userId: string, groupId: string): boolean {
+      return q.membership.get(groupId, userId) !== undefined;
+    },
+    /** The learner's groups, oldest membership first. */
+    myGroups(userId: string): GroupBase[] {
+      return (q.myGroups.all(userId) as unknown as GroupRow[]).map((r) => ({
+        id: r.id,
+        name: r.name,
+        inviteCode: r.invite_code,
+        memberCount: Number(r.member_count),
+        isOwner: r.owner_id === userId,
+        joinedAt: Number(r.joined_at),
+      }));
+    },
+    /** Members' XP rows in [start, end), each from when that member joined. */
+    groupEvents(groupId: string, start: number, end: number): MemberXpEvent[] {
+      const rows = q.groupEvents.all(groupId, start, end) as {
+        userId: string;
+        xp: number;
+        lesson: number;
+        at: number;
+      }[];
+      return rows.map((r) => ({
+        userId: r.userId,
+        xp: Number(r.xp),
+        lesson: Number(r.lesson) === 1,
+        at: Number(r.at),
+      }));
+    },
+    groupMembers(groupId: string, meId: string, start: number, end: number) {
+      const rows = q.groupMembers.all(start, end, groupId) as {
+        id: string;
+        displayName: string;
+        joinedAt: number;
+        ownerId: string | null;
+        xp: number;
+      }[];
+      return rows.map((r) => ({
+        displayName: r.displayName,
+        xp: Number(r.xp),
+        isMe: r.id === meId,
+        isOwner: r.id === r.ownerId,
+        joinedAt: Number(r.joinedAt),
+      }));
+    },
+    /** Every group's member count and XP in [start, end); `isMine` marks the caller's groups. */
+    groupTotals(meId: string | undefined, start: number, end: number): GroupTotals[] {
+      const rows = q.groupTotals.all(meId ?? null, start, end) as {
+        id: string;
+        name: string;
+        memberCount: number;
+        totalXp: number;
+        isMine: number;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        memberCount: Number(r.memberCount),
+        totalXp: Number(r.totalXp),
+        isMine: Number(r.isMine) === 1,
       }));
     },
   };

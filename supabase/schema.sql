@@ -319,3 +319,192 @@ create table if not exists public.billing_events (
 alter table public.billing_events enable row level security;
 revoke all on public.billing_events from public, anon, authenticated;
 grant select, insert, update, delete on public.billing_events to service_role;
+
+-- (7) Groups, weekly group challenges and the period leaderboards (shared/groups.ts, docs/groups.md).
+-- Clients have no direct access to the group tables: everything goes through the functions below,
+-- which check membership and only ever expose display names and group names. A member's XP counts
+-- for a group from the moment they joined it. Limits (shared/groups.ts): names 2–30 characters,
+-- 5 groups per learner, 30 members per group.
+alter table public.xp_events add column if not exists lesson boolean not null default false;
+create index if not exists xp_events_user_created on public.xp_events (user_id, created_at);
+
+create table if not exists public.groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 2 and 30),
+  invite_code text not null unique check (invite_code ~ '^[A-HJKMNP-Z2-9]{6}$'),
+  owner_id uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.group_members (
+  group_id uuid not null references public.groups (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (group_id, user_id)
+);
+create index if not exists group_members_user on public.group_members (user_id);
+alter table public.groups enable row level security;
+alter table public.group_members enable row level security;
+revoke all on public.groups, public.group_members from public, anon, authenticated;
+
+-- Groups left without members go (also after an account is deleted); a group whose owner left
+-- passes to its longest-standing member.
+create or replace function public.tidy_groups()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.groups g where not exists (select 1 from public.group_members m where m.group_id = g.id);
+  update public.groups g set owner_id = (
+    select m.user_id from public.group_members m where m.group_id = g.id order by m.joined_at, m.user_id limit 1)
+  where g.owner_id is null
+     or not exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = g.owner_id);
+  return null;
+end; $$;
+drop trigger if exists group_members_tidy on public.group_members;
+create trigger group_members_tidy after delete on public.group_members
+  for each statement execute function public.tidy_groups();
+
+create or replace function public.create_group(group_name text)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  clean text := regexp_replace(btrim(coalesce(group_name, '')), '\s+', ' ', 'g');
+  code text;
+  gid uuid;
+begin
+  if me is null then raise exception 'not_signed_in'; end if;
+  if char_length(clean) not between 2 and 30 then raise exception 'invalid_name'; end if;
+  perform pg_advisory_xact_lock(hashtext(me::text));
+  if (select count(*) from public.group_members where user_id = me) >= 5 then raise exception 'too_many_groups'; end if;
+  loop
+    select string_agg(substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', 1 + floor(random() * 31)::int, 1), '')
+      into code from generate_series(1, 6);
+    exit when not exists (select 1 from public.groups where invite_code = code);
+  end loop;
+  insert into public.groups (name, invite_code, owner_id) values (clean, code, me) returning id into gid;
+  insert into public.group_members (group_id, user_id) values (gid, me);
+  return gid;
+end; $$;
+
+create or replace function public.join_group(code text)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  clean text := upper(regexp_replace(coalesce(code, ''), '[\s-]', '', 'g'));
+  gid uuid;
+begin
+  if me is null then raise exception 'not_signed_in'; end if;
+  if clean !~ '^[A-HJKMNP-Z2-9]{6}$' then raise exception 'invalid_code'; end if;
+  -- Locks the group row, so two friends joining at once can't pass the member limit.
+  select id into gid from public.groups where invite_code = clean for update;
+  if gid is null then raise exception 'group_not_found'; end if;
+  if exists (select 1 from public.group_members where group_id = gid and user_id = me) then
+    raise exception 'already_member';
+  end if;
+  if (select count(*) from public.group_members where group_id = gid) >= 30 then raise exception 'group_full'; end if;
+  perform pg_advisory_xact_lock(hashtext(me::text));
+  if (select count(*) from public.group_members where user_id = me) >= 5 then raise exception 'too_many_groups'; end if;
+  insert into public.group_members (group_id, user_id) values (gid, me);
+  return gid;
+end; $$;
+
+create or replace function public.leave_group(gid uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.group_members where group_id = gid and user_id = auth.uid();
+  if not found then raise exception 'not_member'; end if;
+end; $$;
+
+-- The caller's groups with the week's figures for the challenges: XP, finished lessons and
+-- member-days with XP (calendar days in Israel time, like shared/groups.ts challengeStats).
+create or replace function public.my_groups(week_start timestamptz, week_end timestamptz)
+returns table (
+  id uuid, name text, invite_code text, member_count integer, is_owner boolean, joined_at timestamptz,
+  xp bigint, lessons bigint, active_days bigint
+)
+language sql stable security definer set search_path = '' as $$
+  select g.id, g.name, g.invite_code,
+    (select count(*) from public.group_members c where c.group_id = g.id)::integer,
+    coalesce(g.owner_id = mine.user_id, false),
+    mine.joined_at,
+    coalesce(s.xp, 0)::bigint, coalesce(s.lessons, 0)::bigint, coalesce(s.days, 0)::bigint
+  from public.group_members mine
+  join public.groups g on g.id = mine.group_id
+  left join lateral (
+    select sum(e.xp) as xp,
+      count(*) filter (where e.lesson) as lessons,
+      count(distinct e.user_id::text || '|' || (e.created_at at time zone 'Asia/Jerusalem')::date::text)
+        filter (where e.xp > 0) as days
+    from public.group_members m
+    join public.xp_events e on e.user_id = m.user_id
+    where m.group_id = g.id and e.created_at >= greatest(week_start, m.joined_at) and e.created_at < week_end
+  ) s on true
+  where mine.user_id = auth.uid()
+  order by mine.joined_at;
+$$;
+
+-- A group's own board for a period (null `until` = no end); members only.
+create or replace function public.group_member_stats(gid uuid, since timestamptz, until timestamptz)
+returns table (display_name text, xp bigint, is_me boolean, is_owner boolean, joined_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not exists (select 1 from public.group_members where group_id = gid and user_id = auth.uid()) then
+    raise exception 'not_member';
+  end if;
+  return query
+    select p.display_name,
+      coalesce((select sum(e.xp) from public.xp_events e
+        where e.user_id = m.user_id and e.created_at >= greatest(since, m.joined_at)
+          and e.created_at < coalesce(until, 'infinity')), 0)::bigint,
+      m.user_id = auth.uid(),
+      m.user_id = g.owner_id,
+      m.joined_at
+    from public.group_members m
+    join public.groups g on g.id = m.group_id
+    join public.profiles p on p.id = m.user_id
+    where m.group_id = gid;
+end; $$;
+
+-- Every group's size and XP for a period; the client ranks them with shared/groups.ts rankGroups.
+create or replace function public.group_totals(since timestamptz, until timestamptz)
+returns table (id uuid, name text, member_count integer, total_xp bigint, is_mine boolean)
+language sql stable security definer set search_path = '' as $$
+  select g.id, g.name,
+    (select count(*) from public.group_members c where c.group_id = g.id)::integer,
+    coalesce(sum(e.xp), 0)::bigint,
+    coalesce(bool_or(m.user_id = auth.uid()), false)
+  from public.groups g
+  join public.group_members m on m.group_id = g.id
+  left join public.xp_events e on e.user_id = m.user_id
+    and e.created_at >= greatest(since, m.joined_at) and e.created_at < coalesce(until, 'infinity')
+  group by g.id, g.name
+  having coalesce(sum(e.xp), 0) > 0 or coalesce(bool_or(m.user_id = auth.uid()), false);
+$$;
+
+-- The personal league for a period: the top 20, plus the caller's own row when it is lower.
+create or replace function public.xp_leaderboard(since timestamptz, until timestamptz)
+returns table (rank integer, display_name text, xp bigint, is_me boolean)
+language sql stable security definer set search_path = '' as $$
+  with totals as (
+    select e.user_id, sum(e.xp) as xp, max(e.created_at) as last_at
+    from public.xp_events e
+    join public.profiles p on p.id = e.user_id
+    where e.created_at >= since and e.created_at < coalesce(until, 'infinity')
+    group by e.user_id
+    having sum(e.xp) > 0
+  ), ranked as (
+    select (row_number() over (order by t.xp desc, t.last_at asc))::integer as rank, t.user_id, t.xp from totals t
+  )
+  select r.rank, p.display_name, r.xp::bigint, coalesce(r.user_id = auth.uid(), false)
+  from ranked r join public.profiles p on p.id = r.user_id
+  where r.rank <= 20 or r.user_id = auth.uid()
+  order by r.rank;
+$$;
+
+revoke execute on function public.tidy_groups() from public, anon, authenticated;
+revoke execute on function public.create_group(text), public.join_group(text), public.leave_group(uuid),
+  public.my_groups(timestamptz, timestamptz), public.group_member_stats(uuid, timestamptz, timestamptz)
+  from public, anon;
+grant execute on function public.create_group(text), public.join_group(text), public.leave_group(uuid),
+  public.my_groups(timestamptz, timestamptz), public.group_member_stats(uuid, timestamptz, timestamptz)
+  to authenticated;
+grant execute on function public.group_totals(timestamptz, timestamptz), public.xp_leaderboard(timestamptz, timestamptz)
+  to anon, authenticated;

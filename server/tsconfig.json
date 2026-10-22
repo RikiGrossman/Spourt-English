@@ -13,5 +13,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "vitest.config.ts", "../shared/api.ts", "../shared/progress-merge.ts", "../shared/call.ts", "../shared/call-prompts.ts", "../shared/call-safety.ts", "../src/lib/progress.ts", "../src/data/course.ts", "../src/types.ts"]
+  "include": ["src", "vitest.config.ts", "../shared/api.ts", "../shared/groups.ts", "../shared/progress-merge.ts", "../shared/call.ts", "../shared/call-prompts.ts", "../shared/call-safety.ts", "../src/lib/progress.ts", "../src/data/course.ts", "../src/types.ts"]
 }

@@ -66,6 +66,24 @@ const migrations: string[] = [
     turns INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, day)
   );`,
+  // #5 – groups, group challenges and period leaderboards (shared/groups.ts). `lesson` marks XP from a
+  // finished lesson (for the lessons challenge); XP that arrived with a progress sync keeps 0.
+  `CREATE TABLE groups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    invite_code TEXT NOT NULL UNIQUE,
+    owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE group_members (
+    group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    joined_at INTEGER NOT NULL,
+    PRIMARY KEY (group_id, user_id)
+  );
+  CREATE INDEX group_members_user ON group_members(user_id);
+  ALTER TABLE xp_events ADD COLUMN lesson INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX xp_events_user_created ON xp_events(user_id, created_at);`,
 ];
 
 export function migrate(db: Db): void {

@@ -9,6 +9,7 @@ import { createRepo } from './repo';
 import { authRouter } from './routes/auth';
 import { callRouter, type CallModelOptions } from './routes/call';
 import { eventsRouter } from './routes/events';
+import { groupsRouter } from './routes/groups';
 import { healthRouter } from './routes/health';
 import { leaderboardRouter } from './routes/leaderboard';
 import { progressRouter } from './routes/progress';
@@ -85,6 +86,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
   api.use(authRouter(repo, secret, limiter, requireAuth));
   api.use(progressRouter(repo, requireAuth));
   api.use(leaderboardRouter(repo, optionalAuth));
+  api.use(groupsRouter(repo, requireAuth, optionalAuth));
   api.use(srsRouter(repo, requireAuth));
   api.use(eventsRouter(repo, optionalAuth, eventsLimiter));
   const premiumEmails = parsePremiumEmails(options.premiumEmails ?? process.env.PREMIUM_EMAILS);

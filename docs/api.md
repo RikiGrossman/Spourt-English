@@ -206,10 +206,10 @@ Content-Type: application/json
 > הערה: ב־`PUT /api/progress` השרת מתעלם מנתוני היום (`lastActiveDate`, `streak`, `xpToday`) אם `lastActiveDate` מאוחר ביותר מיום אחד מהתאריך בשרת (שעון מכשיר שגוי), כדי שתאריך עתידי לא "ינצח" בכל מיזוג ויקפיא את הרצף.
 
 ### `GET /api/leaderboard`
-עשרים הלומדים המובילים לפי XP בשבעת הימים האחרונים. **אימות אופציונלי** – עם טוקן, השורה של המשתמש מסומנת `isMe: true`.
+הלומדים המובילים לפי XP. **אימות אופציונלי** – עם טוקן, השורה של המשתמש מסומנת `isMe: true`.
 
 ```http
-GET /api/leaderboard
+GET /api/leaderboard?period=week
 Authorization: Bearer eyJhbGciOi...   (אופציונלי)
 ```
 ```json
@@ -218,11 +218,57 @@ Authorization: Bearer eyJhbGciOi...   (אופציונלי)
     { "rank": 1, "displayName": "יוסי", "weeklyXp": 210, "isMe": false },
     { "rank": 2, "displayName": "דנה", "weeklyXp": 145, "isMe": true },
     { "rank": 3, "displayName": "Noa", "weeklyXp": 90, "isMe": false }
-  ]
+  ],
+  "endsAt": 1761944400000
 }
 ```
-- ממוין לפי `weeklyXp` בסדר יורד; `rank` מתחיל ב־1.
+- `period`: `week` (השבוע הקלנדרי, מיום ראשון), `month` (החודש הקלנדרי) או `all` (מצטבר). התקופות לפי שעון ישראל (`shared/groups.ts` → `periodRange`). ערך אחר → `400 invalid_period`.
+- **בלי `period`** (לקוחות ישנים): שבעת הימים האחרונים, בלי `endsAt` – כמו קודם.
+- `weeklyXp` הוא ה־XP בתקופה שנבחרה (השם נשאר מהליגה השבועית). `endsAt` – סוף התקופה (ms), `null` במצטבר.
+- עשרים המובילים; אם המשתמש מתחת להם, השורה שלו מתווספת בסוף עם המקום האמיתי שלו.
 - מוצג רק שם תצוגה – אף פעם לא אימייל או מזהה.
+
+### קבוצות ואתגרים קבוצתיים
+הכללים המלאים ב־[groups.md](groups.md). כל הנתיבים מחזירים שגיאות עם קוד מ־`GROUP_ERRORS` (`shared/groups.ts`): `invalid_name`/`invalid_code`/`invalid_period` (400), `group_not_found`/`not_member` (404), `group_full`/`too_many_groups`/`already_member` (409).
+
+#### `GET /api/groups` 🔒
+```json
+200 {
+  "groups": [{
+    "id": "…", "name": "המשפחה", "inviteCode": "C8T734", "memberCount": 2, "isOwner": true, "joinedAt": 1761000000000,
+    "weekStart": 1760734800000, "weekEnd": 1761339600000, "weekXp": 45, "weekScore": 15, "weekRank": 2,
+    "challenges": [
+      { "id": "xp:1760734800000", "kind": "xp", "icon": "⚡", "title": "צברו יחד 240 XP", "goal": 240, "gems": 20, "progress": 45, "done": false }
+    ]
+  }]
+}
+```
+- `weekScore` = ממוצע XP לחבר (קבוצה קטנה מ־3 נספרת כ־3). `weekRank` – המקום בדירוג הקבוצות השבועי, `null` לפני XP ראשון.
+- `challenges` – שלושת אתגרי השבוע: `xp`, `lessons` (שיעורים שהושלמו), `days` (ימי לימוד של חברים).
+
+#### `POST /api/groups` 🔒
+`{ "name": "המשפחה" }` → `201 { "group": GroupSummary }`. השם 2–30 תווים (רווחים מצטמצמים). עד 5 קבוצות למשתמש.
+
+#### `POST /api/groups/join` 🔒
+`{ "code": "c8t-734" }` → `200 { "group": GroupSummary }`. הקוד בכל גודל אותיות, רווחים ומקפים לא משנים. עד 30 חברים בקבוצה.
+
+#### `GET /api/groups/:id/members?period=week|month|all` 🔒
+חברי הקבוצה בלבד. `200 { "members": [{ "rank": 1, "displayName": "דנה", "xp": 40, "isMe": true, "isOwner": true }] }`. ה־XP של כל חבר נספר מרגע ההצטרפות שלו.
+
+#### `DELETE /api/groups/:id/membership` 🔒
+עזיבת הקבוצה → `204`. אם המייסד עוזב, הקבוצה עוברת לחבר הוותיק ביותר; קבוצה ריקה נמחקת.
+
+#### `GET /api/groups/leaderboard?period=week|month|all`
+**אימות אופציונלי** – עם טוקן, הקבוצות של המשתמש מסומנות `isMine: true`.
+```json
+200 {
+  "entries": [{ "rank": 1, "name": "הכיתה", "memberCount": 10, "totalXp": 600, "score": 60, "isMine": false }],
+  "endsAt": 1761339600000,
+  "previousWinners": [{ "rank": 1, "name": "המשפחה", "memberCount": 2, "totalXp": 300, "score": 100, "isMine": true }]
+}
+```
+- ממוין לפי `score` (ממוצע לחבר), אחר כך `totalXp`. רק קבוצות עם XP בתקופה. עשרים המובילות + הקבוצות שלי מתחתן.
+- `previousWinners` – שלוש המובילות בשבוע/בחודש הקודם (ריק במצטבר).
 
 ### `GET /api/srs` 🔒 (v2)
 מצב החזרה המרווחת המלא של הלומד (`ItemStates`: מפתח פריט → מצב). מפתחות: `w:<wordId>` למילה, `s:<lessonId>:<index>` למשפט (`shared/item-keys.ts`).
