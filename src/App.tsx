@@ -13,6 +13,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { LessonComplete } from './components/LessonComplete';
 import { LessonScreen, type LessonResult } from './components/LessonScreen';
 import { Onboarding } from './components/Onboarding';
+import { Paywall } from './components/Paywall';
 import { Profile } from './components/Profile';
 import { SignupPrompt } from './components/SignupPrompt';
 import { TopBar } from './components/TopBar';
@@ -20,6 +21,7 @@ import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
+import { PREMIUM_ON_SALE, subscriptionText, syncBillingUser } from './lib/billing';
 import { CALLS_ENABLED, CALLS_LOCKED, getCallStatus } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
@@ -105,7 +107,9 @@ type Screen =
     }
   /** An AI video call in progress, and its summary after hanging up. */
   | { name: 'call-active'; persona: Persona }
-  | { name: 'call-summary'; result: CallResult };
+  | { name: 'call-summary'; result: CallResult }
+  /** The premium screen (plans, buying, restoring). */
+  | { name: 'premium'; back: Tab };
 
 interface IntroState {
   unit: Unit;
@@ -215,6 +219,10 @@ function Screens() {
     );
     return () => controller.abort();
   }, [userId]);
+  // RevenueCat follows the signed-in learner, so a purchase is linked to their account.
+  useEffect(() => {
+    void syncBillingUser(userId);
+  }, [userId]);
   const premium = account.user !== null && callStatus?.premium === true;
 
   function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
@@ -224,6 +232,20 @@ function Screens() {
     identify();
     // Signing in from the call tab goes back to the characters.
     setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
+  }
+
+  if (screen.name === 'premium') {
+    const { back } = screen;
+    return (
+      <Paywall
+        user={account.user}
+        status={callStatus}
+        onStatus={setCallStatus}
+        onSignIn={() => setScreen({ name: 'auth', back, from: 'profile' })}
+        onClose={() => setScreen({ name: back })}
+        onCalls={() => setScreen({ name: 'call' })}
+      />
+    );
   }
 
   if (screen.name === 'auth') {
@@ -633,6 +655,7 @@ function Screens() {
             onStatus={setCallStatus}
             onSignIn={goAuth}
             onCall={(persona) => setScreen({ name: 'call-active', persona })}
+            onPremium={PREMIUM_ON_SALE ? () => setScreen({ name: 'premium', back: 'call' }) : undefined}
           />
         )}
         {screen.name === 'profile' && (
@@ -641,6 +664,13 @@ function Screens() {
             streak={streak}
             user={account.user}
             premium={premium}
+            subscription={premium ? subscriptionText(callStatus) : ''}
+            onPremium={
+              // Premium is the calls, so it isn't offered while the call tab is locked.
+              CALLS_ENABLED && PREMIUM_ON_SALE && !CALLS_LOCKED
+                ? () => setScreen({ name: 'premium', back: 'profile' })
+                : undefined
+            }
             syncStatus={account.status}
             settings={settings}
             onSettings={changeSettings}

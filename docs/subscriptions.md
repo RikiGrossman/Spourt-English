@@ -1,7 +1,9 @@
 # מנוי פרימיום: תשלומים, חנויות, מיסוי וארכיטקטורה
 
 המסמך מרכז את מה שצריך כדי למכור מנוי "פרימיום" ב־Spourt English: המנוי פותח את שיחות הווידאו עם ה־AI (עד 10 שיחות ביום, `CALL_LIMITS.callsPerDay` ב־`shared/call.ts`).
-היום פרימיום הוא רשימת אימיילים בצד השרת (`PREMIUM_EMAILS`, `shared/premium.ts`). המסמך מסביר במה להחליף אותה ובאיזה סדר.
+פרימיום נקבע בצד השרת: אימייל ברשימה `PREMIUM_EMAILS` (`shared/premium.ts`), **או** מנוי בתוקף בטבלה `entitlements` ב־Supabase.
+
+> **מצב ב־21 באוקטובר 2026: הקוד מוכן ומחכה להגדרות.** הטבלאות, ה־webhook (`billing-webhook`), הבדיקה ב־`call-turn`, החיבור ל־RevenueCat באפליקציה ומסך המנוי ממומשים (שלב 3 למטה). כל עוד המשתנה `VITE_REVENUECAT_ANDROID_KEY` לא הוגדר, שום דבר לא נמכר והאפליקציה נראית כמו קודם: בלשונית השיחות "בקרוב! שיחות וידאו יהיו חלק מפרימיום", בלי מסך מנוי ובלי כרטיס פרימיום בפרופיל (`PREMIUM_ON_SALE` ב־`src/lib/billing.ts`). כשמגדירים אותו, האפליקציה מ־Google Play מוכרת, והאתר וה־APK להורדה מסבירים שמצטרפים דרך האפליקציה מ־Google Play. הסעיפים על המנוי בתנאי השימוש ובמדיניות הפרטיות מחכים ב־[legal-premium-draft.md](legal-premium-draft.md). מה שנשאר הוא בעיקר שלבים 0–2 ו־4–5, ו[פרק 7](#7-מה-צריך-ממך-רק-הבעלים-יכולה).
 
 > **נבדק ב־19 באוקטובר 2026.** עמלות ומדיניות של Google ו־Apple השתנו כמה פעמים ב־2025–2026, בעיקר בעקבות תביעות Epic. כל טענה על עמלה או מדיניות מגיעה עם קישור. סימון ⚠️ מציין דבר שלא הצלחתי לאמת במקור רשמי, או שהמקורות סותרים בו. **זה לא ייעוץ משפטי או ייעוץ מס.** את פרק 5 צריך לאשר מול רואה חשבון.
 >
@@ -292,7 +294,9 @@ Play מציגה הודעה בתוך האפליקציה בזמן grace ו־hold �
 call-turn (Edge Function) ─┴─► is_premium(user) = premium_until > now()  OR  email ∈ PREMIUM_EMAILS
 ```
 
-### טבלאות ב־Supabase (להוסיף ל־`supabase/schema.sql`)
+### טבלאות ב־Supabase (ממומש: `supabase/schema.sql`, סעיף 6)
+
+> בפועל ללקוחות אין גישה גם לקריאת `entitlements`: האפליקציה מקבלת את `premiumUntil` ו־`willRenew` מהסטטוס של `call-turn`. ב־`billing_events` לא נשמר ה־user id.
 
 ```sql
 -- (6) Premium entitlement, written only by the billing-webhook Edge Function (service role).
@@ -305,14 +309,12 @@ create table if not exists public.entitlements (
   updated_at timestamptz not null default now()
 );
 alter table public.entitlements enable row level security;
--- The learner may read their own row (to show "premium until …"); no client writes.
-create policy "own entitlement" on public.entitlements for select using (auth.uid() = user_id);
-revoke insert, update, delete on public.entitlements from anon, authenticated;
+-- No client access at all; the app learns about premium from call-turn's status.
+revoke all on public.entitlements from public, anon, authenticated;
 
 -- Idempotency: each webhook event is processed once.
 create table if not exists public.billing_events (
   event_id text primary key,
-  user_id uuid,
   type text not null,
   received_at timestamptz not null default now()
 );
@@ -335,13 +337,13 @@ revoke all on public.billing_events from public, anon, authenticated;
 
 ### במה זה מחליף את `PREMIUM_EMAILS`
 
-| מקום                                           | היום                             | אחרי                                                                                                                                                                                                                                                    |
-| ---------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared/premium.ts`                            | `isPremium(email, set)`          | נשאר, ומשמש ל־**"manual"**: הבעלים, בודקים, מורים ומתנות. נוסיף `isEntitled(premiumUntil, now, graceMs)`, פונקציה טהורה שאפשר לבדוק                                                                                                                     |
-| `supabase/functions/call-turn`                 | בודק אימייל מול `PREMIUM_EMAILS` | ‏`premium = isPremium(email) \|\| isEntitled(row?.premium_until)`. השורה נקראת עם service role, באותה קריאה כמו `increment_call_usage` או לפניה. אפשר לעטוף ב־RPC ‏`is_premium(p_user)`                                                                 |
-| `GET call-turn` ‏(`CallStatusResponse`)        | `premium: boolean`               | אותו דבר. אפשר להוסיף `premiumUntil?: string` כדי להציג "בתוקף עד"                                                                                                                                                                                      |
-| `server/src/routes/call.ts` (Express + SQLite) | `PREMIUM_EMAILS`                 | השרת משמש לאירוח עצמי ולפיתוח. האתר והאפליקציה עובדים מול Supabase. **ההמלצה:** להשאיר בו את ה־allowlist. אם יהיה צורך, להוסיף `POST /api/billing/revenuecat` שכותב לעמודה `premium_until` בטבלת `users` (מיגרציה חדשה ב־`server/src/db.ts`)            |
-| לקוח (`src/lib/call-api.ts` וכו')              | מציג "רק למנויים" כשיש 403       | מסך מנוי (paywall) עם RevenueCat Offerings. ‏"שחזור רכישות" (`restorePurchases`). קישור "ניהול המנוי" ל־`https://play.google.com/store/account/subscriptions?sku=premium&package=com.spourt.english`. באתר: הודעה בלי כפתור קנייה (עד שתהיה מכירה באתר) |
+| מקום                                           | היום                             | אחרי                                                                                                                                                                                                                                                     |
+| ---------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/premium.ts`                            | `isPremium(email, set)`          | נשאר, ומשמש ל־**"manual"**: הבעלים, בודקים, מורים ומתנות. נוסיף `isEntitled(premiumUntil, now, graceMs)`, פונקציה טהורה שאפשר לבדוק                                                                                                                      |
+| `supabase/functions/call-turn`                 | בודק אימייל מול `PREMIUM_EMAILS` | ‏`premium = isPremium(email) \|\| isEntitled(row?.premium_until)`. השורה נקראת עם service role, באותה קריאה כמו `increment_call_usage` או לפניה. אפשר לעטוף ב־RPC ‏`is_premium(p_user)`                                                                  |
+| `GET call-turn` ‏(`CallStatusResponse`)        | `premium: boolean`               | אותו דבר. אפשר להוסיף `premiumUntil?: string` כדי להציג "בתוקף עד"                                                                                                                                                                                       |
+| `server/src/routes/call.ts` (Express + SQLite) | `PREMIUM_EMAILS`                 | השרת משמש לאירוח עצמי ולפיתוח. האתר והאפליקציה עובדים מול Supabase. **ההמלצה:** להשאיר בו את ה־allowlist. אם יהיה צורך, להוסיף `POST /api/billing/revenuecat` שכותב לעמודה `premium_until` בטבלת `users` (מיגרציה חדשה ב־`server/src/db.ts`)             |
+| לקוח (`src/lib/call-api.ts` וכו')              | מציג "רק למנויים" כשיש 403       | מסך מנוי (paywall) עם RevenueCat Offerings. ‏"שחזור רכישות" (`restorePurchases`). קישור "ניהול המנוי" ל־`https://play.google.com/store/account/subscriptions?sku=premium&package=com.baktana.english`. באתר: הודעה בלי כפתור קנייה (עד שתהיה מכירה באתר) |
 
 **חשוב:** הלקוח לא מחליט אם יש פרימיום. הוא רק מציג. גם אם `CustomerInfo` של RevenueCat בלקוח אומר "פעיל", השרת בודק את הטבלה. בזמן שבין הקנייה ל־webhook (שניות) הלקוח יכול להציג "מפעילים את המנוי…" ולנסות שוב.
 
@@ -393,21 +395,23 @@ revoke all on public.billing_events from public, anon, authenticated;
 
 **שלב 2 – RevenueCat:**
 
-- [ ] פרויקט חדש, אפליקציית Play ‏(`com.spourt.english`)
-- [ ] ‏Entitlement ‏`premium`, וחיבור שני ה־base plans אליו. ‏Offering ‏`default` עם packages חודשי ושנתי
+- [ ] פרויקט חדש, אפליקציית Play ‏(`com.baktana.english` – ה־applicationId של flavor ‏`play`. ‏`com.spourt.english` הוא רק ה־APK להורדה)
+- [ ] ‏Entitlement ‏`premium` (בדיוק בשם הזה), וחיבור שני ה־base plans אליו. ‏Offering ‏`default` (מסומן Current) עם ה־packages המובנים **Monthly** ‏(`$rc_monthly`) ו־**Annual** ‏(`$rc_annual`): מסך המנוי מזהה את המסלולים לפי סוג ה־package
 - [ ] ‏Webhook: ה־URL של `billing-webhook` ו־Authorization header סודי
-- [ ] מפתח Public SDK (לאפליקציה, ב־GitHub Variables) ומפתח Secret API (ל־Supabase secrets)
+- [ ] מפתח Public SDK ‏(`goog_…`) ל־GitHub **Variables** בשם `VITE_REVENUECAT_ANDROID_KEY`. מפתח Secret API ‏(`sk_…`) ל־GitHub **Secrets** בשם `REVENUECAT_API_KEY`, ומחרוזת אקראית ל־Secrets בשם `REVENUECAT_WEBHOOK_SECRET`. ה־workflows מעבירים אותם לבד ל־Supabase ולבנייה ([supabase.md](supabase.md#מנוי-בתשלום-billing-webhook))
 
-**שלב 3 – קוד (סשן פיתוח):**
+**שלב 3 – קוד (בוצע):**
 
-- [ ] `schema.sql`: הטבלאות `entitlements` ו־`billing_events`, ו־RPC ‏`is_premium`
-- [ ] Edge Function ‏`billing-webhook` עם בדיקות (אימות, אידמפוטנטיות, `EXPIRATION`, ‏`TRANSFER`)
-- [ ] `shared/premium.ts`: ‏`isEntitled`. ‏`call-turn`: ‏allowlist או entitlement
-- [ ] `npm i @revenuecat/purchases-capacitor` ו־`npx cap sync`. ‏`Purchases.configure` רק ב־flavor `play` (ובאתר לא)
-- [ ] ‏`logIn` אחרי התחברות ל־Supabase, ו־`logOut` ביציאה
-- [ ] מסך מנוי: מחיר מ־Offerings (לא מחיר קבוע בקוד), תנאים, "שחזור רכישות", "ניהול המנוי", והודעה לגבי קטינים
-- [ ] עדכון `terms.html` ו־`privacy.html`, ותשובות Data safety
-- [ ] תיעוד ב־`docs/supabase.md` (סודות חדשים: `REVENUECAT_WEBHOOK_SECRET`, ‏`REVENUECAT_API_KEY`)
+- [x] `schema.sql`: הטבלאות `entitlements` ו־`billing_events`, עם בדיקות ב־`supabase/tests` (במקום RPC ‏`is_premium`, ‏`call-turn` קורא את השורה ישירות)
+- [x] Edge Function ‏`billing-webhook`: אימות, אידמפוטנטיות, מצב עדכני מ־RevenueCat, ‏`TRANSFER` (שני הצדדים), משתמש שנמחק. הלוגיקה ב־`shared/billing.ts` עם בדיקות
+- [x] `shared/premium.ts`: ‏`isEntitled` (עם יום חסד). ‏`call-turn`: ‏allowlist או entitlement, והסטטוס מחזיר `premiumUntil` ו־`willRenew`
+- [x] `@revenuecat/purchases-capacitor` 13.7.4 ו־`cap sync`. ‏RevenueCat מופעל רק ב־flavor ‏`play` ורק כשיש `VITE_REVENUECAT_ANDROID_KEY` (`src/lib/billing.ts`)
+- [x] ‏`logIn` עם ה־user id של Supabase אחרי התחברות, ו־`logOut` ביציאה
+- [x] מסך מנוי (`src/components/Paywall.tsx`): מחירים מ־Offerings, ניסיון חינם, חיסכון בשנתי, תנאי חידוש וביטול, "שחזור רכישה", "ניהול המנוי", הודעה לקטינים, ו"מפעילים את המנוי…" עד שה־webhook מעדכן. נפתח מלשונית השיחות ומהפרופיל
+- [x] בפרופיל: "מתחדש ב־…" / "בתוקף עד …". במחיקת חשבון: אזהרה שהמנוי ב־Google Play לא מתבטל
+- [x] סעיפי מנוי ל־`terms.html` ול־`privacy.html`: טיוטה ב־[legal-premium-draft.md](legal-premium-draft.md), **לא מפורסמת**. לעבור עם עורך דין ולהחזיר לפני ההשקה
+- [ ] תשובות Data safety ב־Play Console (הבעלים): ‏"Purchase history" נאסף, לא משותף, לצורך App functionality. ‏RevenueCat ו־Google מעבדים את הרכישה
+- [x] תיעוד ב־`docs/supabase.md` (סודות חדשים: `REVENUECAT_WEBHOOK_SECRET`, ‏`REVENUECAT_API_KEY`)
 
 **שלב 4 – בדיקות (license testers, ‏Internal testing):**
 
@@ -423,6 +427,8 @@ revoke all on public.billing_events from public, anon, authenticated;
 
 **שלב 5 – השקה:**
 
+- [ ] להחזיר את סעיפי המנוי לתנאים ולפרטיות ([legal-premium-draft.md](legal-premium-draft.md)), אחרי עורך דין
+- [ ] להגדיר את `VITE_REVENUECAT_ANDROID_KEY` ב־GitHub Variables: זה מה ש"פותח את המכירה" באפליקציה ובאתר
 - [ ] ‏Closed testing של 14 יום עם 12 בודקים (חובה בחשבון אישי, ‏[store-release.md](store-release.md))
 - [ ] ‏Production. לעקוב בשבוע הראשון אחרי עלות AI לתור, אחוז ההמרה מניסיון, ושגיאות ב־webhook
 - [ ] בהמשך: מכירה באתר (Paddle או סולק ישראלי), ואחר כך iOS עם אותו entitlement
@@ -435,7 +441,7 @@ revoke all on public.billing_events from public, anon, authenticated;
 2. **חשבון בנק** ישראלי על שמך (או של העסק) שמקבל העברות מחו"ל.
 3. **Play Console:** ליצור payments profile ולקשר אותו. לאשר את הסכמי ה־Payments. להגדיר את חשבון הבנק. לפעמים מתבקש אימות זהות או מסמכים.
 4. **Google Cloud:** ליצור service account ולתת לו הרשאות ב־Play Console (פעולה בממשק, 10 דקות. אפשר לעשות יחד לפי הוראות).
-5. **RevenueCat:** להירשם (חינם), ליצור פרויקט, ולתת לנו את המפתחות כסודות (לא בצ'אט).
+5. **RevenueCat:** להירשם (חינם), ליצור פרויקט, ולשים את המפתחות ב־GitHub (לא בצ'אט): ‏`VITE_REVENUECAT_ANDROID_KEY` ב־Variables, ‏`REVENUECAT_API_KEY` ו־`REVENUECAT_WEBHOOK_SECRET` ב־Secrets (פירוט בשלב 2).
 6. **להחליט:** מחיר (מוצע 19.90 ₪ / 149 ₪), משך ניסיון (מוצע 7 ימים), ומדיניות החזרים.
 7. **עורך דין** (מומלץ): לעבור על `terms.html` ו־`privacy.html` אחרי העדכון, במיוחד הסעיפים על מנוי, קטינים וביטול.
 8. **לגייס 12 בודקים** לבדיקה הסגורה, אם עוד לא נעשה, ולהוסיף את עצמך ואת הבודקים כ־license testers.

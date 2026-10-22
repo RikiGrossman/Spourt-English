@@ -104,8 +104,8 @@ export const CALL_LIMITS = {
 } as const;
 
 /**
- * Calls need a signed-in premium account. For now premium is a server-side allowlist of
- * emails (PREMIUM_EMAILS); app-store subscriptions come later (docs/subscriptions.md).
+ * Calls need a signed-in premium account: an email on the server-side allowlist (PREMIUM_EMAILS),
+ * or – on Supabase – a paid Google Play subscription (shared/billing.ts, docs/subscriptions.md).
  *
  * A turn whose `history` has no learner message starts a new call and counts toward
  * `callsPerDay`. Errors: 401 `unauthorized` (not signed in), 403 `premium_required`,
@@ -117,6 +117,10 @@ export interface CallStatusResponse {
   premium: boolean;
   callsToday: number;
   callsPerDay: number;
+  /** ISO time a paid subscription runs until; only when the learner has (or had) one. */
+  premiumUntil?: string;
+  /** Whether that subscription renews by itself (false once cancelled or failing to charge). */
+  willRenew?: boolean;
 }
 
 /**

@@ -69,7 +69,7 @@ DATABASE_URL=postgres://postgres@localhost:5432/scratch npm run test:supabase
 
 באתר ובאפליקציה אין שרת Express, לכן שיחות הווידאו עם דמות ה־AI רצות דרך Supabase Edge Function בשם `call-turn` ([`supabase/functions/call-turn/index.ts`](../supabase/functions/call-turn/index.ts)). היא מממשת בדיוק את `POST /api/call/turn` ואת `GET /api/call/status` (ראו [api.md](api.md)) עם אותם קבצים משותפים מ־`shared/`. מפתח ה־API נשמר כסוד ב־Supabase ולא מגיע לדפדפן.
 
-**שיחות רק למנויי פרימיום, עד 10 ביום.** הפונקציה דורשת משתמש מחובר: היא מאמתת את ה־access token שלו מול Supabase Auth (`/auth/v1/user`), בודקת שהאימייל ברשימת הסוד `PREMIUM_EMAILS`, וסופרת שיחות ותורות בטבלה `call_usage` (לפי היום בשעון ישראל) דרך הפונקציה `increment_call_usage` ב־`schema.sql`. לטבלה ולפונקציה אין שום הרשאה ללקוחות – רק ה־service role (המפתח `SUPABASE_SERVICE_ROLE_KEY` זמין אוטומטית בכל Edge Function, אין צורך להגדיר אותו).
+**שיחות רק למנויי פרימיום, עד 10 ביום.** הפונקציה דורשת משתמש מחובר: היא מאמתת את ה־access token שלו מול Supabase Auth (`/auth/v1/user`), בודקת שהאימייל ברשימת הסוד `PREMIUM_EMAILS` **או** שיש לו מנוי בתוקף בטבלה `entitlements` (ראו [מנוי בתשלום](#מנוי-בתשלום-billing-webhook) למטה), וסופרת שיחות ותורות בטבלה `call_usage` (לפי היום בשעון ישראל) דרך הפונקציה `increment_call_usage` ב־`schema.sql`. לטבלה ולפונקציה אין שום הרשאה ללקוחות – רק ה־service role (המפתח `SUPABASE_SERVICE_ROLE_KEY` זמין אוטומטית בכל Edge Function, אין צורך להגדיר אותו).
 
 פריסה (פעם אחת, ושוב אחרי כל שינוי ב־`shared/call*.ts`, ב־`shared/premium.ts` או בפונקציה), מתיקיית השורש של ה־repo עם [Supabase CLI](https://supabase.com/docs/guides/cli):
 
@@ -93,14 +93,39 @@ supabase functions deploy call-turn
 - הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה, בנוסף למגבלה היומית למשתמש (10 שיחות ו־100 תורות ביום). מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console.
 - בלי הסוד `ANTHROPIC_API_KEY` הפונקציה מחזירה `503 call_unavailable` והאפליקציה מציגה "שיחות הווידאו לא זמינות כרגע".
 - בדיקה מקומית: `supabase functions serve call-turn --env-file .env`.
+- הסטטוס (`GET`) מחזיר גם `premiumUntil` ו־`willRenew` כשיש למשתמש מנוי (או היה לו), כדי שהאפליקציה תציג "מתחדש ב־…" / "בתוקף עד …".
+
+## מנוי בתשלום (billing-webhook)
+
+המנוי נמכר באפליקציה מ־Google Play דרך RevenueCat (הרקע וההחלטות: [subscriptions.md](subscriptions.md)). האפליקציה לא מחליטה מי פרימיום: אחרי כל רכישה, חידוש, ביטול, החזר או פקיעה RevenueCat שולחת webhook ל־Edge Function בשם `billing-webhook` ([`supabase/functions/billing-webhook/index.ts`](../supabase/functions/billing-webhook/index.ts)). הפונקציה:
+
+1. בודקת שה־header ‏`Authorization` שווה לסוד `REVENUECAT_WEBHOOK_SECRET` (עם `Bearer ` או בלי). אחרת `401`.
+2. מדלגת על אירוע שכבר טופל (טבלה `billing_events`).
+3. שואלת את RevenueCat מה המצב העדכני של המשתמש (`GET /v1/subscribers/{id}` עם הסוד `REVENUECAT_API_KEY`) – לא סומכים על סדר האירועים.
+4. כותבת לטבלה `entitlements` את `premium_until` (כולל grace period של Google), החנות, המוצר והאם המנוי מתחדש.
+
+`call-turn` קורא את הטבלה: מנוי נחשב בתוקף עד `premium_until` ועוד יום חסד (`PREMIUM_GRACE_MS` ב־`shared/premium.ts`). לשתי הטבלאות אין שום הרשאה ללקוחות.
+
+פריסה ידנית:
+
+```bash
+supabase secrets set REVENUECAT_WEBHOOK_SECRET=<מחרוזת אקראית ארוכה> REVENUECAT_API_KEY=sk_...
+supabase functions deploy billing-webhook --no-verify-jwt   # RevenueCat לא שולחת JWT של Supabase
+```
+
+ב־RevenueCat ← Project settings ← Integrations ← **Webhooks**: ‏URL ‏`https://<project-ref>.supabase.co/functions/v1/billing-webhook`, ובשדה Authorization header את אותו `REVENUECAT_WEBHOOK_SECRET`. "Send test event" צריך להחזיר 200.
+
+- בלי הסודות הפונקציה מחזירה `503`, ו־RevenueCat תנסה שוב מאוחר יותר.
+- `PREMIUM_EMAILS` ממשיך לעבוד במקביל – לבעלים, לבודקים ולמתנות.
+- שום פרט על הרכישה לא נרשם בלוג מלבד סוג האירוע ומספר המשתמשים שעודכנו.
 
 ## עדכון אוטומטי מ־GitHub
 
 ה־workflow ‏`.github/workflows/supabase.yml` מעדכן את Supabase לבד, בכל דחיפה ל־`main` שמשנה את `supabase/` או את הקבצים המשותפים של השיחות. אפשר להריץ אותו גם ידנית מ־**Actions** ← **Supabase** ← **Run workflow**. הוא:
 
 1. מריץ את `supabase/schema.sql` (בטוח להריץ שוב ושוב).
-2. מעתיק ל־Edge Functions את הסודות `ANTHROPIC_API_KEY` ו־`PREMIUM_EMAILS`, אם הם מוגדרים ב־GitHub.
-3. פורס את כל הפונקציות ב־`supabase/functions` ובודק ש־`call-turn` עונה 401 לבקשה בלי משתמש.
+2. מעתיק ל־Edge Functions את הסודות `ANTHROPIC_API_KEY`, ‏`PREMIUM_EMAILS`, ‏`REVENUECAT_WEBHOOK_SECRET` ו־`REVENUECAT_API_KEY`, אם הם מוגדרים ב־GitHub.
+3. פורס את כל הפונקציות ב־`supabase/functions` (את `billing-webhook` עם `--no-verify-jwt`), בודק ש־`call-turn` עונה 401 לבקשה בלי משתמש, ושה־`billing-webhook` דוחה בקשה בלי הסוד (401, או 503 כל עוד הסודות לא הוגדרו).
 
 הגדרה, פעם אחת: ב־repo ← **Settings** ← **Secrets and variables** ← **Actions** ← **New repository secret**:
 
@@ -109,8 +134,10 @@ supabase functions deploy call-turn
 | `SUPABASE_ACCESS_TOKEN` | טוקן אישי מ־supabase.com ← Account ← **Access Tokens** ← Generate new token |
 | `ANTHROPIC_API_KEY` | מפתח API מ־console.anthropic.com |
 | `PREMIUM_EMAILS` | האימיילים של משתמשי הפרימיום, מופרדים בפסיקים |
+| `REVENUECAT_WEBHOOK_SECRET` | מחרוזת אקראית ארוכה; אותה מחרוזת בשדה Authorization של ה־webhook ב־RevenueCat |
+| `REVENUECAT_API_KEY` | מפתח **Secret** מ־RevenueCat ← Project settings ← API keys (מתחיל ב־`sk_`) |
 
-את מזהה הפרויקט ה־workflow לוקח מהמשתנה `VITE_SUPABASE_URL` שכבר קיים. משתנה אופציונלי: `CALL_MODEL` (בלשונית Variables).
+את מזהה הפרויקט ה־workflow לוקח מהמשתנה `VITE_SUPABASE_URL` שכבר קיים. משתנה אופציונלי: `CALL_MODEL` (בלשונית Variables). למכירת המנוי באפליקציה צריך גם את המשתנה `VITE_REVENUECAT_ANDROID_KEY` (בלשונית Variables) – מפתח ה־**Public** SDK של אפליקציית ה־Play ב־RevenueCat (מתחיל ב־`goog_`). הוא ציבורי ונכנס לאפליקציה; ה־workflow ‏`android.yml` מעביר אותו לבנייה.
 
 ## פיתוח מקומי מול Supabase
 

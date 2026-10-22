@@ -216,6 +216,15 @@ describe('getCallStatus', () => {
     await expect(getCallStatus()).rejects.toMatchObject({ code: 'bad-response', offline: true });
   });
 
+  it('passes on a subscription’s end and renewal, dropping malformed ones', async () => {
+    const { getCallStatus } = await load(SUPABASE);
+    const paid = { ...status, premiumUntil: '2026-11-21T12:00:00.000Z', willRenew: true };
+    fetchMock.mockResolvedValueOnce(json(200, paid));
+    await expect(getCallStatus()).resolves.toEqual(paid);
+    fetchMock.mockResolvedValueOnce(json(200, { ...status, premiumUntil: 'soon', willRenew: 'yes' }));
+    await expect(getCallStatus()).resolves.toEqual(status);
+  });
+
   it('reports the server being unreachable as offline', async () => {
     const { getCallStatus } = await load();
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));

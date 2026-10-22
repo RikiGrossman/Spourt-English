@@ -165,6 +165,47 @@ do $$ declare j json; a uuid := '00000000-0000-4000-8000-00000000000a'; d date :
 end $$;
 reset role;
 
+-- Paid premium: clients can neither read nor write entitlements or billing_events; the service role can.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000000b', false);
+do $$ begin
+  perform count(*) from public.entitlements;
+  raise exception 'entitlements: authenticated could read it';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.entitlements (user_id, premium_until)
+    values ('00000000-0000-4000-8000-00000000000b', now() + interval '1 year');
+  raise exception 'entitlements: a learner could give themselves premium';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform count(*) from public.billing_events;
+  raise exception 'billing_events: authenticated could read it';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+set role anon;
+do $$ begin
+  perform count(*) from public.entitlements;
+  raise exception 'entitlements: anon could read it';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+set role service_role;
+insert into public.entitlements (user_id, premium_until, source, product_id, will_renew)
+  values ('00000000-0000-4000-8000-00000000000b', now() + interval '1 month', 'play', 'premium:monthly', true)
+  on conflict (user_id) do update set premium_until = excluded.premium_until;
+insert into public.billing_events (event_id, type) values ('evt-1', 'INITIAL_PURCHASE') on conflict do nothing;
+insert into public.billing_events (event_id, type) values ('evt-1', 'INITIAL_PURCHASE') on conflict do nothing;
+do $$ begin
+  insert into public.entitlements (user_id, source) values ('00000000-0000-4000-8000-00000000000b', 'paypal')
+    on conflict (user_id) do update set source = excluded.source;
+  raise exception 'entitlements: an unknown source was accepted';
+exception when check_violation then null;
+end $$;
+reset role;
+
 -- Account deletion: anon can't call delete_my_account; a learner deleting their account takes all
 -- their rows with them and leaves everyone else's.
 set role anon;
@@ -187,6 +228,7 @@ do $$ declare n int; b uuid := '00000000-0000-4000-8000-00000000000b'; begin
        + (select count(*) from public.progress where user_id = b) + (select count(*) from public.xp_events where user_id = b)
        + (select count(*) from public.srs_state where user_id = b) + (select count(*) from public.events where user_id = b)
        + (select count(*) from public.call_usage where user_id = b)
+       + (select count(*) from public.entitlements where user_id = b)
     into n;
   if n <> 0 then raise exception 'delete_my_account failed: % rows of B remain', n; end if;
   select count(*) into n from public.progress where user_id = '00000000-0000-4000-8000-00000000000a';

@@ -49,6 +49,8 @@ jobs:
           VITE_ENABLE_ACCOUNTS: 'false'
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Set once premium is on sale: the site then offers the premium screen (docs/subscriptions.md).
+          VITE_REVENUECAT_ANDROID_KEY: ${{ vars.VITE_REVENUECAT_ANDROID_KEY }}
       - name: Add the Android APK
         env:
           GH_TOKEN: ${{ github.token }}

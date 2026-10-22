@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNewCall, isPremium, parsePremiumEmails, usageDay } from './premium';
+import { isEntitled, isNewCall, isPremium, parsePremiumEmails, usageDay } from './premium';
 
 describe('parsePremiumEmails', () => {
   it('splits, trims, lowercases and drops empty entries', () => {
@@ -61,5 +61,27 @@ describe('usageDay', () => {
 
   it('falls back to the local date as YYYY-MM-DD', () => {
     expect(usageDay(Date.now())).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('isEntitled', () => {
+  const now = Date.parse('2026-10-21T12:00:00Z');
+  const day = 24 * 60 * 60 * 1000;
+
+  it('counts a subscription paid until a later time', () => {
+    expect(isEntitled('2026-11-21T12:00:00Z', now)).toBe(true);
+  });
+
+  it('keeps premium for a day past the end, then drops it', () => {
+    expect(isEntitled('2026-10-21T00:00:00Z', now)).toBe(true);
+    expect(isEntitled(new Date(now - day - 1).toISOString(), now)).toBe(false);
+    expect(isEntitled('2026-10-21T00:00:00Z', now, 0)).toBe(false);
+  });
+
+  it('rejects missing or unreadable dates', () => {
+    expect(isEntitled(null, now)).toBe(false);
+    expect(isEntitled(undefined, now)).toBe(false);
+    expect(isEntitled('', now)).toBe(false);
+    expect(isEntitled('not a date', now)).toBe(false);
   });
 });

@@ -1997,6 +1997,154 @@ button:disabled {
   animation: shimmer 1.2s linear infinite;
 }
 
+/* ---------- Premium (paywall) ---------- */
+
+.paywall {
+  position: relative;
+}
+
+.paywall-body {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 56px 16px 24px;
+  animation: fade-in 0.3s ease;
+}
+
+.paywall-body h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  text-align: center;
+}
+
+.paywall-body .lead {
+  text-align: center;
+}
+
+.paywall-hero {
+  font-size: 3.2rem;
+  text-align: center;
+  line-height: 1;
+}
+
+.paywall-benefits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.paywall-benefits li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-weight: 600;
+}
+
+.paywall-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.paywall-plan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 12px 14px;
+  border: 2px solid var(--border);
+  border-bottom-width: 4px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.paywall-plan.selected {
+  border-color: var(--gold-dark);
+  background: color-mix(in srgb, var(--gold) 14%, var(--surface));
+}
+
+.paywall-plan.skeleton {
+  min-height: 108px;
+  background: linear-gradient(90deg, var(--soft), var(--border), var(--soft));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.paywall-plan-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.paywall-price {
+  font-weight: 700;
+}
+
+.paywall-save {
+  position: absolute;
+  top: -12px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #3d2c00;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.paywall-fine {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.paywall-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+
+.paywall-done .btn {
+  margin-top: 12px;
+}
+
+.paywall-done .premium-badge {
+  display: inline-block;
+}
+
+.paywall-done .link-btn {
+  display: inline-block;
+  margin-top: 8px;
+}
+
+/* The premium row on the profile. */
+.premium-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  border-color: var(--gold);
+}
+
+.premium-card p {
+  margin: 0;
+}
+
+.premium-card h3 {
+  margin: 0 0 4px;
+}
+
 /* ---------- Call screen ---------- */
 
 .call-screen {
