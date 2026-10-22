@@ -2,9 +2,9 @@ import { useEffect, useId, useState } from 'react';
 import type { Persona, PersonaId } from '../../../shared/call';
 
 /**
- * The face of a call character. Characters with photos (PHOTO_PERSONAS) are animated from four
- * frames of the same picture; the others, and any whose photos fail to load, are drawn as an
- * illustrated portrait. Both breathe and blink, and move their mouth while `talking`.
+ * The face of a call character. Characters with photos (PHOTO_PERSONAS) are animated from frames
+ * of the same picture; the others, and any whose photos fail to load, are drawn as an illustrated
+ * portrait. Both breathe and blink, and move their mouth while `talking`.
  */
 interface Look {
   skin: string;
@@ -29,16 +29,23 @@ interface Props {
 
 /**
  * Characters with photo frames in public/personas/<id>-<frame>.webp: the same picture with the
- * mouth closed (idle) or open (talk), and the eyes closed for each (blink, blink-talk).
+ * mouth closed (idle) or open (talk) and, when `blinks`, the eyes closed for each (blink,
+ * blink-talk).
  */
-const PHOTO_PERSONAS: ReadonlySet<PersonaId> = new Set<PersonaId>(['teacher']);
+const PHOTO_PERSONAS: Partial<Record<PersonaId, { blinks: boolean }>> = {
+  teacher: { blinks: true },
+  friend: { blinks: false },
+  barista: { blinks: true },
+  interviewer: { blinks: true },
+};
 const FRAMES = ['idle', 'talk', 'blink', 'blink-talk'] as const;
 type Frame = (typeof FRAMES)[number];
 
 export function PersonaPortrait(props: Props) {
   const [photoFailed, setPhotoFailed] = useState(false);
-  if (PHOTO_PERSONAS.has(props.persona.id) && !photoFailed) {
-    return <PhotoPortrait {...props} onError={() => setPhotoFailed(true)} />;
+  const photo = PHOTO_PERSONAS[props.persona.id];
+  if (photo && !photoFailed) {
+    return <PhotoPortrait {...props} blinks={photo.blinks} onError={() => setPhotoFailed(true)} />;
   }
   return <IllustratedPortrait {...props} />;
 }
@@ -46,7 +53,13 @@ export function PersonaPortrait(props: Props) {
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-function PhotoPortrait({ persona, talking = false, className, onError }: Props & { onError: () => void }) {
+function PhotoPortrait({
+  persona,
+  talking = false,
+  className,
+  blinks,
+  onError,
+}: Props & { blinks: boolean; onError: () => void }) {
   const [mouthOpen, setMouthOpen] = useState(false);
   const [blinking, setBlinking] = useState(false);
   const still = reducedMotion();
@@ -70,7 +83,7 @@ function PhotoPortrait({ persona, talking = false, className, onError }: Props &
 
   // Blink every few seconds.
   useEffect(() => {
-    if (still) return;
+    if (still || !blinks) return;
     let timer = 0;
     const schedule = () => {
       timer = window.setTimeout(
@@ -86,7 +99,7 @@ function PhotoPortrait({ persona, talking = false, className, onError }: Props &
     };
     schedule();
     return () => window.clearTimeout(timer);
-  }, [still]);
+  }, [still, blinks]);
 
   const open = talking && (still || mouthOpen);
   const frame: Frame = blinking ? (open ? 'blink-talk' : 'blink') : open ? 'talk' : 'idle';
@@ -97,7 +110,7 @@ function PhotoPortrait({ persona, talking = false, className, onError }: Props &
       aria-hidden="true"
     >
       <div className="pp-photo">
-        {FRAMES.map((f) => (
+        {(blinks ? FRAMES : FRAMES.slice(0, 2)).map((f) => (
           <img
             key={f}
             src={`${import.meta.env.BASE_URL}personas/${persona.id}-${f}.webp`}
