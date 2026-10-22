@@ -64,5 +64,5 @@ Baktana English היא אפליקציה ללימוד אנגלית שנבנתה �
 
 - **App category:** Education
 - **Tags:** Language learning, Education
-- **Contact email:** `r0583288673@gmail.com`
+- **Contact email:** `support.baktanaenglish@gmail.com`
 - **Privacy policy:** `https://rikigrossman.github.io/Spourt-English/privacy.html`
