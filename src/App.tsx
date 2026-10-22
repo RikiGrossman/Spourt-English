@@ -34,7 +34,6 @@ import {
   applyStreakFreeze,
   avatarEmoji,
   buy,
-  earn,
   chooseAvatar,
   earn,
   openChest,
