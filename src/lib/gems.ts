@@ -18,6 +18,8 @@ export const ALL_QUESTS_BONUS_GEMS = 20;
 /** Bonus hearts are spent before regular ones; at most this many can be stocked. */
 export const MAX_BONUS_HEARTS = 10;
 export const MAX_FREEZES = 2;
+/** Rewarded ads (src/lib/ads.ts): at most this many hearts a day from watching a video. */
+export const AD_HEARTS_PER_DAY = 3;
 
 export type QuestId = 'lessons' | 'perfect' | 'review';
 
@@ -100,6 +102,11 @@ export interface GemState {
   avatar: string | null;
   /** Arcade games (see games.ts). */
   games: GameStats;
+  /** Rewarded ads: the date `adHearts` belongs to, hearts earned from videos that day, and the
+   * last date the daily chest was doubled by one. */
+  adDate: string | null;
+  adHearts: number;
+  chestDoubled: string | null;
 }
 
 export type GameId = 'rush' | 'memory';
@@ -138,6 +145,9 @@ export function initialGems(): GemState {
     avatars: [],
     avatar: null,
     games: { unlocked: [], date: null, plays: { rush: 0, memory: 0 }, best: { rush: 0, memory: 0 } },
+    adDate: null,
+    adHearts: 0,
+    chestDoubled: null,
   };
 }
 
@@ -180,6 +190,9 @@ export function parseGems(raw: string | null): GemState {
         plays: perGame(games.plays),
         best: perGame(games.best),
       },
+      adDate: date(data.adDate),
+      adHearts: count(data.adHearts, AD_HEARTS_PER_DAY),
+      chestDoubled: date(data.chestDoubled),
     };
   } catch {
     return initialGems();
@@ -278,6 +291,33 @@ export function openChest(
   const chestStreak = nextChestStreak(s, today);
   const amount = 5 + Math.floor(rng() * 11) + 2 * Math.min(6, chestStreak - 1);
   return { state: earn({ ...s, chestDate: today, chestStreak }, amount), amount };
+}
+
+/** Hearts the learner can still get from a video today. */
+export function adHeartsLeft(s: GemState, today = dateKey(Date.now())): number {
+  return AD_HEARTS_PER_DAY - (s.adDate === today ? s.adHearts : 0);
+}
+
+/** A heart for watching a video (stocked as a bonus heart); null when today's limit is reached. */
+export function rewardAdHeart(s: GemState, today = dateKey(Date.now())): GemState | null {
+  if (adHeartsLeft(s, today) <= 0) return null;
+  return {
+    ...s,
+    bonusHearts: Math.min(MAX_BONUS_HEARTS, s.bonusHearts + 1),
+    adDate: today,
+    adHearts: (s.adDate === today ? s.adHearts : 0) + 1,
+  };
+}
+
+/** Whether today's chest is open and not doubled yet. */
+export function canDoubleChest(s: GemState, today = dateKey(Date.now())): boolean {
+  return s.chestDate === today && s.chestDoubled !== today;
+}
+
+/** Doubles today's chest (`amount` more gems) for watching a video; null when it can't be doubled. */
+export function doubleChest(s: GemState, amount: number, today = dateKey(Date.now())): GemState | null {
+  if (!canDoubleChest(s, today) || !(amount > 0)) return null;
+  return earn({ ...s, chestDoubled: today }, Math.floor(amount));
 }
 
 /** True when the item can be bought now (enough gems and room in stock). */

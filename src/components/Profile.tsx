@@ -37,6 +37,8 @@ interface Props {
   gems?: number;
   /** Opens the gem shop. */
   onShop?: () => void;
+  /** Opens Google's form for changing the ads consent; omitted where the consent message doesn't apply. */
+  onAdPrivacy?: () => void;
 }
 
 const SYNC_TEXT: Record<SyncStatus, string> = {
@@ -270,6 +272,14 @@ export function Profile(props: Props) {
         <a href={TERMS_URL} target="_blank" rel="noopener">
           תנאי שימוש
         </a>
+        {props.onAdPrivacy && (
+          <>
+            {' · '}
+            <button type="button" className="link-btn" onClick={props.onAdPrivacy}>
+              הגדרות פרטיות לפרסומות
+            </button>
+          </>
+        )}
       </p>
     </div>
   );

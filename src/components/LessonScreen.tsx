@@ -11,6 +11,7 @@ import { MatchExercise } from './exercises/MatchExercise';
 import { SpeakExercise } from './exercises/SpeakExercise';
 import { TypeExercise } from './exercises/TypeExercise';
 import { BlankExercise } from './exercises/BlankExercise';
+import { RewardedAdButton } from './RewardedAdButton';
 import { TipCard } from './TipCard';
 
 /** XP and accuracy – what is reported to the server for a lesson. */
@@ -47,6 +48,8 @@ interface Props {
   tipTitle?: string;
   /** Review only: the SRS box of an item before this session (analytics `props.box`). */
   boxOf?: (itemKey: string) => number | undefined;
+  /** Out of hearts: watch a rewarded video for a heart (src/lib/ads.ts); omitted when no ad is offered. */
+  onWatchAd?: () => Promise<boolean>;
 }
 
 interface Feedback {
@@ -96,6 +99,7 @@ export function LessonScreen({
   tip,
   tipTitle = 'טיפ לשיעור',
   boxOf,
+  onWatchAd,
 }: Props) {
   const [queue, setQueue] = useState<Exercise[]>(exercises);
   /** How many of the original exercises are still in the session (speaking ones can be skipped). */
@@ -213,7 +217,8 @@ export function LessonScreen({
           לב חדש מתמלא כל 30 דקות. בינתיים אפשר לעשות חזרה על מה שלמדתם – בחזרה אין הורדת לבבות. ובחנות 💎 אפשר לקנות
           לבבות בונוס.
         </p>
-        <button type="button" className="btn primary" onClick={onQuit} autoFocus>
+        {onWatchAd && <RewardedAdButton label="צפו בסרטון קצר וקבלו לב" onWatch={onWatchAd} />}
+        <button type="button" className={onWatchAd ? 'btn ghost' : 'btn primary'} onClick={onQuit} autoFocus>
           חזרה למסלול
         </button>
       </div>

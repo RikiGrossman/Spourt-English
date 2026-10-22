@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AD_HEARTS_PER_DAY,
   ALL_QUESTS_BONUS_GEMS,
+  adHeartsLeft,
+  canDoubleChest,
+  doubleChest,
+  rewardAdHeart,
   MAX_FREEZES,
   applyStreakFreeze,
   buy,
@@ -106,5 +111,37 @@ describe('parseGems', () => {
     expect(parseGems('nope')).toEqual(initialGems());
     const s = parseGems(JSON.stringify({ gems: -3, freezes: 9, avatars: ['fox', 'x'], avatar: 'x', claimed: ['?'] }));
     expect(s).toMatchObject({ gems: 0, freezes: MAX_FREEZES, avatars: ['fox'], avatar: null, claimed: [] });
+  });
+});
+
+describe('rewarded videos', () => {
+  it('gives a bonus heart per video, up to the daily limit, and starts over the next day', () => {
+    let s = initialGems();
+    for (let i = 0; i < AD_HEARTS_PER_DAY; i++) s = rewardAdHeart(s, TODAY)!;
+    expect(s.bonusHearts).toBe(AD_HEARTS_PER_DAY);
+    expect(adHeartsLeft(s, TODAY)).toBe(0);
+    expect(rewardAdHeart(s, TODAY)).toBeNull();
+    expect(adHeartsLeft(s, '2026-10-21')).toBe(AD_HEARTS_PER_DAY);
+    expect(rewardAdHeart(s, '2026-10-21')).toMatchObject({ adHearts: 1, bonusHearts: AD_HEARTS_PER_DAY + 1 });
+  });
+
+  it("doubles today's opened chest once", () => {
+    expect(canDoubleChest(initialGems(), TODAY)).toBe(false);
+    const opened = openChest(initialGems(), () => 0, TODAY)!;
+    expect(canDoubleChest(opened.state, TODAY)).toBe(true);
+    const doubled = doubleChest(opened.state, opened.amount, TODAY)!;
+    expect(doubled.gems).toBe(opened.amount * 2);
+    expect(doubleChest(doubled, opened.amount, TODAY)).toBeNull();
+    expect(doubleChest(opened.state, opened.amount, '2026-10-21')).toBeNull();
+  });
+
+  it('keeps the counters through a save', () => {
+    const s = rewardAdHeart(openChest(initialGems(), () => 0, TODAY)!.state, TODAY)!;
+    const saved = parseGems(JSON.stringify(doubleChest(s, 5, TODAY)));
+    expect(saved).toMatchObject({ adDate: TODAY, adHearts: 1, chestDoubled: TODAY });
+    expect(parseGems(JSON.stringify({ adHearts: 99, adDate: 'x' }))).toMatchObject({
+      adHearts: AD_HEARTS_PER_DAY,
+      adDate: null,
+    });
   });
 });

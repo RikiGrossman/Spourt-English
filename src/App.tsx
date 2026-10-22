@@ -20,6 +20,7 @@ import { TopBar } from './components/TopBar';
 import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
+import { adsSupported, needsPrivacyOptions, showAdPrivacyOptions, watchRewardedAd } from './lib/ads';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
 import { PREMIUM_ON_SALE, subscriptionText, syncBillingUser } from './lib/billing';
 import { CALLS_ENABLED, CALLS_LOCKED, getCallStatus } from './lib/call-api';
@@ -34,8 +35,11 @@ import {
   avatarEmoji,
   buy,
   chooseAvatar,
+  doubleChest,
   openChest,
   rewardActivity,
+  rewardAdHeart,
+  adHeartsLeft,
   rewardUnitTest,
   useGems,
   type GameId,
@@ -225,6 +229,19 @@ function Screens() {
   }, [userId]);
   const premium = account.user !== null && callStatus?.premium === true;
 
+  // Rewarded videos (Play build only, src/lib/ads.ts); premium members see none.
+  const [adsBuild, setAdsBuild] = useState(false);
+  useEffect(() => {
+    void adsSupported().then(setAdsBuild);
+  }, []);
+  const ads = adsBuild && !premium;
+  const watchForHeart = useCallback(async () => {
+    if (!(await watchRewardedAd())) return false;
+    sounds.gem();
+    updateGems((s) => rewardAdHeart(s) ?? s);
+    return true;
+  }, [updateGems]);
+
   function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
     account.signIn(res);
     saveSignupPrompt(retire(loadSignupPrompt()));
@@ -284,6 +301,7 @@ function Screens() {
         lessonId={lessonId}
         hearts={review ? null : progress.hearts + gems.bonusHearts}
         onMistake={review ? noop : onMistake}
+        onWatchAd={ads && !review && adHeartsLeft(gems) > 0 ? watchForHeart : undefined}
         onQuit={() => setScreen({ name: 'path' })}
         tip={screen.tip}
         tipTitle={screen.tipTitle}
@@ -606,6 +624,16 @@ function Screens() {
               updateGems(() => opened.state);
               return opened.amount;
             }}
+            onDoubleChest={
+              ads
+                ? async (amount) => {
+                    if (!(await watchRewardedAd())) return false;
+                    sounds.gem();
+                    updateGems((s) => doubleChest(s, amount) ?? s);
+                    return true;
+                  }
+                : undefined
+            }
           />
         )}
         {screen.name === 'path' && (
@@ -682,6 +710,7 @@ function Screens() {
             avatar={avatarEmoji(gems)}
             gems={gems.gems}
             onShop={goShop}
+            onAdPrivacy={ads && needsPrivacyOptions() ? () => void showAdPrivacyOptions().catch(() => {}) : undefined}
             onReset={() => {
               srs.reset();
               resetGems();

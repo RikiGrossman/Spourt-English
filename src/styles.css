@@ -3587,3 +3587,8 @@ button:disabled {
     white-space: nowrap;
   }
 }
+
+.chest-text .btn {
+  align-self: flex-start;
+  margin-top: 6px;
+}

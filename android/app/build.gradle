@@ -11,6 +11,9 @@ android {
         versionCode((System.getenv("VERSION_CODE") ?: "1").toInteger())
         versionName "1.0.${System.getenv("VERSION_CODE") ?: "0"}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // The AdMob app id (docs/ads.md). Without ADMOB_APP_ID, Google's sample id, so the SDK starts
+        // and only the app (VITE_ADMOB_REWARDED_ID) decides whether ads are shown.
+        manifestPlaceholders = [admobAppId: System.getenv("ADMOB_APP_ID") ?: "ca-app-pub-3940256099942544~3347511713"]
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61

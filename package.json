@@ -27,6 +27,7 @@
     "postinstall": "node tools/if-server.mjs install"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.2.1",
     "@capacitor-community/text-to-speech": "^8.0.2",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",

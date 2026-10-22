@@ -27,6 +27,9 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- AdMob app id for rewarded videos (src/lib/ads.ts); set by ADMOB_APP_ID in build.gradle. -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${admobAppId}" />
     </application>
 
     <!-- Lets the app find the device's text-to-speech engine (Android 11+ package visibility). -->

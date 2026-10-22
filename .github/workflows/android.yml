@@ -7,6 +7,8 @@
 # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (docs/supabase.md); otherwise guest-only.
 # The variable VITE_REVENUECAT_ANDROID_KEY turns on buying premium in the Play edition
 # (docs/subscriptions.md).
+# The variables VITE_ADMOB_REWARDED_ID and ADMOB_APP_ID turn on rewarded videos in the Play edition
+# (docs/ads.md).
 # The variable VITE_SITE_URL points the app's links (privacy page, emails) at the site's own
 # domain once it has one (docs/domain.md).
 name: Android APK
@@ -50,6 +52,8 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           # RevenueCat's public Android SDK key (goog_…); only the Google Play edition sells premium.
           VITE_REVENUECAT_ANDROID_KEY: ${{ vars.VITE_REVENUECAT_ANDROID_KEY }}
+          # The AdMob rewarded ad unit (ca-app-pub-…/…); only the Google Play edition shows ads.
+          VITE_ADMOB_REWARDED_ID: ${{ vars.VITE_ADMOB_REWARDED_ID }}
       - run: npx cap sync android
       - name: Build APK
         working-directory: android
@@ -68,6 +72,8 @@ jobs:
         working-directory: android
         env:
           VERSION_CODE: ${{ github.run_number }}
+          # The AdMob app id (ca-app-pub-…~…), written into the Play edition's manifest.
+          ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

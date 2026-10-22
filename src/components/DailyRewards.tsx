@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { QUESTS, chestAvailable, nextChestStreak, type GemState } from '../lib/gems';
+import { QUESTS, canDoubleChest, chestAvailable, nextChestStreak, type GemState } from '../lib/gems';
+import { RewardedAdButton } from './RewardedAdButton';
 
 interface Props {
   gems: GemState;
   today: string;
   /** Opens today's chest and returns how many gems were in it. */
   onOpenChest: () => number | null;
+  /** Doubles the chest just opened for watching a rewarded video; omitted when no ad is offered. */
+  onDoubleChest?: (amount: number) => Promise<boolean>;
 }
 
 /** The daily chest and today's quests, at the top of the path. */
-export function DailyRewards({ gems, today, onOpenChest }: Props) {
+export function DailyRewards({ gems, today, onOpenChest, onDoubleChest }: Props) {
   const [opened, setOpened] = useState<number | null>(null);
   const available = chestAvailable(gems, today);
   const quests = gems.questDate === today ? gems.quests : { lessons: 0, perfect: 0, review: 0 };
@@ -29,9 +32,18 @@ export function DailyRewards({ gems, today, onOpenChest }: Props) {
         </button>
         <div className="chest-text" role="status">
           {opened !== null ? (
-            <strong className="pop">
-              קיבלתם <span className="gem-amount">💎 {opened}</span>!
-            </strong>
+            <>
+              <strong className="pop">
+                קיבלתם <span className="gem-amount">💎 {gems.chestDoubled === today ? opened * 2 : opened}</span>!
+              </strong>
+              {onDoubleChest && canDoubleChest(gems, today) && (
+                <RewardedAdButton
+                  className="btn small secondary"
+                  label="צפו בסרטון והכפילו"
+                  onWatch={() => onDoubleChest(opened)}
+                />
+              )}
+            </>
           ) : available ? (
             <>
               <strong>התיבה היומית מחכה לכם!</strong>
