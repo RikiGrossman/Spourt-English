@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { petReminderText } from './pet';
 
 /**
  * Daily practice reminders. The Android app schedules local notifications for the next week
@@ -60,6 +61,8 @@ export interface ReminderState {
   time: string;
   practicedToday: boolean;
   streak: number;
+  /** The learner's pet signs the reminders once it has the 'remind' ability. */
+  pet?: { name: string; emoji: string } | null;
 }
 
 /** Android: replaces the scheduled reminders with a fresh week (or cancels them when off). */
@@ -78,7 +81,7 @@ export async function syncReminders(state: ReminderState, now = new Date()): Pro
         const streak = state.streak > 0 ? state.streak + i : 0;
         return {
           id: FIRST_ID + i,
-          ...reminderText(streak, at.getDate()),
+          ...(state.pet ? petReminderText(state.pet, streak, at.getDate()) : reminderText(streak, at.getDate())),
           schedule: { at, allowWhileIdle: true },
           smallIcon: 'ic_stat_notify',
         };

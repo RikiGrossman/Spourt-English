@@ -83,6 +83,7 @@ supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 supabase secrets set PREMIUM_EMAILS=first@example.com,second@example.com
 # אופציונלי: supabase secrets set CALL_MODEL=claude-haiku-5-5
 supabase functions deploy call-turn
+supabase functions deploy pet-design   # עיצוב חיה ייחודית עם AI (פרימיום), אותם סודות
 ```
 
 - **בודקים:** הסוד `TESTER_EMAILS` (באותו פורמט) נותן שיחת ניסיון אחת ביום, עד 10 משפטים, ואחריהם הדמות נפרדת. מי שגם ב־`PREMIUM_EMAILS` או עם מנוי מקבל את המגבלות של פרימיום. הסטטוס מחזיר `tester: true` ו־`callsPerDay: 1`.

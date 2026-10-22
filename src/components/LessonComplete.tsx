@@ -14,6 +14,8 @@ interface Props {
   signupPrompt?: ReactNode;
   /** Gems earned by this session. */
   rewards?: Reward[];
+  /** The learner's pet reacting to the session. */
+  pet?: ReactNode;
   onContinue: () => void;
 }
 
@@ -29,6 +31,7 @@ export function LessonComplete({
   kind = 'lesson',
   signupPrompt,
   rewards = [],
+  pet,
   onContinue,
 }: Props) {
   useEffect(() => {
@@ -58,6 +61,7 @@ export function LessonComplete({
         {TITLES[kind]}
       </h2>
       {goalReached && <p className="goal-banner pop">🎯 עמדתם ביעד היומי! כל הכבוד!</p>}
+      {pet}
       <div className="stat-cards">
         <div className="stat-card xp rise" style={{ animationDelay: '0.1s' }}>
           <span className="label">נקודות XP</span>

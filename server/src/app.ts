@@ -11,6 +11,7 @@ import { callRouter, type CallModelOptions } from './routes/call';
 import { eventsRouter } from './routes/events';
 import { healthRouter } from './routes/health';
 import { leaderboardRouter } from './routes/leaderboard';
+import { petRouter } from './routes/pet';
 import { progressRouter } from './routes/progress';
 import { srsRouter } from './routes/srs';
 
@@ -90,6 +91,7 @@ export function createApp(db: Db, options: AppOptions = {}) {
   const premiumEmails = parsePremiumEmails(options.premiumEmails ?? process.env.PREMIUM_EMAILS);
   const testerEmails = parsePremiumEmails(options.testerEmails ?? process.env.TESTER_EMAILS);
   api.use(callRouter(repo, options.anthropic ?? {}, premiumEmails, requireAuth, callLimiter, testerEmails));
+  api.use(petRouter(repo, options.anthropic ?? {}, premiumEmails, requireAuth, callLimiter));
   api.use((_req, _res, next) => next(new HttpError(404, 'not_found', 'הנתיב המבוקש לא נמצא')));
   app.use('/api', api);
 

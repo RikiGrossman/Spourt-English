@@ -34,6 +34,7 @@ import {
   avatarEmoji,
   buy,
   chooseAvatar,
+  earn,
   openChest,
   rewardActivity,
   rewardUnitTest,
@@ -42,13 +43,36 @@ import {
   type Reward,
 } from './lib/gems';
 import { DailyRewards } from './components/DailyRewards';
+import { PetBubble, PetCard } from './components/pet/PetCard';
+import { PetScreen } from './components/pet/PetScreen';
+import {
+  adoptPet,
+  applyDesign,
+  growPet,
+  hasAbility,
+  petLook,
+  reactionLine,
+  recordChallenge,
+  stageFor,
+  toggleAccessory,
+  usePet,
+  type Milestones,
+} from './lib/pet';
 import { Shop } from './components/Shop';
 import { Arcade } from './components/Arcade';
 import { GameResult } from './components/games/GameResult';
 import { MemoryGame } from './components/games/MemoryGame';
 import { WordRush } from './components/games/WordRush';
 import { finishGame, gameInfo, gameUnlocked, unlockGame, wordPool } from './lib/games';
-import { completeLesson, dateKey, isCatchUp, loseHeart, resetProgress, visibleStreak } from './lib/progress';
+import {
+  completeLesson,
+  dateKey,
+  isCatchUp,
+  loseHeart,
+  resetProgress,
+  visibleStreak,
+  type Progress,
+} from './lib/progress';
 import { syncReminders } from './lib/reminders';
 import { applyPlacement, placementDone, placementQuestions, unitsPassed } from './lib/placement';
 import { QuizScreen } from './components/QuizScreen';
@@ -73,7 +97,8 @@ import { useProgress } from './lib/store';
 import { useAppUpdate } from './lib/update';
 import type { Exercise, Unit } from './types';
 
-type Tab = 'path' | 'arcade' | 'shop' | 'league' | 'call' | 'profile';
+/** 'pet' is opened from the path, not from the bottom bar. */
+type Tab = 'path' | 'arcade' | 'shop' | 'league' | 'call' | 'profile' | 'pet';
 
 /** Where a sign-up started, reported with `signup_complete`. */
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
@@ -104,6 +129,8 @@ type Screen =
       kind: 'lesson' | 'review' | 'practice';
       rewards: Reward[];
       signup: { round: SignupRound; lessonsCompleted: number } | null;
+      /** What the pet says about the session (null without a pet). */
+      petLine: string | null;
     }
   /** An AI video call in progress, and its summary after hanging up. */
   | { name: 'call-active'; persona: Persona }
@@ -118,7 +145,7 @@ interface IntroState {
   lessonId?: string;
 }
 
-const ALL_TABS: { name: Tab; icon: string; label: string }[] = [
+const ALL_TABS: { name: Exclude<Tab, 'pet'>; icon: string; label: string }[] = [
   { name: 'path', icon: '🏠', label: 'לימוד' },
   { name: 'arcade', icon: '🎮', label: 'משחקים' },
   { name: 'shop', icon: '💎', label: 'חנות' },
@@ -151,6 +178,7 @@ function Screens() {
   const account = useAccount(progress, update);
   const srs = useSrs(progress, account.user !== null);
   const { gems, update: updateGems, reset: resetGems } = useGems();
+  const { pet, update: updatePet } = usePet();
   /** Days a streak freeze covered since the app opened (shown once on the path). */
   const [frozeDays, setFrozeDays] = useState(0);
   const [screen, setScreen] = useState<Screen>({ name: 'path' });
@@ -166,9 +194,25 @@ function Screens() {
   // Reschedule the week of Android reminders on launch, on settings changes and after practice,
   // so a day that was already practised gets no reminder.
   const practicedToday = progress.lastActiveDate === dateKey(Date.now());
+  // Once the pet can remind, the reminders come from it.
+  const reminderPet = pet && hasAbility(progress.xp, 'remind') ? pet.name : null;
+  const reminderEmoji = pet ? petLook(pet, progress.xp).emoji : '';
   useEffect(() => {
-    void syncReminders({ enabled: settings.reminder, time: settings.reminderTime, practicedToday, streak });
-  }, [settings.reminder, settings.reminderTime, practicedToday, streak]);
+    const from = reminderPet ? { name: reminderPet, emoji: reminderEmoji } : null;
+    void syncReminders({ enabled: settings.reminder, time: settings.reminderTime, practicedToday, streak, pet: from });
+  }, [settings.reminder, settings.reminderTime, practicedToday, streak, reminderPet, reminderEmoji]);
+
+  // Progress made outside lessons (placement, unit tests, another device) also grows the pet.
+  const milestones: Milestones = { xp: progress.xp, lessons: lessonsCompleted(progress), streak };
+  useEffect(() => {
+    if (!pet) return;
+    const grown = growPet(pet, milestones);
+    if (grown.pet === pet) return;
+    updatePet(() => grown.pet);
+    if (grown.gems) updateGems((s) => earn(s, grown.gems));
+    // Only the milestones themselves call for growing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pet !== null, milestones.xp, milestones.lessons, milestones.streak]);
 
   useEffect(() => {
     if (appOpenSent) return;
@@ -232,6 +276,36 @@ function Screens() {
     identify();
     // Signing in from the call tab goes back to the characters.
     setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
+  }
+
+  /** The pet's part in a finished lesson or review: it grows, advances today's challenge and reacts. */
+  function petReaction(
+    after: Progress,
+    kind: 'lesson' | 'review' | 'practice',
+    flawless: boolean,
+    goalReached: boolean,
+  ) {
+    if (!pet) return { rewards: [] as Reward[], gems: 0, line: null };
+    const grown = growPet(pet, { xp: after.xp, lessons: lessonsCompleted(after), streak: visibleStreak(after) });
+    const challenge = recordChallenge(grown.pet, { kind, flawless, xpToday: after.xpToday }, after.xp);
+    updatePet(() => challenge.pet);
+    const rewards: Reward[] = [];
+    if (grown.gems) {
+      const label = grown.evolvedTo === 1 ? `${pet.name} בקעה מהביצה!` : `${pet.name} התפתחה!`;
+      rewards.push({ icon: '🐣', label, gems: grown.gems });
+    }
+    if (challenge.completed) {
+      rewards.push({ icon: '⚡', label: `האתגר של ${pet.name}: ${challenge.completed.title}`, gems: challenge.gems });
+    }
+    const line = reactionLine(challenge.pet, {
+      kind,
+      flawless,
+      goalReached,
+      evolvedTo: grown.evolvedTo,
+      newAccessories: grown.newAccessories,
+      challenge: challenge.completed,
+    });
+    return { rewards, gems: grown.gems + challenge.gems, line };
   }
 
   if (screen.name === 'premium') {
@@ -300,7 +374,8 @@ function Screens() {
             const kind = source === 'practice' ? 'practice' : 'review';
             const goalReached = reachesGoal(progress, after);
             const earned = rewardActivity(gems, { kind, flawless: raw.mistakes === 0, goalReached });
-            updateGems(() => earned.state);
+            const petPart = petReaction(after, kind, raw.mistakes === 0, goalReached);
+            updateGems(() => earn(earned.state, petPart.gems));
             track({
               name: 'review_complete',
               durationMs,
@@ -311,8 +386,9 @@ function Screens() {
               result,
               goalReached,
               kind,
-              rewards: earned.rewards,
+              rewards: [...earned.rewards, ...petPart.rewards],
               signup: null,
+              petLine: petPart.line,
             });
             return;
           }
@@ -322,7 +398,8 @@ function Screens() {
           srs.record(raw.answers, 'lesson');
           const goalReached = reachesGoal(progress, after);
           const earned = rewardActivity(gems, { kind: 'lesson', flawless: raw.mistakes === 0, goalReached });
-          updateGems(() => earned.state);
+          const petPart = petReaction(after, 'lesson', raw.mistakes === 0, goalReached);
+          updateGems(() => earn(earned.state, petPart.gems));
           track({
             name: 'lesson_complete',
             lessonId,
@@ -346,8 +423,9 @@ function Screens() {
             result: raw,
             goalReached,
             kind: 'lesson',
-            rewards: earned.rewards,
+            rewards: [...earned.rewards, ...petPart.rewards],
             signup: round ? { round, lessonsCompleted: done } : null,
+            petLine: petPart.line,
           });
         }}
         baseXp={10}
@@ -427,6 +505,7 @@ function Screens() {
         goalReached={screen.goalReached}
         kind={screen.kind}
         rewards={screen.rewards}
+        pet={pet && screen.petLine && <PetBubble pet={pet} xp={progress.xp} line={screen.petLine} />}
         onContinue={() => setScreen({ name: 'path' })}
         signupPrompt={
           signup && (
@@ -611,6 +690,42 @@ function Screens() {
           />
         )}
         {screen.name === 'path' && (
+          <PetCard
+            pet={pet}
+            xp={progress.xp}
+            streak={streak}
+            practicedToday={practicedToday}
+            onOpen={() => setScreen({ name: 'pet' })}
+          />
+        )}
+        {screen.name === 'pet' && (
+          <PetScreen
+            pet={pet}
+            xp={progress.xp}
+            streak={streak}
+            practicedToday={practicedToday}
+            today={today}
+            premium={premium}
+            canDesignWithAi={CALLS_ENABLED && account.user !== null}
+            onAdopt={(species, name) => {
+              const adopted = adoptPet(species, name);
+              if (!adopted) return;
+              sounds.gem();
+              // A learner who adopts later starts at their stage, with the accessories they already earned.
+              const grown = growPet({ ...adopted, stageSeen: stageFor(progress.xp) }, milestones);
+              updatePet(() => grown.pet);
+            }}
+            onToggleAccessory={(id) => updatePet((p) => p && toggleAccessory(p, id))}
+            onDesign={(design) => updatePet((p) => p && applyDesign(p, design))}
+            onPremium={
+              CALLS_ENABLED && PREMIUM_ON_SALE && !CALLS_LOCKED
+                ? () => setScreen({ name: 'premium', back: 'pet' })
+                : undefined
+            }
+            onLeague={ACCOUNTS_ENABLED ? () => setScreen({ name: 'league' }) : undefined}
+          />
+        )}
+        {screen.name === 'path' && (
           <button type="button" className="arcade-card" onClick={() => setScreen({ name: 'arcade' })}>
             <span className="arcade-card-icon" aria-hidden="true">
               🎮
@@ -687,6 +802,8 @@ function Screens() {
             onReset={() => {
               srs.reset();
               resetGems();
+              // The pet starts over as an egg, keeping its kind, name and premium design.
+              updatePet((p) => p && { ...adoptPet(p.species, p.name)!, design: p.design });
               if (account.user) {
                 // Signed in: the reset is marked with its time so it wins over every older copy –
                 // on the server and on the learner's other devices.

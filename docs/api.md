@@ -311,6 +311,26 @@ Content-Type: application/json
 - שגיאות: `401 unauthorized` (לא מחובר), `403 premium_required` ("שיחות וידאו זמינות כרגע רק למנויי פרימיום"), `429 daily_limit` ("הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!", או הודעה על מגבלת התורות), `400 invalid_call`, `429 rate_limited` (יותר מ־30 בקשות לדקה לכל IP), `502 call_failed`, `503 call_unavailable`.
 - באתר ב־GitHub Pages ובאפליקציה (בלי שרת Express) אותה לוגיקה רצה כ־Supabase Edge Function בשם `call-turn` (`POST` לתור, `GET` לסטטוס, עם ה־access token של Supabase) – ראו [supabase.md](supabase.md).
 
+### `POST /api/pet/design` 🔒 (פרימיום)
+עיצוב חיה אישית ייחודית עם AI ([pets.md](spec/pets.md)). הלומד מתאר במילים את החיה שהוא רוצה – השרת מחזיר עיצוב מתוך אבני הבניין שב־`shared/pet-design.ts`. התיאור לא נשמר ולא מתועד.
+
+```http
+POST /api/pet/design
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "prompt": "דרקון סגול קטן שאוהב מוזיקה", "current": { "name": "זוהר", "base": "🐲", "color": "lilac", "traits": [], "personality": "funny", "bio": "" } }
+```
+```json
+200 { "name": "זוהר", "base": "🐲", "color": "lilac", "traits": ["music", "sparkles"], "personality": "funny",
+      "bio": "דרקון קטן שמזמזם שירים באנגלית" }
+```
+- `prompt`: עד 300 תווים. `current` (אופציונלי): העיצוב הקיים, כדי לשנות רק את מה שביקשו.
+- התשובה תמיד עוברת `parsePetDesign`: `base` מתוך `PET_BASES`, `color` מתוך `PET_COLORS`, עד 3 `traits`, `personality` אחת מ־`cheerful` | `calm` | `funny` | `brave`, שם עד 16 תווים ותיאור עד 140.
+- פרימיום לפי `PREMIUM_EMAILS` (ב־Supabase גם מנוי בתוקף). עד 10 עיצובים ביום ללומד (נספר בזיכרון השרת).
+- שגיאות: `401 unauthorized`, `403 premium_required`, `400 invalid_design` (תיאור ריק או לא הולם), `429 daily_limit`, `429 rate_limited`, `502 design_failed`, `503 design_unavailable` (אין `ANTHROPIC_API_KEY`).
+- ב־Supabase: Edge Function בשם `pet-design` (`POST`), ראו [supabase.md](supabase.md).
+
 ---
 
 ## דוגמה: זרימת אורח → משתמש רשום
