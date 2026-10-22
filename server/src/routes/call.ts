@@ -1,7 +1,10 @@
 import { Router, type RequestHandler } from 'express';
 import {
   CALL_LIMITS,
+  callsLimitMessage,
   findPersona,
+  limitsFor,
+  type CallAccess,
   type CallMessage,
   type CallStatusResponse,
   type CallTurnResponse,
@@ -68,7 +71,7 @@ const GOODBYE = {
 const unavailable = () => new HttpError(503, 'call_unavailable', 'שיחות הווידאו לא זמינות כרגע');
 const failed = () => new HttpError(502, 'call_failed', 'השיחה נתקעה לרגע, נסו לומר את זה שוב');
 const premiumRequired = () => new HttpError(403, 'premium_required', 'שיחות וידאו זמינות כרגע רק למנויי פרימיום');
-const callsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!');
+const callsLimit = (perDay: number) => new HttpError(429, 'daily_limit', callsLimitMessage(perDay));
 const turnsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלת השיחות להיום. נתראה מחר!');
 
 interface AnthropicMessage {
@@ -161,6 +164,7 @@ export async function callTurn(
   body: unknown,
   model: CallModelOptions,
   charge?: ChargeTurn,
+  maxTurns: number = CALL_LIMITS.maxTurns,
 ): Promise<CallTurnResponse | null> {
   const apiKey = model.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw unavailable();
@@ -171,7 +175,7 @@ export async function callTurn(
   const calls = charge?.(isNewCall((body as { history?: unknown }).history));
   const usage = calls === undefined ? {} : { callsToday: calls };
 
-  if (countLearnerTurns(body) >= CALL_LIMITS.maxTurns) return { ...GOODBYE, corrections: [], ended: true, ...usage };
+  if (countLearnerTurns(body) >= maxTurns) return { ...GOODBYE, corrections: [], ended: true, ...usage };
 
   const check = checkUserMessage(req.message);
   if (check.flagged) {
@@ -202,8 +206,9 @@ export async function callTurn(
 }
 
 /**
- * AI video-call practice (shared/call.ts). Signed-in premium learners only (PREMIUM_EMAILS allowlist),
- * with CALL_LIMITS.callsPerDay / turnsPerDay per local day (server TZ, Asia/Jerusalem by default).
+ * AI video-call practice (shared/call.ts). Signed-in premium learners (PREMIUM_EMAILS allowlist) with
+ * CALL_LIMITS, and testers (TESTER_EMAILS) with the shorter TESTER_LIMITS, per local day (server TZ,
+ * Asia/Jerusalem by default).
  * Message content is never logged or stored; only per-day counters are.
  */
 export function callRouter(
@@ -212,29 +217,37 @@ export function callRouter(
   premiumEmails: Set<string>,
   requireAuth: RequestHandler,
   limiter: RequestHandler,
+  testerEmails: Set<string> = new Set(),
 ) {
   const router = Router();
-  const premium = (userId: string) => isPremium(repo.findUserById(userId)?.email, premiumEmails);
+  const access = (userId: string): CallAccess => {
+    const email = repo.findUserById(userId)?.email;
+    return isPremium(email, premiumEmails) ? 'premium' : isPremium(email, testerEmails) ? 'tester' : null;
+  };
 
   router.get('/call/status', requireAuth, (_req, res) => {
     const userId = res.locals.userId!;
+    const level = access(userId);
     const body: CallStatusResponse = {
-      premium: premium(userId),
+      premium: level === 'premium',
       callsToday: repo.getCallUsage(userId, usageDay()).calls,
-      callsPerDay: CALL_LIMITS.callsPerDay,
+      callsPerDay: limitsFor(level ?? 'premium').callsPerDay,
     };
+    if (level === 'tester') body.tester = true;
     res.json(body);
   });
 
   router.post('/call/turn', limiter, requireAuth, async (req, res) => {
     const userId = res.locals.userId!;
-    if (!premium(userId)) throw premiumRequired();
+    const level = access(userId);
+    if (!level) throw premiumRequired();
+    const limits = limitsFor(level);
     const charge: ChargeTurn = (newCall) => {
-      const result = repo.recordCallTurn(userId, usageDay(), newCall, CALL_LIMITS);
-      if (!result.allowed) throw result.reason === 'calls' ? callsLimit() : turnsLimit();
+      const result = repo.recordCallTurn(userId, usageDay(), newCall, limits);
+      if (!result.allowed) throw result.reason === 'calls' ? callsLimit(limits.callsPerDay) : turnsLimit();
       return result.calls;
     };
-    const body = await callTurn(req.body, model, charge);
+    const body = await callTurn(req.body, model, charge, limits.maxTurns);
     if (!body) throw badRequest('invalid_call', 'הבקשה לשיחה אינה תקינה');
     res.json(body);
   });

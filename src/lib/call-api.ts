@@ -85,6 +85,7 @@ export function parseStatusResponse(data: unknown): CallStatusResponse | null {
     res.premiumUntil = d.premiumUntil;
   }
   if (typeof d.willRenew === 'boolean') res.willRenew = d.willRenew;
+  if (d.tester === true && !d.premium) res.tester = true;
   return res;
 }
 

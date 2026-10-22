@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { User } from '../../../shared/api';
-import { PERSONAS, type CallStatusResponse, type Persona } from '../../../shared/call';
+import { PERSONAS, TESTER_LIMITS, type CallStatusResponse, type Persona } from '../../../shared/call';
 import { ApiRequestError, errorMessage } from '../../lib/api';
 import { callsLeft, remainingText } from '../../lib/call';
 import { getCallStatus } from '../../lib/call-api';
@@ -62,7 +62,9 @@ export function CallPicker({ user, status, onStatus, onSignIn, onCall, onPremium
   // While refreshing, the last known status keeps the screen steady.
   const shown = load.kind === 'signed-out' ? null : status;
   const left = shown ? callsLeft(shown) : 0;
-  const canCall = shown !== null && shown.premium && left > 0 && load.kind !== 'error';
+  /** Premium learners, and testers on their short daily trial. */
+  const allowed = shown !== null && (shown.premium || shown.tester === true);
+  const canCall = allowed && left > 0 && load.kind !== 'error';
   const skeleton = load.kind === 'loading' && !shown;
 
   return (
@@ -91,7 +93,7 @@ export function CallPicker({ user, status, onStatus, onSignIn, onCall, onPremium
         </div>
       )}
 
-      {load.kind !== 'error' && shown && !shown.premium && (
+      {load.kind !== 'error' && shown && !allowed && (
         <div className="panel center call-gate locked">
           {onPremium ? (
             <>
@@ -110,12 +112,20 @@ export function CallPicker({ user, status, onStatus, onSignIn, onCall, onPremium
         </div>
       )}
 
-      {load.kind !== 'error' && shown?.premium && left === 0 && (
+      {load.kind !== 'error' && shown && allowed && left === 0 && (
         <div className="panel center call-gate limit" role="status">
           <p className="call-gate-title">
-            הגעתם ל־{shown.callsPerDay} שיחות היום. נתראה מחר! <span aria-hidden="true">🌙</span>
+            {shown.callsPerDay === 1 ? 'השיחה של היום כבר נוצלה.' : `הגעתם ל־${shown.callsPerDay} שיחות היום.`} נתראה
+            מחר! <span aria-hidden="true">🌙</span>
           </p>
         </div>
+      )}
+
+      {load.kind !== 'error' && shown?.tester && left > 0 && (
+        <p className="calls-left" role="status">
+          <span aria-hidden="true">🧪 </span>
+          שיחת ניסיון לבודקים: שיחה אחת ביום, עד {TESTER_LIMITS.maxTurns} משפטים
+        </p>
       )}
 
       {load.kind !== 'error' && shown?.premium && left > 0 && (

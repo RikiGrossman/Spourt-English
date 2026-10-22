@@ -228,6 +228,23 @@ test('a subscriber sees when premium renews on the profile and the premium scree
   await expect(page.locator('.calls-left')).toBeVisible();
 });
 
+test('a tester gets one short trial call a day', async ({ page }) => {
+  const status: CallStatusResponse = { premium: false, tester: true, callsToday: 0, callsPerDay: 1 };
+  await openSignedIn(page, status);
+  await openCallTab(page);
+  await expect(page.getByText('שיחת ניסיון לבודקים: שיחה אחת ביום, עד 10 משפטים')).toBeVisible();
+  await expect(page.locator('.persona-call').first()).toBeEnabled();
+  // A tester isn't premium: no badge.
+  await expect(page.locator('.top-bar .premium-badge')).toHaveCount(0);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/tester.png`, fullPage: true });
+
+  status.callsToday = 1;
+  await page.locator('.bottom-nav').getByRole('button', { name: 'פרופיל' }).click();
+  await openCallTab(page);
+  await expect(page.getByText('השיחה של היום כבר נוצלה. נתראה מחר!')).toBeVisible();
+  for (const button of await page.locator('.persona-call').all()) await expect(button).toBeDisabled();
+});
+
 test('after 10 calls today the characters wait for tomorrow', async ({ page }) => {
   await openSignedIn(page, premium(10));
   await openCallTab(page);

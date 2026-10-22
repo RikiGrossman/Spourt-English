@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthResponse } from '../../shared/api';
-import { CALL_LIMITS, PERSONAS, type CallMessage, type CallTurnRequest } from '../../shared/call';
+import { CALL_LIMITS, PERSONAS, TESTER_LIMITS, type CallMessage, type CallTurnRequest } from '../../shared/call';
 import { usageDay } from '../../shared/premium';
 import { createApp, type AppOptions } from './app';
 import { openDb, type Db } from './db';
@@ -369,5 +369,62 @@ describe('call access and daily limits', () => {
       .send({ password: PASSWORD });
     expect(res.status).toBe(204);
     expect(usageRows()).toEqual([]);
+  });
+});
+
+describe('testers', () => {
+  const TESTER = 'tester@example.com';
+  const call = (sentences: number, persona: CallTurnRequest['persona'] = 'friend') => {
+    const history: CallMessage[] = [greeting(persona)];
+    for (let i = 0; i < sentences; i++) {
+      history.push({ role: 'user', text: `Sentence ${i}` }, { role: 'assistant', text: 'Nice!' });
+    }
+    return { persona, history, message: 'One more' };
+  };
+
+  async function asTester(options: AppOptions = {}) {
+    await setup(fakeFetch(modelJson('Hi!')), { testerEmails: ` ${TESTER.toUpperCase()} `, ...options });
+    return (await register(TESTER)).token;
+  }
+
+  it('reports a tester as not premium, with one call a day', async () => {
+    const tester = await asTester();
+    expect((await status(tester)).body).toEqual({
+      premium: false,
+      tester: true,
+      callsToday: 0,
+      callsPerDay: TESTER_LIMITS.callsPerDay,
+    });
+    // Premium wins over the tester list.
+    expect((await status()).body).toEqual({ premium: true, callsToday: 0, callsPerDay: CALL_LIMITS.callsPerDay });
+  });
+
+  it('allows one call a day and refuses a second', async () => {
+    const tester = await asTester();
+    const first = await turn(call(0), tester);
+    expect(first.status).toBe(200);
+    expect(first.body.callsToday).toBe(1);
+    expect((await turn(call(1), tester)).status).toBe(200);
+    const second = await turn(call(0, 'teacher'), tester);
+    expect(second.status).toBe(429);
+    expect(second.body).toEqual({ error: 'daily_limit', message: 'השיחה של היום כבר נוצלה. נתראה מחר!' });
+  });
+
+  it('answers ten sentences, then the character says goodbye', async () => {
+    const tester = await asTester();
+    const tenth = await turn(call(TESTER_LIMITS.maxTurns - 1), tester);
+    expect(tenth.body.ended).toBeUndefined();
+    const eleventh = await turn(call(TESTER_LIMITS.maxTurns), tester);
+    expect(eleventh.status).toBe(200);
+    expect(eleventh.body.ended).toBe(true);
+    // A premium learner's call goes on past ten sentences.
+    expect((await turn(call(TESTER_LIMITS.maxTurns))).body.ended).toBeUndefined();
+  });
+
+  it('keeps everyone else out', async () => {
+    await asTester();
+    const other = (await register('noa@example.com')).token;
+    expect((await turn(call(0), other)).status).toBe(403);
+    expect((await status(other)).body.tester).toBeUndefined();
   });
 });

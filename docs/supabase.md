@@ -85,6 +85,7 @@ supabase secrets set PREMIUM_EMAILS=first@example.com,second@example.com
 supabase functions deploy call-turn
 ```
 
+- **בודקים:** הסוד `TESTER_EMAILS` (באותו פורמט) נותן שיחת ניסיון אחת ביום, עד 10 משפטים, ואחריהם הדמות נפרדת. מי שגם ב־`PREMIUM_EMAILS` או עם מנוי מקבל את המגבלות של פרימיום. הסטטוס מחזיר `tester: true` ו־`callsPerDay: 1`.
 - כדי להוסיף או להסיר מנוי מריצים שוב `supabase secrets set PREMIUM_EMAILS=...` עם הרשימה המלאה (אין צורך לפרוס מחדש). לעולם לא כותבים אימיילים בקוד.
 - **מה הלקוח שולח:** `POST {SUPABASE_URL}/functions/v1/call-turn` עם גוף `CallTurnRequest` לתור, ו־`GET` לאותה כתובת (בלי גוף) לסטטוס (`CallStatusResponse`). בשתיהן `Authorization: Bearer <access token של המשתמש המחובר>` ו־`apikey: <anon/publishable key>` – `supabase.functions.invoke('call-turn', { method: 'GET' | 'POST', body })` שולח את שניהם לבד כשיש session. בלי session: `401 unauthorized`; משתמש שאינו פרימיום: `403 premium_required` בתור, ו־`premium: false` בסטטוס; מעבר למגבלה: `429 daily_limit`.
 - הפונקציה מייבאת את `shared/call.ts`, `shared/call-prompts.ts`, `shared/call-safety.ts` ו־`shared/premium.ts` בנתיב יחסי. הקבצים המשותפים מייבאים `'./call'` בלי סיומת `.ts`, ו־Deno דורש סיומת, לכן [`deno.json`](../supabase/functions/call-turn/deno.json) שליד הפונקציה ממפה את הנתיב הזה ל־`shared/call.ts`. חשוב להריץ את ה־deploy מתוך ה־repo המלא (לא להעתיק רק את תיקיית `supabase/`).
@@ -124,7 +125,7 @@ supabase functions deploy billing-webhook --no-verify-jwt   # RevenueCat לא ש
 ה־workflow ‏`.github/workflows/supabase.yml` מעדכן את Supabase לבד, בכל דחיפה ל־`main` שמשנה את `supabase/` או את הקבצים המשותפים של השיחות. אפשר להריץ אותו גם ידנית מ־**Actions** ← **Supabase** ← **Run workflow**. הוא:
 
 1. מריץ את `supabase/schema.sql` (בטוח להריץ שוב ושוב).
-2. מעתיק ל־Edge Functions את הסודות `ANTHROPIC_API_KEY`, ‏`PREMIUM_EMAILS`, ‏`REVENUECAT_WEBHOOK_SECRET` ו־`REVENUECAT_API_KEY`, אם הם מוגדרים ב־GitHub.
+2. מעתיק ל־Edge Functions את הסודות `ANTHROPIC_API_KEY`, ‏`PREMIUM_EMAILS`, ‏`TESTER_EMAILS`, ‏`REVENUECAT_WEBHOOK_SECRET` ו־`REVENUECAT_API_KEY`, אם הם מוגדרים ב־GitHub.
 3. פורס את כל הפונקציות ב־`supabase/functions` (את `billing-webhook` עם `--no-verify-jwt`), בודק ש־`call-turn` עונה 401 לבקשה בלי משתמש, ושה־`billing-webhook` דוחה בקשה בלי הסוד (401, או 503 כל עוד הסודות לא הוגדרו).
 
 הגדרה, פעם אחת: ב־repo ← **Settings** ← **Secrets and variables** ← **Actions** ← **New repository secret**:
@@ -134,6 +135,7 @@ supabase functions deploy billing-webhook --no-verify-jwt   # RevenueCat לא ש
 | `SUPABASE_ACCESS_TOKEN` | טוקן אישי מ־supabase.com ← Account ← **Access Tokens** ← Generate new token |
 | `ANTHROPIC_API_KEY` | מפתח API מ־console.anthropic.com |
 | `PREMIUM_EMAILS` | האימיילים של משתמשי הפרימיום, מופרדים בפסיקים |
+| `TESTER_EMAILS` | האימיילים של הבודקים, מופרדים בפסיקים: שיחת ניסיון אחת ביום, עד 10 משפטים (`TESTER_LIMITS` ב־`shared/call.ts`) |
 | `REVENUECAT_WEBHOOK_SECRET` | מחרוזת אקראית ארוכה; אותה מחרוזת בשדה Authorization של ה־webhook ב־RevenueCat |
 | `REVENUECAT_API_KEY` | מפתח **Secret** מ־RevenueCat ← Project settings ← API keys (מתחיל ב־`sk_`) |
 
