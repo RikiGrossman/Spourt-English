@@ -66,9 +66,9 @@ export function League({
                 {groups.unread}
               </span>
             )}
-            {v === 'duels' && duels.unclaimed > 0 && view !== 'duels' && (
-              <span className="badge" aria-label={`${duels.unclaimed} פרסים מחכים`}>
-                {duels.unclaimed}
+            {v === 'duels' && duels.unclaimed + duels.unread > 0 && view !== 'duels' && (
+              <span className="badge" aria-label={`${duels.unclaimed + duels.unread} עדכונים בתחרויות`}>
+                {duels.unclaimed + duels.unread}
               </span>
             )}
           </button>

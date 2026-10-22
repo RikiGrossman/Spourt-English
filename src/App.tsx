@@ -304,7 +304,7 @@ function Screens() {
   const premium = account.user !== null && callStatus?.premium === true;
   const groups = useGroups(ACCOUNTS_ENABLED ? userId : null);
   const duels = useDuels(ACCOUNTS_ENABLED ? userId : null);
-  const leagueBadge = groups.unread + duels.unclaimed;
+  const leagueBadge = groups.unread + duels.unread + duels.unclaimed;
 
   // A shared invite link opens "my groups" with the code filled in.
   useEffect(() => {
