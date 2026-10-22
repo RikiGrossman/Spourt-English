@@ -37,7 +37,7 @@ const TIMEOUT_MS = 20_000;
 const RATE_LIMIT = 20;
 const TIME_ZONE = 'Asia/Jerusalem';
 
-const ALLOWED_ORIGINS = new Set(['https://rikigrossman.github.io', 'https://localhost']);
+const ALLOWED_ORIGINS = new Set(['https://baktanaenglish-hub.github.io', 'https://localhost']);
 const DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 class HttpError extends Error {

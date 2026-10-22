@@ -73,7 +73,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 ### 7. למלא את טפסי App content
 תשובות לפי מה שהאפליקציה עושה היום. אם מוסיפים פרסומות, תשלומים או SDK חדש, צריך לעדכן.
 
-**Privacy policy:** `https://baktanaenglish.co.il/privacy.html` (אחרי המעבר לדומיין, [domain.md](domain.md). עד אז: `https://rikigrossman.github.io/Spourt-English/privacy.html`)
+**Privacy policy:** `https://baktanaenglish.co.il/privacy.html` (אחרי המעבר לדומיין, [domain.md](domain.md). עד אז: `https://baktanaenglish-hub.github.io/Spourt-English/privacy.html`)
 
 **App access:** כל האפליקציה זמינה בלי התחברות (מצב אורח). כדאי בכל זאת לתת לבודקים של גוגל חשבון בדיקה (אימייל וסיסמה) כדי שיוכלו לבדוק את הליגה ואת מחיקת החשבון.
 

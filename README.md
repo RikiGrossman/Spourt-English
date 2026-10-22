@@ -114,7 +114,7 @@ docker run -p 3001:3001 -e JWT_SECRET=<סוד> -v spourt-data:/app/data spourt-e
 ## האתר החי (GitHub Pages)
 
 בכל דחיפה ל־`main` ה־workflow ‏`.github/workflows/pages.yml` בונה את האפליקציה ומפרסם אותה ב־
-https://rikigrossman.github.io/Spourt-English/ (עובר לדומיין https://baktanaenglish.co.il – ראו [docs/domain.md](docs/domain.md))
+https://baktanaenglish-hub.github.io/Spourt-English/ (עובר לדומיין https://baktanaenglish.co.il – ראו [docs/domain.md](docs/domain.md))
 
 ב־GitHub Pages אין שרת. לכן ההרשמה, ההתחברות והליגה עובדים שם (ובאפליקציית האנדרואיד) דרך Supabase, אחרי שמגדירים אותו לפי [docs/supabase.md](docs/supabase.md). עד אז האפליקציה עובדת במצב אורח מלא (שיעורים, לבבות, XP, רצף, תרגול והתקנה בטלפון).
 הפעלה חד־פעמית: ב־GitHub, ‏Settings → Pages → Source: **GitHub Actions**.
@@ -124,7 +124,7 @@ https://rikigrossman.github.io/Spourt-English/ (עובר לדומיין https://
 ## אפליקציית אנדרואיד
 
 קובץ התקנה (APK) נבנה אוטומטית בכל דחיפה ל־`main`, ואפשר להוריד אותו ישר לטלפון:
-https://github.com/RikiGrossman/Spourt-English/releases/tag/android-latest
+https://github.com/baktanaenglish-hub/Spourt-English/releases/tag/android-latest
 פרטים, הוראות התקנה ובנייה מקומית: [docs/android.md](docs/android.md).
 
 ## מבנה הפרויקט

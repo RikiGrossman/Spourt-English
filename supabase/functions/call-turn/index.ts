@@ -69,7 +69,7 @@ export const CALL_OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const ALLOWED_ORIGINS = new Set(['https://rikigrossman.github.io', 'https://localhost']);
+const ALLOWED_ORIGINS = new Set(['https://baktanaenglish-hub.github.io', 'https://localhost']);
 const DEV_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 const FALLBACK = { reply: 'Sorry, could you say that again?', replyHe: 'סליחה, אפשר לחזור על זה?' };

@@ -5,7 +5,7 @@
 
 ## הורדה והתקנה
 
-1. בטלפון פותחים את הקישור https://rikigrossman.github.io/Spourt-English/SpourtEnglish.apk (אותו קובץ נמצא גם בדף הגרסה: https://github.com/RikiGrossman/Spourt-English/releases/tag/android-latest).
+1. בטלפון פותחים את הקישור https://baktanaenglish-hub.github.io/Spourt-English/SpourtEnglish.apk (אותו קובץ נמצא גם בדף הגרסה: https://github.com/baktanaenglish-hub/Spourt-English/releases/tag/android-latest).
 2. פותחים את הקובץ שירד.
 3. מאשרים "התקנה ממקורות לא ידועים" לדפדפן (אנדרואיד שואל בפעם הראשונה).
 

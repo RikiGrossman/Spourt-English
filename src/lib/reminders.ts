@@ -126,7 +126,7 @@ export function reminderCalendar(time: string, now = new Date()): string {
     'DURATION:PT10M',
     'RRULE:FREQ=DAILY',
     'SUMMARY:🔥 תרגול אנגלית – Baktana English',
-    'DESCRIPTION:כמה דקות של אנגלית: https://rikigrossman.github.io/Spourt-English/',
+    'DESCRIPTION:כמה דקות של אנגלית: https://baktanaenglish-hub.github.io/Spourt-English/',
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
     'DESCRIPTION:הגיע הזמן לתרגל אנגלית',

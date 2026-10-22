@@ -8,9 +8,9 @@
 1. **פותחים פרויקט:** נרשמים ב־https://supabase.com, לוחצים **New project**, בוחרים שם (למשל `spourt-english`), סיסמה למסד הנתונים (שומרים אותה בצד) ואזור קרוב (למשל Frankfurt).
 2. **יוצרים את הטבלאות:** בתפריט הצד נכנסים ל־**SQL Editor** ← **New query**, מדביקים את כל התוכן של [`supabase/schema.sql`](../supabase/schema.sql) ולוחצים **Run**.
 3. **מגדירים כתובות:** ב־**Authentication** ← **URL Configuration**:
-   - **Site URL**: `https://rikigrossman.github.io/Spourt-English/` (בדיוק כך – עם `/Spourt-English/` בסוף. בלי זה הקישור במייל האישור מוביל לדף 404)
+   - **Site URL**: `https://baktanaenglish-hub.github.io/Spourt-English/` (בדיוק כך – עם `/Spourt-English/` בסוף. בלי זה הקישור במייל האישור מוביל לדף 404)
    - אחרי המעבר לדומיין משלנו, Site URL הוא `https://baktanaenglish.co.il/`, ומוסיפים גם אותו ל־Redirect URLs ([domain.md](domain.md)).
-   - **Redirect URLs** ← **Add URL**: `https://rikigrossman.github.io/Spourt-English/**` (ולפיתוח מקומי גם `http://localhost:5173/**`). האפליקציה מבקשת מ־Supabase להחזיר לשם את מי שלוחץ על הקישור במייל, וכתובת שלא ברשימה מוחלפת ב־Site URL.
+   - **Redirect URLs** ← **Add URL**: `https://baktanaenglish-hub.github.io/Spourt-English/**` (ולפיתוח מקומי גם `http://localhost:5173/**`). האפליקציה מבקשת מ־Supabase להחזיר לשם את מי שלוחץ על הקישור במייל, וכתובת שלא ברשימה מוחלפת ב־Site URL.
    - אופציונלי: ב־**Authentication** ← **Sign In / Providers** ← **Email** אפשר לכבות את **Confirm email**. אז נרשמים בלי מייל אישור. אם משאירים אותו פעיל, כל משתמש חדש מקבל מייל ולוחץ על הקישור לפני ההתחברות הראשונה.
 4. **מעתיקים שני ערכים:** ב־**Project Settings** ← **API** (או **Data API**):
    - **Project URL**, למשל `https://abcd1234.supabase.co`
@@ -93,7 +93,7 @@ supabase functions deploy pet-design   # עיצוב חיה ייחודית עם A
 - כדי להוסיף או להסיר מנוי מריצים שוב `supabase secrets set PREMIUM_EMAILS=...` עם הרשימה המלאה (אין צורך לפרוס מחדש). לעולם לא כותבים אימיילים בקוד.
 - **מה הלקוח שולח:** `POST {SUPABASE_URL}/functions/v1/call-turn` עם גוף `CallTurnRequest` לתור, ו־`GET` לאותה כתובת (בלי גוף) לסטטוס (`CallStatusResponse`). בשתיהן `Authorization: Bearer <access token של המשתמש המחובר>` ו־`apikey: <anon/publishable key>` – `supabase.functions.invoke('call-turn', { method: 'GET' | 'POST', body })` שולח את שניהם לבד כשיש session. בלי session: `401 unauthorized`; משתמש שאינו פרימיום: `403 premium_required` בתור, ו־`premium: false` בסטטוס; מעבר למגבלה: `429 daily_limit`.
 - הפונקציה מייבאת את `shared/call.ts`, `shared/call-prompts.ts`, `shared/call-safety.ts` ו־`shared/premium.ts` בנתיב יחסי. הקבצים המשותפים מייבאים `'./call'` בלי סיומת `.ts`, ו־Deno דורש סיומת, לכן [`deno.json`](../supabase/functions/call-turn/deno.json) שליד הפונקציה ממפה את הנתיב הזה ל־`shared/call.ts`. חשוב להריץ את ה־deploy מתוך ה־repo המלא (לא להעתיק רק את תיקיית `supabase/`).
-- CORS מותר רק מהאתר (`https://rikigrossman.github.io`), מהאפליקציה (`https://localhost`) ומ־localhost בפיתוח.
+- CORS מותר רק מהאתר (`https://baktanaenglish-hub.github.io`), מהאפליקציה (`https://localhost`) ומ־localhost בפיתוח.
 - אימות JWT של ה־gateway נשאר פעיל (פורסים **בלי** `--no-verify-jwt`): הלקוח שולח ב־`Authorization` את ה־access token של המשתמש, שהוא JWT של הפרויקט – גם כשמפתח הפרויקט הוא `sb_publishable_…` (המפתח הולך ב־`apikey`). אם פרסתם בעבר עם `--no-verify-jwt`, פורסים שוב בלעדיו. (רק אם ה־gateway דוחה טוקנים תקינים – למשל בפרויקט שעבר למפתחות חתימה אסימטריים – אפשר לפרוס עם `--no-verify-jwt`; זה עדיין בטוח, כי הפונקציה עצמה מאמתת כל טוקן מול Supabase Auth.)
 - הגבלת קצב: 30 בקשות לדקה לכל IP, לכל מופע של הפונקציה, בנוסף למגבלה היומית למשתמש (10 שיחות ו־100 תורות ביום). מגבלת ההוצאה האמיתית מוגדרת ב־Anthropic Console.
 - בלי הסוד `ANTHROPIC_API_KEY` הפונקציה מחזירה `503 call_unavailable` והאפליקציה מציגה "שיחות הווידאו לא זמינות כרגע".
