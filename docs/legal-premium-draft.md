@@ -246,5 +246,5 @@ index 1496b3d..57d575e 100644
 +      <h2>9. דין ויצירת קשר</h2>
        <p>
          על התנאים חל הדין הישראלי. שאלות ופניות:
-         <a href="mailto:r0583288673@gmail.com" dir="ltr">r0583288673@gmail.com</a>.
+         <a href="mailto:support.baktanaenglish@gmail.com" dir="ltr">support.baktanaenglish@gmail.com</a>.
 ```
