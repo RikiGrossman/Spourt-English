@@ -6,7 +6,14 @@
  * Kept in localStorage only, like the gems, so the progress contract with the server stays unchanged.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { PET_COLORS, PET_TRAITS, parsePetDesign, type Personality, type PetDesign } from '../../shared/pet-design';
+import {
+  PET_COLORS,
+  PET_TRAITS,
+  parsePetDesign,
+  type Personality,
+  type PetBadge,
+  type PetDesign,
+} from '../../shared/pet-design';
 import { dateKey } from './progress';
 
 export const PET_KEY = 'spourt-english:pet:v1';
@@ -73,6 +80,8 @@ export interface Accessory {
   /** How it is earned, shown while locked. */
   hint: string;
   earned: (m: Milestones) => boolean;
+  /** A shared prize of group challenges. */
+  group?: boolean;
 }
 
 /** What accessories are earned by. */
@@ -80,6 +89,8 @@ export interface Milestones {
   xp: number;
   lessons: number;
   streak: number;
+  /** Group challenges whose prize the learner collected (the pet keeps the count, see recordGroupChallenge). */
+  groupChallenges?: number;
 }
 
 export const ACCESSORIES: Accessory[] = [
@@ -99,6 +110,25 @@ export const ACCESSORIES: Accessory[] = [
   { id: 'medal', icon: '🏅', name: 'מדליה', slot: 'neck', hint: 'רצף של 14 ימים', earned: (m) => m.streak >= 14 },
   { id: 'tophat', icon: '🎩', name: 'מגבעת', slot: 'head', hint: '2,000 XP', earned: (m) => m.xp >= 2000 },
   { id: 'crown', icon: '👑', name: 'כתר', slot: 'head', hint: 'רצף של 30 ימים', earned: (m) => m.streak >= 30 },
+  // Shared prizes: every member who collects a completed group challenge gets them for their pet.
+  {
+    id: 'ribbon',
+    icon: '🎗️',
+    name: 'סרט הקבוצה',
+    slot: 'neck',
+    hint: 'אתגר קבוצתי',
+    earned: (m) => (m.groupChallenges ?? 0) >= 1,
+    group: true,
+  },
+  {
+    id: 'team-medal',
+    icon: '🎖️',
+    name: 'עיטור הקבוצה',
+    slot: 'neck',
+    hint: '5 אתגרים קבוצתיים',
+    earned: (m) => (m.groupChallenges ?? 0) >= 5,
+    group: true,
+  },
 ];
 
 export type ChallengeKind = 'lessons' | 'flawless' | 'review' | 'xp';
@@ -138,6 +168,8 @@ export interface PetState {
   challengeDate: string | null;
   challengeProgress: number;
   challengeClaimed: boolean;
+  /** Group challenges whose prize was collected (shared prizes, see ACCESSORIES). */
+  groupChallenges: number;
 }
 
 const SLOTS: Slot[] = ['head', 'face', 'neck'];
@@ -158,6 +190,7 @@ export function adoptPet(speciesId: string, name: string, now = Date.now()): Pet
     challengeDate: null,
     challengeProgress: 0,
     challengeClaimed: false,
+    groupChallenges: 0,
   };
 }
 
@@ -191,6 +224,7 @@ export function parsePet(raw: string | null): PetState | null {
       challengeDate: typeof d.challengeDate === 'string' ? d.challengeDate : null,
       challengeProgress: count(d.challengeProgress),
       challengeClaimed: d.challengeClaimed === true,
+      groupChallenges: count(d.groupChallenges),
     };
   } catch {
     return null;
@@ -267,7 +301,8 @@ export interface PetUpdate {
  * (EVOLVE_GEMS × each stage) and grants every accessory whose milestone was reached. A newly earned
  * accessory is put on when its slot is free.
  */
-export function growPet(pet: PetState, m: Milestones): PetUpdate {
+export function growPet(pet: PetState, milestones: Milestones): PetUpdate {
+  const m = { ...milestones, groupChallenges: pet.groupChallenges };
   const stage = stageFor(m.xp);
   let gems = 0;
   for (let s = pet.stageSeen + 1; s <= stage; s++) gems += EVOLVE_GEMS * s;
@@ -301,6 +336,21 @@ export function toggleAccessory(pet: PetState, id: string): PetState {
 /** Switches to a premium design (named after it), or back to the species' own look with null. */
 export function applyDesign(pet: PetState, design: PetDesign | null): PetState {
   return design ? { ...pet, name: design.name, design } : { ...pet, design: null };
+}
+
+/**
+ * A completed group challenge was collected: the pet shares the prize and grows with the group
+ * (accessories earned by group challenges). Returns what changed, like growPet.
+ */
+export function recordGroupChallenge(pet: PetState, m: Milestones): PetUpdate {
+  return growPet({ ...pet, groupChallenges: pet.groupChallenges + 1 }, m);
+}
+
+/** The pet as the learner's groups see it (shared/pet-design.ts PetBadge). */
+export function petBadge(pet: PetState, xp: number): PetBadge {
+  const look = petLook(pet, xp);
+  const worn = look.stage === 0 ? [] : SLOTS.flatMap((slot) => accessoryById(pet.worn[slot] ?? '')?.icon ?? []);
+  return { name: pet.name, emoji: look.emoji, stage: look.stage, color: look.color, worn };
 }
 
 /** A small, stable hash of a string, for picking today's challenge and lines. */

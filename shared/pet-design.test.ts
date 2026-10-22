@@ -3,6 +3,7 @@ import {
   MAX_TRAITS,
   PET_DESIGN_SCHEMA,
   buildDesignUserMessage,
+  parsePetBadge,
   parsePetDesign,
   sanitizeDesignRequest,
 } from './pet-design';
@@ -52,4 +53,22 @@ describe('sanitizeDesignRequest', () => {
 it('the schema lists every allowed value', () => {
   expect(PET_DESIGN_SCHEMA.properties.color.enum).toContain('lilac');
   expect(PET_DESIGN_SCHEMA.required).toContain('personality');
+});
+
+describe('parsePetBadge', () => {
+  const badge = { name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: ['🧢'] };
+
+  it('keeps a valid badge', () => {
+    expect(parsePetBadge(badge)).toEqual(badge);
+  });
+
+  it('rejects unknown looks and stages, and drops unknown accessories', () => {
+    expect(parsePetBadge({ ...badge, emoji: '💣' })).toBeNull();
+    expect(parsePetBadge({ ...badge, stage: 9 })).toBeNull();
+    expect(parsePetBadge({ ...badge, name: '' })).toBeNull();
+    expect(parsePetBadge({ ...badge, color: 'red', worn: ['🧢', '🔪', '🧢'] })).toMatchObject({
+      color: '#5ab8ff',
+      worn: ['🧢'],
+    });
+  });
 });

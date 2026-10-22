@@ -289,6 +289,22 @@ do $$ declare r record; n int; begin
   select xp into n from public.xp_leaderboard(now() - interval '1 day', null) where is_me;
   if n <> 10 then raise exception 'xp_leaderboard failed: %', n; end if;
 end $$;
+-- Pets: C2 shares a pet badge through their own profile; the group board shows it, and no one else's changes.
+update public.profiles set pet = '{"name":"Flame","emoji":"🐲","stage":2,"color":"#4caf50","worn":["🧢"]}'
+  where id = auth.uid();
+update public.profiles set pet = '{"name":"Hacked"}' where id = '00000000-0000-4000-8000-0000000000c1';
+do $$ declare mine jsonb; other jsonb; begin
+  select pet into mine from public.group_member_stats((select id from test_group), '-infinity', null) where is_me;
+  select pet into other from public.group_member_stats((select id from test_group), '-infinity', null) where not is_me;
+  if mine ->> 'name' <> 'Flame' or other is not null then
+    raise exception 'pets on the group board failed: % / %', mine, other;
+  end if;
+end $$;
+do $$ begin
+  update public.profiles set pet = jsonb_build_object('name', repeat('x', 700)) where id = auth.uid();
+  raise exception 'profiles: an oversized pet was stored';
+exception when check_violation then null;
+end $$;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c3', false);
 do $$ begin
   perform public.group_member_stats((select id from test_group), '-infinity', null);

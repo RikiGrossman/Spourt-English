@@ -25,6 +25,13 @@ create table if not exists public.xp_events (
 );
 create index if not exists xp_events_created_at on public.xp_events (created_at);
 
+-- The learner's pet as their groups see it (shared/pet-design.ts PetBadge), or null. The learner writes it
+-- through the "own profile" policy; only fellow group members read it, through group_member_stats.
+alter table public.profiles add column if not exists pet jsonb;
+alter table public.profiles drop constraint if exists profiles_pet_size;
+alter table public.profiles add constraint profiles_pet_size
+  check (pet is null or (jsonb_typeof(pet) = 'object' and octet_length(pet::text) <= 600));
+
 alter table public.profiles enable row level security;
 alter table public.progress enable row level security;
 alter table public.xp_events enable row level security;
@@ -441,9 +448,11 @@ language sql stable security definer set search_path = '' as $$
   order by mine.joined_at;
 $$;
 
--- A group's own board for a period (null `until` = no end); members only.
+-- A group's own board for a period (null `until` = no end), with each member's shared pet; members only.
+-- Dropped first: an older version returned no `pet` column, and the return type can't be changed in place.
+drop function if exists public.group_member_stats(uuid, timestamptz, timestamptz);
 create or replace function public.group_member_stats(gid uuid, since timestamptz, until timestamptz)
-returns table (display_name text, xp bigint, is_me boolean, is_owner boolean, joined_at timestamptz)
+returns table (display_name text, xp bigint, is_me boolean, is_owner boolean, joined_at timestamptz, pet jsonb)
 language plpgsql stable security definer set search_path = '' as $$
 begin
   if not exists (select 1 from public.group_members where group_id = gid and user_id = auth.uid()) then
@@ -456,7 +465,8 @@ begin
           and e.created_at < coalesce(until, 'infinity')), 0)::bigint,
       m.user_id = auth.uid(),
       m.user_id = g.owner_id,
-      m.joined_at
+      m.joined_at,
+      p.pet
     from public.group_members m
     join public.groups g on g.id = m.group_id
     join public.profiles p on p.id = m.user_id

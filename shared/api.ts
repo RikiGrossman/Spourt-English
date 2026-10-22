@@ -111,6 +111,8 @@ export interface LeaderboardResponse {
 
 export type { GroupLeaderboardEntry, GroupMember, GroupSummary, Period };
 export type { ChallengeStatus } from './groups';
+/** The learner's pet as their groups see it: PUT /api/me/pet (auth) with SetPetRequest → 204. */
+export type { PetBadge, SetPetRequest } from './pet-design';
 
 /** GET /api/groups (auth) – the learner's groups with this week's standing and challenges. */
 export interface GroupsResponse {

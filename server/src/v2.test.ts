@@ -38,31 +38,33 @@ const st = (over: Partial<ItemState> = {}): ItemState => ({
 beforeEach(() => setup());
 
 describe('migrations', () => {
-  it('creates srs_state, events, call_usage and groups (user_version 5) and is idempotent', () => {
+  it('creates srs_state, events, call_usage, groups and the pet column (user_version 6) and is idempotent', () => {
     const fresh = openDb(':memory:');
-    expect((fresh.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(5);
+    expect((fresh.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(6);
     const tables = fresh.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[];
     expect(tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['srs_state', 'events', 'call_usage', 'groups', 'group_members']),
     );
     // Running again is a no-op.
     migrate(fresh);
-    expect((fresh.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(5);
+    expect((fresh.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(6);
   });
 
-  it('applies #2 to #5 to a v1 database without touching existing rows', () => {
+  it('applies #2 to #6 to a v1 database without touching existing rows', () => {
     const old = openDb(':memory:');
     old.exec(
-      `DROP TABLE group_members; DROP TABLE groups; DROP INDEX xp_events_user_created;
+      `ALTER TABLE users DROP COLUMN pet;
+       DROP TABLE group_members; DROP TABLE groups; DROP INDEX xp_events_user_created;
        ALTER TABLE xp_events DROP COLUMN lesson;
        DROP TABLE call_usage; DROP TABLE events; DROP TABLE srs_state; PRAGMA user_version = 1`,
     );
     old.prepare("INSERT INTO users VALUES ('u1', 'a@b.co', 'דנה', 'x', '2026-01-01')").run();
     migrate(old);
-    expect((old.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(5);
+    expect((old.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(6);
     expect(old.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 });
     old.prepare("INSERT INTO srs_state VALUES ('u1', 'w:cat', 1, '2026-01-02', 1, 0, 0)").run();
     old.prepare("INSERT INTO call_usage VALUES ('u1', '2026-01-02', 1, 1)").run();
+    expect(old.prepare('SELECT pet FROM users').get()).toEqual({ pet: null });
   });
 });
 

@@ -117,12 +117,14 @@ const TRAIT_IDS = PET_TRAITS.map((t) => t.id);
 /** Trims, collapses whitespace and drops control characters. */
 function cleanText(v: unknown, max: number): string {
   if (typeof v !== 'string') return '';
-  return v
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max);
+  return (
+    v
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, max)
+  );
 }
 
 /** A valid design built from untrusted data (model output, storage), or null when it can't be. */
@@ -186,4 +188,65 @@ export function buildDesignSystemPrompt(): string {
 export function buildDesignUserMessage(req: PetDesignRequest): string {
   const current = req.current ? `Current design: ${JSON.stringify(req.current)}\n` : '';
   return `${current}The learner's wish: ${req.prompt}`;
+}
+
+// --- The pet as other learners see it (group boards) ---------------------------------------------------------
+
+/** Every look a pet can have: the egg, the species' stages (src/lib/pet.ts SPECIES) and the premium bases. */
+export const PET_EMOJIS: readonly string[] = [
+  ...new Set(['🥚', '🦎', '🐲', '🐉', '🐣', '🐥', '🦉', '🐱', '🐯', '🐅', '🐴', '🦄', ...PET_BASES]),
+];
+
+/** Every accessory icon (src/lib/pet.ts ACCESSORIES). */
+export const PET_ACCESSORY_ICONS: readonly string[] = [
+  '🧣',
+  '🧢',
+  '🎀',
+  '🎧',
+  '🕶️',
+  '🎓',
+  '🏅',
+  '🎩',
+  '👑',
+  '🎗️',
+  '🎖️',
+];
+
+/** The last stage (src/lib/pet.ts STAGES). */
+export const MAX_PET_STAGE = 4;
+
+/**
+ * The pet as shown to the learner's groups: PUT /api/me/pet (or the Supabase profile) stores it,
+ * and GroupMember.pet carries it to the other members.
+ */
+export interface PetBadge {
+  name: string;
+  /** One of PET_EMOJIS. */
+  emoji: string;
+  /** 0 (egg) to MAX_PET_STAGE. */
+  stage: number;
+  /** A PET_COLORS hex. */
+  color: string;
+  /** Worn accessories (PET_ACCESSORY_ICONS), at most three. */
+  worn: string[];
+}
+
+/** PUT /api/me/pet (auth) – shares the learner's pet with their groups; null stops sharing. 204. */
+export interface SetPetRequest {
+  pet: PetBadge | null;
+}
+
+/** A valid badge from untrusted data (a request, a database row), or null. */
+export function parsePetBadge(data: unknown): PetBadge | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const d = data as Record<string, unknown>;
+  const name = cleanText(d.name, MAX_PET_NAME);
+  const stage = d.stage;
+  if (!name || typeof d.emoji !== 'string' || !PET_EMOJIS.includes(d.emoji)) return null;
+  if (typeof stage !== 'number' || !Number.isInteger(stage) || stage < 0 || stage > MAX_PET_STAGE) return null;
+  const color = PET_COLORS.some((c) => c.hex === d.color) ? (d.color as string) : PET_COLORS[0].hex;
+  const worn = Array.isArray(d.worn)
+    ? [...new Set(d.worn.filter((w): w is string => PET_ACCESSORY_ICONS.includes(w as string)))].slice(0, 3)
+    : [];
+  return { name, emoji: d.emoji, stage, color, worn };
 }

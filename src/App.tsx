@@ -20,6 +20,7 @@ import { TopBar } from './components/TopBar';
 import { UnitIntro } from './components/UnitIntro';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
+import { api } from './lib/api';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
 import { PREMIUM_ON_SALE, subscriptionText, syncBillingUser } from './lib/billing';
 import { CALLS_ENABLED, CALLS_LOCKED, getCallStatus } from './lib/call-api';
@@ -34,7 +35,6 @@ import {
   applyStreakFreeze,
   avatarEmoji,
   buy,
-  earn,
   chooseAvatar,
   earn,
   openChest,
@@ -52,9 +52,11 @@ import {
   applyDesign,
   growPet,
   hasAbility,
+  petBadge,
   petLook,
   reactionLine,
   recordChallenge,
+  recordGroupChallenge,
   stageFor,
   toggleAccessory,
   usePet,
@@ -162,6 +164,24 @@ const TABS = ALL_TABS.filter(
   (tab) => (tab.name !== 'league' || ACCOUNTS_ENABLED) && (tab.name !== 'call' || CALLS_ENABLED),
 );
 
+const PET_SHARED_KEY = 'spourt-english:pet-shared:v1';
+
+/** Sends the pet badge (JSON) to the learner's groups unless this exact badge was already sent. */
+async function sharePet(userId: string, badge: string) {
+  const key = `${PET_SHARED_KEY}:${userId}`;
+  try {
+    if (localStorage.getItem(key) === badge) return;
+  } catch {
+    // No storage: just send it.
+  }
+  try {
+    await api.setPet(JSON.parse(badge));
+    localStorage.setItem(key, badge);
+  } catch {
+    // Offline, or a server from before pets: try again on the next change or launch.
+  }
+}
+
 /** `app_open` is sent once per launch (StrictMode mounts effects twice in development). */
 let appOpenSent = false;
 
@@ -256,6 +276,12 @@ function Screens() {
   // Another learner may sign in on this device: forget the last one's call status, then ask the
   // server again so the premium badge shows without opening the call tab first.
   const userId = account.user?.id ?? null;
+  // The pet is shown to the learner's groups: send its badge whenever it looks different.
+  const badgeKey = pet && userId && ACCOUNTS_ENABLED ? JSON.stringify(petBadge(pet, progress.xp)) : '';
+  useEffect(() => {
+    if (!userId || !badgeKey) return;
+    void sharePet(userId, badgeKey);
+  }, [userId, badgeKey]);
   useEffect(() => {
     setCallStatus(null);
     if (!userId || !CALLS_ENABLED) return;
@@ -743,7 +769,7 @@ function Screens() {
                 ? () => setScreen({ name: 'premium', back: 'pet' })
                 : undefined
             }
-            onLeague={ACCOUNTS_ENABLED ? () => setScreen({ name: 'league' }) : undefined}
+            onLeague={ACCOUNTS_ENABLED ? () => setScreen({ name: 'league', view: 'mine' }) : undefined}
           />
         )}
         {screen.name === 'path' && (
@@ -793,7 +819,13 @@ function Screens() {
             onSignIn={goAuth}
             onGems={(amount) => {
               sounds.gem();
-              updateGems((s) => earn(s, amount));
+              // A shared prize: the pet of every member who collects it gets the group accessories.
+              const shared = pet ? recordGroupChallenge(pet, milestones) : null;
+              if (shared) updatePet(() => shared.pet);
+              updateGems((s) => earn(s, amount + (shared?.gems ?? 0)));
+              const accessory = shared?.newAccessories[0];
+              if (!pet || !accessory) return null;
+              return `🐾 ${pet.name} קיבלה ${accessory.name} ${accessory.icon} – פרס משותף לכל הקבוצה!`;
             }}
             joinCode={joinCode}
             onJoinCodeUsed={() => setJoinCode(null)}

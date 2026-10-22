@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_PET_STAGE, PET_ACCESSORY_ICONS, PET_EMOJIS, parsePetBadge } from '../../shared/pet-design';
 import {
+  ACCESSORIES,
   EVOLVE_GEMS,
+  SPECIES,
   STAGES,
   adoptPet,
   applyDesign,
   greetingLine,
   growPet,
   parsePet,
+  petBadge,
   petLook,
   petReminderText,
   reactionLine,
   recordChallenge,
+  recordGroupChallenge,
   shareText,
   stageFor,
   todaysChallenge,
@@ -182,5 +187,33 @@ describe('parsePet', () => {
     expect(parsePet('{"species":"nope"}')).toBeNull();
     expect(parsePet('not json')).toBeNull();
     expect(parsePet(null)).toBeNull();
+  });
+});
+
+describe('pets and groups', () => {
+  it('gives the group accessories as a shared prize of group challenges', () => {
+    const m = { xp: 250, lessons: 3, streak: 0 };
+    const first = recordGroupChallenge(growPet(pet(), m).pet, m);
+    expect(first.newAccessories.map((a) => a.id)).toEqual(['ribbon']);
+    expect(first.pet.groupChallenges).toBe(1);
+    let p = first.pet;
+    for (let i = 0; i < 4; i++) p = recordGroupChallenge(p, m).pet;
+    expect(p.accessories).toContain('team-medal');
+    // Growing from lessons later keeps the group accessories.
+    expect(growPet(p, { ...m, xp: 700 }).pet.accessories).toContain('ribbon');
+  });
+
+  it('makes a badge that passes the shared check', () => {
+    const p = growPet(pet(), { xp: 250, lessons: 1, streak: 3 }).pet;
+    const badge = petBadge(p, 250);
+    expect(badge).toEqual({ name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: ['🧢', '🧣'] });
+    expect(parsePetBadge(badge)).toEqual(badge);
+    expect(petBadge(pet(), 0).worn).toEqual([]);
+  });
+
+  it('every look and accessory is known to the shared badge check', () => {
+    for (const s of SPECIES) for (const look of s.looks) expect(PET_EMOJIS).toContain(look);
+    for (const a of ACCESSORIES) expect(PET_ACCESSORY_ICONS).toContain(a.icon);
+    expect(STAGES.length - 1).toBe(MAX_PET_STAGE);
   });
 });

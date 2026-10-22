@@ -29,6 +29,7 @@ import {
   type Period,
   type PeriodRange,
 } from '../../shared/groups';
+import { parsePetBadge, type PetBadge } from '../../shared/pet-design';
 import { MAX_LESSON_XP, mergeProgress, plausibleLocalDate, sanitizeProgress } from '../../shared/progress-merge';
 import { MAX_ITEMS_PER_REQUEST } from '../../shared/srs';
 import { sanitizeItemStates } from '../../shared/srs-merge';
@@ -368,6 +369,17 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       if (error) throw cloudError(error);
     },
 
+    /** Shares the learner's pet with their groups (PUT /api/me/pet); RLS lets learners edit their own profile. */
+    async setPet(pet: PetBadge | null): Promise<void> {
+      const client = await getClient();
+      const id = await userId(client);
+      const { error } = await client
+        .from('profiles')
+        .update({ pet: pet && parsePetBadge(pet) })
+        .eq('id', id);
+      if (error) throw cloudError(error);
+    },
+
     /** The personal league by period (GET /api/leaderboard?period=); without one, the last 7 days. */
     async leaderboard(period?: Period): Promise<LeaderboardResponse> {
       const client = await getClient();
@@ -441,6 +453,8 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
         is_me: boolean;
         is_owner: boolean;
         joined_at: string;
+        /** Missing before the pets update of schema.sql. */
+        pet?: unknown;
       }[];
       return {
         members: rankMembers(
@@ -450,6 +464,7 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
             isMe: r.is_me,
             isOwner: r.is_owner,
             joinedAt: Date.parse(r.joined_at),
+            pet: parsePetBadge(r.pet),
           })),
         ),
       };

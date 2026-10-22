@@ -235,3 +235,37 @@ describe('GET /api/leaderboard?period=', () => {
     expect(res.body.entries[20]).toEqual({ rank: 26, displayName: 'אני', weeklyXp: 10, isMe: true });
   });
 });
+
+describe('pets in groups', () => {
+  const badge = { name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: ['🧢'] };
+
+  it("shows each member's shared pet on the group board", async () => {
+    const dana = await register('דנה');
+    const yossi = await register('יוסי');
+    const group = await createGroup(dana.token);
+    expect((await join(yossi.token, group.inviteCode)).status).toBe(200);
+
+    expect((await request(app).put('/api/me/pet').set(auth(dana.token)).send({ pet: badge })).status).toBe(204);
+    const res = await request(app).get(`/api/groups/${group.id}/members?period=all`).set(auth(yossi.token));
+    expect(res.status).toBe(200);
+    const byName = Object.fromEntries(res.body.members.map((m: { displayName: string }) => [m.displayName, m]));
+    expect(byName['דנה'].pet).toEqual(badge);
+    expect(byName['יוסי'].pet).toBeUndefined();
+
+    // null stops sharing.
+    expect((await request(app).put('/api/me/pet').set(auth(dana.token)).send({ pet: null })).status).toBe(204);
+    const after = await request(app).get(`/api/groups/${group.id}/members?period=all`).set(auth(yossi.token));
+    expect(after.body.members.every((m: { pet?: unknown }) => m.pet === undefined)).toBe(true);
+  });
+
+  it('needs sign-in and a valid badge', async () => {
+    expect((await request(app).put('/api/me/pet').send({ pet: badge })).status).toBe(401);
+    const dana = await register('דנה');
+    const res = await request(app)
+      .put('/api/me/pet')
+      .set(auth(dana.token))
+      .send({ pet: { ...badge, emoji: '💣' } });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_pet');
+  });
+});
