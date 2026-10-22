@@ -6,7 +6,7 @@
   - `message` – the server's Hebrew `ApiError.message`.
   - `status` – `0` means the server could not be reached. That covers network errors and a 404 or 5xx with no JSON body (for example the Vite proxy's error page).
   - `code` – the server's `ApiError.error`.
-  - Auth is stored in localStorage under `spourt-english:auth:v1` as `{ token, user }`.
+  - Auth is stored in localStorage under `baktana-english:auth:v1` as `{ token, user }`.
 - **`src/lib/account.ts`** – the `useAccount` hook, which handles sign-in, sign-out and background sync:
   - Local progress is always the source of truth. Server calls never block the UI.
   - When a learner signs in, and again on every app start and on the browser's `online` event, the app does a `PUT /api/progress` with local progress and keeps the merged result. That is the retry mechanism for anything that failed offline.

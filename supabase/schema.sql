@@ -1,4 +1,4 @@
--- Spourt English – database for the Supabase backend (static site + Android app).
+-- Baktana English – database for the Supabase backend (static site + Android app).
 -- Run once in the Supabase dashboard: SQL Editor → New query → paste → Run.
 -- Safe to run again: every statement is idempotent.
 

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 // Android app shell around the web build (see docs/android.md).
 const config: CapacitorConfig = {
-  appId: 'com.spourt.english',
+  appId: 'com.baktana.english',
   appName: 'Baktana English',
   webDir: 'dist',
   android: {

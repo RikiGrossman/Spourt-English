@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { initialProgress, refresh, type Progress } from './progress';
 
-const STORAGE_KEY = 'spourt-english:progress:v1';
+const STORAGE_KEY = 'baktana-english:progress:v1';
 
 function load(): Progress {
   try {

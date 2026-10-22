@@ -5,7 +5,7 @@
 import { allLessons } from '../data/course';
 import type { Progress } from './progress';
 
-export const SIGNUP_PROMPT_KEY = 'spourt-english:signup-prompt:v1';
+export const SIGNUP_PROMPT_KEY = 'baktana-english:signup-prompt:v1';
 /** After this many "maybe later" answers the prompt never comes back. */
 export const MAX_DISMISSALS = 2;
 /** The second offer comes once this many different lessons are completed. */

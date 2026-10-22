@@ -43,7 +43,7 @@ To repeat on a real staging project: `schema.sql` → `analytics-views.sql` → 
   - A 4xx response other than 401/403/408/425/429 (for example 400 from `POST /api/events` or a Supabase check violation) **drops** that batch, so one bad event cannot block the queue forever. Everything else is retried.
   - Only one flush runs at a time; a flush requested meanwhile runs again after it.
   - Events tracked while a flush is in flight are never removed by that flush (each queued event has a local sequence number `q`, which is never sent).
-- **Initial opt-in:** the module reads `analytics` from `spourt-english:settings:v1` when it loads (missing → on). So the first `app_open` respects a saved opt-out even before App's `useEffect(() => setAnalyticsEnabled(...))` runs. ui still owns that key and `parseSettings`.
+- **Initial opt-in:** the module reads `analytics` from `baktana-english:settings:v1` when it loads (missing → on). So the first `app_open` respects a saved opt-out even before App's `useEffect(() => setAnalyticsEnabled(...))` runs. ui still owns that key and `parseSettings`.
 - **Client-side cleaning** (so a bad call cannot poison a batch): unknown names are dropped; `lessonId` > 12 chars and `itemKey` > 80 chars are dropped; `durationMs` is clamped to 0…3,600,000; non-primitive props are removed, and all props are dropped if they are ≥ 1024 bytes.
 - **Listeners** (`online`, `visibilitychange`, 60 s interval, start-up flush) start lazily, on the first `track`/`identify`/`setAnalyticsEnabled(true)` in a browser. They never start in node tests.
 - Seeded rows have `user_id = null` (no `auth.users` rows), so `signed_in` is 0 in the seed.

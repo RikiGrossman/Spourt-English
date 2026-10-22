@@ -4,8 +4,8 @@ import { tokenize } from '../src/lib/answer';
 import type { Progress } from '../src/lib/progress';
 import type { Lesson } from '../src/types';
 
-export const PROGRESS_KEY = 'spourt-english:progress:v1';
-export const AUTH_KEY = 'spourt-english:auth:v1';
+export const PROGRESS_KEY = 'baktana-english:progress:v1';
+export const AUTH_KEY = 'baktana-english:auth:v1';
 
 export const lesson = (id: string): Lesson => {
   const found = allLessons.find((l) => l.id === id);
@@ -246,8 +246,8 @@ export async function finishLesson(page: Page, l: Lesson): Promise<string[]> {
   throw new Error('lesson did not finish');
 }
 
-export const SRS_KEY = 'spourt-english:srs:v1';
-export const EVENTS_KEY = 'spourt-english:events:v1';
+export const SRS_KEY = 'baktana-english:srs:v1';
+export const EVENTS_KEY = 'baktana-english:events:v1';
 
 /**
  * Seeds the spaced-repetition store before the app loads: every key gets `box`, due `dueInDays`

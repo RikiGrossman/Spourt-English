@@ -25,12 +25,12 @@ import {
 import { loadAuth } from './api';
 import { ACCOUNTS_ENABLED, USE_SUPABASE } from './config';
 
-export const ANON_ID_KEY = 'spourt-english:anon-id:v1';
-export const EVENT_QUEUE_KEY = 'spourt-english:events:v1';
+export const ANON_ID_KEY = 'baktana-english:anon-id:v1';
+export const EVENT_QUEUE_KEY = 'baktana-english:events:v1';
 export const APP_VERSION = '0.2.0';
 
 /** The settings key owned by the UI (Settings.analytics, docs/spec/v2.md §7.7) – read only here. */
-const SETTINGS_KEY = 'spourt-english:settings:v1';
+const SETTINGS_KEY = 'baktana-english:settings:v1';
 /** Flush as soon as this many events are waiting. */
 export const FLUSH_THRESHOLD = 10;
 /** Periodic flush while the app is open. */

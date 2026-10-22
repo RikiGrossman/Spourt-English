@@ -15,7 +15,7 @@ const db = openDb();
 const app = createApp(db);
 
 const server = app.listen(port, () => {
-  console.log(`[server] Spourt English API listening on http://localhost:${port}`);
+  console.log(`[server] Baktana English API listening on http://localhost:${port}`);
 });
 
 function shutdown() {

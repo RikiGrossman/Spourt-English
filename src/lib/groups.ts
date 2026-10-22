@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { GroupSummary } from '../../shared/groups';
 import { api, errorMessage } from './api';
 
-export const GROUPS_KEY = 'spourt-english:groups:v1';
+export const GROUPS_KEY = 'baktana-english:groups:v1';
 /** Notices kept in the feed. */
 export const MAX_NOTICES = 30;
 /** A rank change of at least this many places is worth a notice (any change into the top 3 is). */

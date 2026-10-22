@@ -1,4 +1,4 @@
-# מדדים (KPIs) – Spourt English v2
+# מדדים (KPIs) – Baktana English v2
 
 המסמך מסביר כל מדד מ־§8.4 באפיון (`docs/spec/v2.md`): מה הוא מודד, מאילו אירועים הוא מחושב, באיזה view הוא נמצא ומה היעד.
 הגדרות האירועים: [`docs/analytics.md`](../analytics.md). חיבור לדשבורד: [`dashboards.md`](dashboards.md). דוח למורים: [`content-health.md`](content-health.md).

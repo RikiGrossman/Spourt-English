@@ -1,6 +1,6 @@
 # דומיין משלנו: baktanaenglish.co.il
 
-האתר מתארח ב־GitHub Pages, וכרגע כתובתו `https://baktanaenglish-hub.github.io/Spourt-English/`. כדי להעביר אותו לכתובת `https://baktanaenglish.co.il` עושים את השלבים האלה **לפי הסדר**. הקוד כבר מוכן: הבנייה של האתר מזהה את הדומיין לבד, ואפליקציית האנדרואיד עוברת אליו כשמגדירים משתנה אחד (שלב 4).
+האתר מתארח ב־GitHub Pages, וכרגע כתובתו `https://baktanaenglish-hub.github.io/baktana-english/`. כדי להעביר אותו לכתובת `https://baktanaenglish.co.il` עושים את השלבים האלה **לפי הסדר**. הקוד כבר מוכן: הבנייה של האתר מזהה את הדומיין לבד, ואפליקציית האנדרואיד עוברת אליו כשמגדירים משתנה אחד (שלב 4).
 
 עד שכל השלבים מסתיימים, האתר ממשיך לעבוד בכתובת הישנה. אחרי המעבר הכתובת הישנה מפנה לחדשה אוטומטית.
 
@@ -49,7 +49,7 @@
 ## 7. לבדוק
 - `https://baktanaenglish.co.il` נפתח עם מנעול (HTTPS).
 - `https://baktanaenglish.co.il/privacy.html` נפתח.
-- `https://baktanaenglish-hub.github.io/Spourt-English/` מפנה לכתובת החדשה.
+- `https://baktanaenglish-hub.github.io/baktana-english/` מפנה לכתובת החדשה.
 - הרשמה עם חשבון חדש: הקישור במייל האישור מוביל ל־`baktanaenglish.co.il`.
 
 ## אחרי המעבר

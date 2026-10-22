@@ -5,7 +5,7 @@ An Express 5 API in `server/` that implements `shared/api.ts` exactly (contract 
 
 - `server/src/index.ts`: entry point. Listens on `PORT` (default 3001) and sets `TZ=Asia/Jerusalem` unless `TZ` is already set (more on this below).
 - `server/src/app.ts`: `createApp(db, options)`, used by tests and by `index.ts`. It adds security headers and, outside production, CORS for localhost origins only. JSON bodies are limited to 100kb and API responses get `Cache-Control: no-store`. In production it serves `../dist` with an SPA fallback.
-- `server/src/db.ts`: `openDb()` uses built-in `node:sqlite` and stores the file at `DATABASE_PATH` (default `./data/spourt.db`, or `:memory:`). Migrations are tracked with `PRAGMA user_version`. Tables:
+- `server/src/db.ts`: `openDb()` uses built-in `node:sqlite` and stores the file at `DATABASE_PATH` (default `./data/baktana.db`, or `:memory:`). Migrations are tracked with `PRAGMA user_version`. Tables:
   - `users`
   - `progress` (one JSON row per user)
   - `xp_events`

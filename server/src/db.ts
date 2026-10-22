@@ -116,7 +116,7 @@ export function migrate(db: Db): void {
 }
 
 /** Opens (creating if needed) the SQLite database and applies migrations. */
-export function openDb(path = process.env.DATABASE_PATH || './data/spourt.db'): Db {
+export function openDb(path = process.env.DATABASE_PATH || './data/baktana.db'): Db {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA foreign_keys = ON');

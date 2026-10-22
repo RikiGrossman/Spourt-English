@@ -1,4 +1,4 @@
--- Spourt English – synthetic analytics events for testing the views (US-T1 AC7).
+-- Baktana English – synthetic analytics events for testing the views (US-T1 AC7).
 -- NOT for production data. Every seeded row has app_version = 'seed', so it can be removed with:
 --   delete from public.events where app_version = 'seed';
 --
@@ -49,7 +49,7 @@ declare
 begin
   perform setseed(0.42);
   for u in 1..300 loop
-    aid := md5('spourt-seed-' || u)::uuid;
+    aid := md5('baktana-seed-' || u)::uuid;
     first_day := current_date - 44 + (u % 45);
     plat := platforms[1 + (u % 3)];
     reviewer := random() < 0.45;

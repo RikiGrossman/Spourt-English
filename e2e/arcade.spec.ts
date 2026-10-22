@@ -6,7 +6,7 @@ import { course } from '../src/data/course';
 import { recordSpeech, seedProgress } from './helpers';
 
 const SHOTS = process.env.GEM_SHOTS;
-const GEMS_KEY = 'spourt-english:gems:v1';
+const GEMS_KEY = 'baktana-english:gems:v1';
 const words = course.flatMap((u) => u.lessons.flatMap((l) => l.words));
 
 async function shot(page: Page, name: string) {

@@ -1,6 +1,6 @@
 # Baktana English 🇬🇧
 
-> השם הציבורי של האפליקציה הוא **Baktana English**. בקוד, ב־repo ובכתובות (למשל `Spourt-English`, `spourt-english:` ב־localStorage, `com.spourt.english` ל־APK מ־GitHub) נשאר השם הפנימי הקודם, כדי לא לשבור התקנות, עדכונים ונתונים שמורים. לגרסת Google Play יש מזהה משלה: `com.baktana.english`.
+> השם הציבורי של האפליקציה הוא **Baktana English**. מזהה גרסת Google Play הוא `com.baktana.english`, וה־APK להורדה מ־GitHub הוא `com.baktana.english.sideload`.
 
 אפליקציה ללימוד אנגלית לדוברי עברית, בסגנון דואולינגו: מסלול של יחידות ושיעורים קצרים שנפתחים אחד אחרי השני, עם לבבות, XP, רצף ימים, יעד יומי וליגה שבועית.
 אפשר ללמוד כאורח בלי הרשמה (ההתקדמות נשמרת במכשיר), ואפשר ליצור פרופיל כדי לסנכרן בין מכשירים ולהתחרות בליגה.
@@ -61,7 +61,7 @@ Vite מעביר (proxy) כל בקשה ל־`/api` אל השרת. אם השרת ל
 | משתנה | ברירת מחדל | הסבר |
 |---|---|---|
 | `PORT` | `3001` | הפורט של השרת |
-| `DATABASE_PATH` | `./data/spourt.db` | קובץ ה־SQLite (נוצר אוטומטית) |
+| `DATABASE_PATH` | `./data/baktana.db` | קובץ ה־SQLite (נוצר אוטומטית) |
 | `JWT_SECRET` | – | סוד לחתימת טוקנים. **חובה בפרודקשן** (השרת לא יעלה בלעדיו) |
 | `NODE_ENV` | `development` | ב־`production` השרת מגיש גם את `dist/` |
 | `TRUST_PROXY` | – | `1` מאחורי reverse proxy, כדי שהגבלת הקצב תראה את כתובת ה־IP האמיתית |
@@ -105,26 +105,26 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
 או בלי compose:
 
 ```bash
-docker build -t spourt-english .
-docker run -p 3001:3001 -e JWT_SECRET=<סוד> -v spourt-data:/app/data spourt-english
+docker build -t baktana-english .
+docker run -p 3001:3001 -e JWT_SECRET=<סוד> -v baktana-data:/app/data baktana-english
 ```
 
-מסד הנתונים נשמר ב־volume בשם `spourt-data`. ל־image יש HEALTHCHECK על `/api/health`.
+מסד הנתונים נשמר ב־volume בשם `baktana-data`. ל־image יש HEALTHCHECK על `/api/health`.
 
 ## האתר החי (GitHub Pages)
 
 בכל דחיפה ל־`main` ה־workflow ‏`.github/workflows/pages.yml` בונה את האפליקציה ומפרסם אותה ב־
-https://baktanaenglish-hub.github.io/Spourt-English/ (עובר לדומיין https://baktanaenglish.co.il – ראו [docs/domain.md](docs/domain.md))
+https://baktanaenglish-hub.github.io/baktana-english/ (עובר לדומיין https://baktanaenglish.co.il – ראו [docs/domain.md](docs/domain.md))
 
 ב־GitHub Pages אין שרת. לכן ההרשמה, ההתחברות והליגה עובדים שם (ובאפליקציית האנדרואיד) דרך Supabase, אחרי שמגדירים אותו לפי [docs/supabase.md](docs/supabase.md). עד אז האפליקציה עובדת במצב אורח מלא (שיעורים, לבבות, XP, רצף, תרגול והתקנה בטלפון).
 הפעלה חד־פעמית: ב־GitHub, ‏Settings → Pages → Source: **GitHub Actions**.
 
-לבדיקה מקומית של אותה גרסה: `BASE_PATH=/Spourt-English/ VITE_ENABLE_ACCOUNTS=false npm run build`.
+לבדיקה מקומית של אותה גרסה: `BASE_PATH=/baktana-english/ VITE_ENABLE_ACCOUNTS=false npm run build`.
 
 ## אפליקציית אנדרואיד
 
 קובץ התקנה (APK) נבנה אוטומטית בכל דחיפה ל־`main`, ואפשר להוריד אותו ישר לטלפון:
-https://github.com/baktanaenglish-hub/Spourt-English/releases/tag/android-latest
+https://github.com/baktanaenglish-hub/baktana-english/releases/tag/android-latest
 פרטים, הוראות התקנה ובנייה מקומית: [docs/android.md](docs/android.md).
 
 ## מבנה הפרויקט

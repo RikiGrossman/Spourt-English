@@ -6,7 +6,7 @@ let client: SupabaseClient | undefined;
 /** The shared Supabase client; its session is kept (and refreshed) in localStorage. */
 export function getSupabase(): SupabaseClient {
   client ??= createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: 'spourt-english:supabase' },
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: 'baktana-english:supabase' },
   });
   return client;
 }

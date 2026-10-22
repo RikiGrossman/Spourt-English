@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Production image: builds the web app, then runs the API server, which also serves dist/.
-#   docker build -t spourt-english .
-#   docker run -p 3001:3001 -e JWT_SECRET=... -v spourt-data:/app/data spourt-english
+#   docker build -t baktana-english .
+#   docker run -p 3001:3001 -e JWT_SECRET=... -v baktana-data:/app/data baktana-english
 
 ARG NODE_VERSION=22
 
@@ -27,7 +27,7 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 FROM node:${NODE_VERSION}-slim AS runtime
 ENV NODE_ENV=production \
     PORT=3001 \
-    DATABASE_PATH=/app/data/spourt.db
+    DATABASE_PATH=/app/data/baktana.db
 WORKDIR /app
 # The server imports the pure modules in src/ (progress, course data) and shared/api.ts.
 COPY --chown=node:node src ./src

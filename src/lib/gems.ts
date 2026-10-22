@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { dateKey, shiftDateKey, type Progress } from './progress';
 import type { Rng } from './random';
 
-export const GEMS_KEY = 'spourt-english:gems:v1';
+export const GEMS_KEY = 'baktana-english:gems:v1';
 
 export const LESSON_GEMS = 5;
 export const FLAWLESS_BONUS_GEMS = 5;

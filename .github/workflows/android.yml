@@ -58,13 +58,13 @@ jobs:
         env:
           VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleSideloadDebug --no-daemon
-      - run: cp android/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk SpourtEnglish.apk
+      - run: cp android/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk BaktanaEnglish.apk
       # The installed app reads this to offer in-app updates (src/lib/update.ts).
       - run: echo '{"versionCode":${{ github.run_number }},"versionName":"1.0.${{ github.run_number }}"}' > version.json
       - uses: actions/upload-artifact@v4
         with:
-          name: SpourtEnglish-apk
-          path: SpourtEnglish.apk
+          name: BaktanaEnglish-apk
+          path: BaktanaEnglish.apk
       - name: Build Google Play bundle
         if: env.HAS_UPLOAD_KEY == 'true'
         working-directory: android
@@ -82,7 +82,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: env.HAS_UPLOAD_KEY == 'true'
         with:
-          name: SpourtEnglish-play-bundle
+          name: BaktanaEnglish-play-bundle
           path: android/app/build/outputs/bundle/playRelease/app-play-release.aab
       - name: Publish release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -90,7 +90,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-latest --yes --cleanup-tag || true
-          gh release create android-latest SpourtEnglish.apk version.json \
+          gh release create android-latest BaktanaEnglish.apk version.json \
             --target "$GITHUB_SHA" \
             --title "Baktana English לאנדרואיד (גרסה 1.0.${{ github.run_number }})" \
-            --notes "להתקנה: מורידים את SpourtEnglish.apk בטלפון, פותחים אותו ומאשרים התקנה ממקור לא ידוע. גרסה חדשה מותקנת מעל הישנה וההתקדמות נשמרת. מגרסה זו והלאה האפליקציה מציעה עדכון בעצמה כשיוצאת גרסה חדשה."
+            --notes "להתקנה: מורידים את BaktanaEnglish.apk בטלפון, פותחים אותו ומאשרים התקנה ממקור לא ידוע. גרסה חדשה מותקנת מעל הישנה וההתקדמות נשמרת. מגרסה זו והלאה האפליקציה מציעה עדכון בעצמה כשיוצאת גרסה חדשה."

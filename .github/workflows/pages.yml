@@ -4,7 +4,7 @@
 # without them the build is guest-only.
 # With a custom domain set in Settings → Pages (docs/domain.md), configure-pages reports it, so the
 # build serves from the domain root and links (privacy page, emails) use it.
-# The site also serves the latest Android APK (SpourtEnglish.apk) from the "android-latest"
+# The site also serves the latest Android APK (BaktanaEnglish.apk) from the "android-latest"
 # release, so it can be downloaded without going through GitHub; it redeploys after each APK build.
 name: Deploy to GitHub Pages
 
@@ -56,7 +56,7 @@ jobs:
       - name: Add the Android APK
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download android-latest --repo "$GITHUB_REPOSITORY" --pattern SpourtEnglish.apk --dir dist || echo "No APK release yet"
+        run: gh release download android-latest --repo "$GITHUB_REPOSITORY" --pattern BaktanaEnglish.apk --dir dist || echo "No APK release yet"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

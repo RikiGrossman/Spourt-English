@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // In-app updates for the Android app: CI publishes version.json next to the APK in the
 // "android-latest" release (.github/workflows/android.yml); the native AppUpdate plugin
 // (android/.../AppUpdatePlugin.java) downloads the APK and opens Android's installer.
-const RELEASE_URL = 'https://github.com/baktanaenglish-hub/Spourt-English/releases/download/android-latest';
+const RELEASE_URL = 'https://github.com/baktanaenglish-hub/baktana-english/releases/download/android-latest';
 export const VERSION_URL = `${RELEASE_URL}/version.json`;
-export const APK_URL = `${RELEASE_URL}/SpourtEnglish.apk`;
+export const APK_URL = `${RELEASE_URL}/BaktanaEnglish.apk`;
 
 interface AppUpdatePlugin {
   /** `inAppUpdates` is false in the Google Play build – Play updates it (older APKs omit it). */

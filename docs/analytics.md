@@ -9,7 +9,7 @@
 
 ## 1. עקרונות פרטיות
 
-- **מזהה אנונימי:** `anon_id` הוא UUID אקראי שנוצר במכשיר ונשמר ב־`localStorage['spourt-english:anon-id:v1']`. הוא לא נגזר מאף פרט אישי, ונשאר קבוע בין הפעלות.
+- **מזהה אנונימי:** `anon_id` הוא UUID אקראי שנוצר במכשיר ונשמר ב־`localStorage['baktana-english:anon-id:v1']`. הוא לא נגזר מאף פרט אישי, ונשאר קבוע בין הפעלות.
 - **אף פעם לא נשלחים:** אימייל, שם, כתובת IP, או טקסט שהלומד הקליד או בנה. נשלח רק אם התשובה נכונה (`correct`) ומפתח הפריט (`w:water`, `s:u3l1:0`), שהוא תוכן הקורס ולא קלט של הלומד.
 - **הקשר שנשלח:** גרסת האפליקציה, פלטפורמה (`web` / `pwa` / `android`), תאריך מקומי ושעה מקומית (בלי אזור זמן ובלי שניות).
 - **`user_id`** לא נשלח מהלקוח לעולם. השרת קובע אותו מה־session (Supabase, `auth.uid()`) או מהטוקן (Express). אצל אורח הוא `null`.
@@ -45,7 +45,7 @@ setAnalyticsEnabled(false); // Profile toggle – clears the queue
 await flush(); // normally automatic
 ```
 
-- **`track()`** לא זורק שגיאות ולא חוסם. הוא מנקה את האירוע (שם מוכר, `lessonId` עד 12 תווים, `itemKey` עד 80, `durationMs` בין 0 לשעה, props פרימיטיביים בלבד ופחות מ־1KB), מוסיף הקשר (`anonId`, `ts`, `localDate`, `localHour`, `appVersion`, `platform`) ומכניס לתור ב־`localStorage['spourt-english:events:v1']`.
+- **`track()`** לא זורק שגיאות ולא חוסם. הוא מנקה את האירוע (שם מוכר, `lessonId` עד 12 תווים, `itemKey` עד 80, `durationMs` בין 0 לשעה, props פרימיטיביים בלבד ופחות מ־1KB), מוסיף הקשר (`anonId`, `ts`, `localDate`, `localHour`, `appVersion`, `platform`) ומכניס לתור ב־`localStorage['baktana-english:events:v1']`.
 - **התור** מוגבל ל־500 אירועים, והישנים נזרקים. אם `localStorage` חסום, התור נשמר בזיכרון עד סוף ההפעלה.
 - **`flush()`** שולח בקבוצות של עד 50:
   - כשמוגדר Supabase: `insert` לטבלת `events` בעמודות snake_case.
@@ -53,7 +53,7 @@ await flush(); // normally automatic
   - אחרת (APK בלי חשבונות): לא שולחים, והתור נשאר מוגבל.
   - אירועים נמחקים מהתור **רק אחרי הצלחה**. שגיאת רשת, 429 או 5xx: מנסים שוב אחר כך. 400 (קבוצה פסולה): הקבוצה נזרקת, כדי שלא תחסום את התור לתמיד.
 - **מתי שולחים:** בהפעלה, כשיש 10 אירועים בתור, כשהרשת חוזרת (`online`), כשהאפליקציה עוברת לרקע (`visibilitychange`), וכל 60 שניות.
-- **מצב התחלתי:** המודול קורא את `analytics` מ־`spourt-english:settings:v1`, כך שגם אירוע שנשלח לפני ה־`useEffect` של App מכבד את ה־opt-out.
+- **מצב התחלתי:** המודול קורא את `analytics` מ־`baktana-english:settings:v1`, כך שגם אירוע שנשלח לפני ה־`useEffect` של App מכבד את ה־opt-out.
 
 ## 4. אחסון
 

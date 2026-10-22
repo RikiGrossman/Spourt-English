@@ -40,7 +40,8 @@ async function load(env: Record<string, string> = EXPRESS) {
   return import('./call-api');
 }
 
-const signedIn = () => memoryStorage({ 'spourt-english:auth:v1': JSON.stringify({ token: 'tok', user: { id: '1' } }) });
+const signedIn = () =>
+  memoryStorage({ 'baktana-english:auth:v1': JSON.stringify({ token: 'tok', user: { id: '1' } }) });
 
 let fetchMock: ReturnType<typeof vi.fn>;
 

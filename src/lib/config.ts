@@ -16,7 +16,7 @@ export const ACCOUNTS_ENABLED = USE_SUPABASE || import.meta.env.VITE_ENABLE_ACCO
  * GitHub Pages address.
  */
 export const PUBLIC_SITE_URL: string =
-  import.meta.env.VITE_SITE_URL || 'https://baktanaenglish-hub.github.io/Spourt-English/';
+  import.meta.env.VITE_SITE_URL || 'https://baktanaenglish-hub.github.io/baktana-english/';
 
 /**
  * The privacy policy and terms (public/privacy.html, public/terms.html). Always the public

@@ -166,7 +166,7 @@ const TABS = ALL_TABS.filter(
   (tab) => (tab.name !== 'league' || ACCOUNTS_ENABLED) && (tab.name !== 'call' || CALLS_ENABLED),
 );
 
-const PET_SHARED_KEY = 'spourt-english:pet-shared:v1';
+const PET_SHARED_KEY = 'baktana-english:pet-shared:v1';
 
 /** Sends the pet badge (JSON) to the learner's groups unless this exact badge was already sent. */
 async function sharePet(userId: string, badge: string) {

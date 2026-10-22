@@ -21,7 +21,7 @@
   build. A second job builds the Docker image once the server exists. PR template in `.github/`.
 - **Docker**: multi-stage `Dockerfile` (build web → install server deps → runtime with `src/`, `shared/`, `server/`,
   `dist/`), runs as `node`, `HEALTHCHECK` on `/api/health`, `CMD npm start` in `/app/server`. `docker-compose.yml`
-  with the `spourt-data` volume at `/app/data`, `DATABASE_PATH=/app/data/spourt.db`, required `JWT_SECRET`.
+  with the `baktana-data` volume at `/app/data`, `DATABASE_PATH=/app/data/baktana.db`, required `JWT_SECRET`.
 - **PWA**: `public/manifest.webmanifest` (Hebrew name, `dir: rtl`, `lang: he`, theme `#1f7cf2`), SVG icons (plus a PNG apple-touch icon) in
   `public/icons/`, `<link rel="manifest">` + apple meta tags in `index.html`, and a small network-first service worker
   (`public/sw.js`, never touches `/api/`) registered by an inline script in `index.html` on non-localhost hosts only.
@@ -46,7 +46,7 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up --build   # http://localhos
   `server/package-lock.json` so CI and Docker can `npm ci`.
 - Docker installs **all** server deps (dev included), so `tsx` may stay in devDependencies. If it moves to
   `dependencies`, the Dockerfile can switch to `npm ci --omit=dev`.
-- Read `PORT` (default 3001), `DATABASE_PATH` (default `./data/spourt.db`; create the parent dir), `JWT_SECRET`,
+- Read `PORT` (default 3001), `DATABASE_PATH` (default `./data/baktana.db`; create the parent dir), `JWT_SECRET`,
   `NODE_ENV`. A `.env` file is not loaded automatically – use `node --env-file-if-exists=../.env` / tsx's equivalent
   or `process.loadEnvFile` if you want it.
 - **When `NODE_ENV=production` the server must serve the built web app**: static files from `../dist` (resolve it

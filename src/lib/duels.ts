@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { DUEL_DAYS, DUEL_PRIZES, type DuelResult, type DuelState, type DuelSummary } from '../../shared/duels';
 import { api, errorMessage } from './api';
 
-export const DUELS_KEY = 'spourt-english:duels:v1';
+export const DUELS_KEY = 'baktana-english:duels:v1';
 /** Notices kept in the feed. */
 export const MAX_DUEL_NOTICES = 20;
 

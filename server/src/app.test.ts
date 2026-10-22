@@ -343,7 +343,7 @@ describe('GET /api/leaderboard', () => {
 
 describe('static web app', () => {
   it('serves files and falls back to index.html outside /api', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'spourt-dist-'));
+    const dir = mkdtempSync(join(tmpdir(), 'baktana-dist-'));
     writeFileSync(join(dir, 'index.html'), '<html>app</html>');
     writeFileSync(join(dir, 'app.js'), 'console.log(1)');
     setup({ staticDir: dir });
@@ -355,7 +355,7 @@ describe('static web app', () => {
   });
 
   it('never lets the app shell or service worker go stale, but caches hashed assets', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'spourt-dist-'));
+    const dir = mkdtempSync(join(tmpdir(), 'baktana-dist-'));
     mkdirSync(join(dir, 'assets'));
     writeFileSync(join(dir, 'index.html'), '<html>app</html>');
     writeFileSync(join(dir, 'sw.js'), '// sw');

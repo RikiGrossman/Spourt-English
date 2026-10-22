@@ -1,4 +1,4 @@
-# Contributing to Baktana English (formerly Spourt English)
+# Contributing to Baktana English (formerly Baktana English)
 
 ## Setup
 
@@ -63,4 +63,4 @@ JWT_SECRET=$(openssl rand -hex 32) docker compose up --build   # http://localhos
 ```
 
 The image builds the web app and runs the server with `NODE_ENV=production`; the SQLite file lives on the
-`spourt-data` volume (`DATABASE_PATH=/app/data/spourt.db`).
+`baktana-data` volume (`DATABASE_PATH=/app/data/baktana.db`).

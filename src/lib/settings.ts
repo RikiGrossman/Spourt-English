@@ -16,7 +16,7 @@ export interface Settings {
   reminderTime: string;
 }
 
-const STORAGE_KEY = 'spourt-english:settings:v1';
+const STORAGE_KEY = 'baktana-english:settings:v1';
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   sound: true,

@@ -8,7 +8,7 @@
 │   components/  ← UI בעברית, RTL                               │
 │   lib/progress.ts  ← כללי משחק טהורים (לבבות, XP, רצף, פתיחה) │
 │   lib/exercises.ts ← יצירת תרגילים מ־data/course.ts           │
-│   lib/store.ts     ← localStorage  (spourt-english:progress:v1)│
+│   lib/store.ts     ← localStorage  (baktana-english:progress:v1)│
 │   lib/speech.ts    ← Web Speech API (הקראה באנגלית)            │
 └───────────────┬───────────────────────────────────────────────┘
                 │  fetch('/api/...')  JSON + Bearer token   (אופציונלי)

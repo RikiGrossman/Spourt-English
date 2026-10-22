@@ -33,7 +33,7 @@ import { USE_SUPABASE } from './config';
 
 /** Typed client for the HTTP contract in shared/api.ts. All URLs are relative (`/api/...`). */
 
-const AUTH_KEY = 'spourt-english:auth:v1';
+const AUTH_KEY = 'baktana-english:auth:v1';
 const TIMEOUT_MS = 10_000;
 
 export { ApiRequestError, OFFLINE_MESSAGE };

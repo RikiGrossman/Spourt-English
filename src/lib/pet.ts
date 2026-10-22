@@ -16,7 +16,7 @@ import {
 } from '../../shared/pet-design';
 import { dateKey } from './progress';
 
-export const PET_KEY = 'spourt-english:pet:v1';
+export const PET_KEY = 'baktana-english:pet:v1';
 
 export interface Species {
   id: string;

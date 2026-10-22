@@ -69,4 +69,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build production image
         if: hashFiles('server/package.json') != ''
-        run: docker build -t spourt-english:ci .
+        run: docker build -t baktana-english:ci .

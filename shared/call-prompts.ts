@@ -148,7 +148,7 @@ Respond ONLY with one JSON object, with no markdown fences and no text before or
 /** The full system prompt for one character. */
 export function buildSystemPrompt(persona: Persona): string {
   return [
-    `You are ${persona.name}, an AI character in Spourt English, an app where Hebrew speakers practise spoken English in a "video call".`,
+    `You are ${persona.name}, an AI character in Baktana English, an app where Hebrew speakers practise spoken English in a "video call".`,
     `Your first line in this call was: "${persona.greeting}"`,
     PERSONA_RULES[persona.id],
     COMMON_RULES,

@@ -5,7 +5,7 @@
 import type { Unit } from '../types';
 import type { Progress } from './progress';
 
-export const INTRO_SEEN_KEY = 'spourt-english:intro-seen:v1';
+export const INTRO_SEEN_KEY = 'baktana-english:intro-seen:v1';
 
 /** Parses the stored list of unit ids, ignoring anything malformed. */
 export function parseIntroSeen(raw: string | null): string[] {

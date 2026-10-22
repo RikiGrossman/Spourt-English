@@ -21,7 +21,7 @@ import { api } from './api';
 import { dateKey, shiftDateKey, type Progress } from './progress';
 import type { Rng } from './random';
 
-export const SRS_STORAGE_KEY = 'spourt-english:srs:v1';
+export const SRS_STORAGE_KEY = 'baktana-english:srs:v1';
 
 /** What is kept under SRS_STORAGE_KEY. */
 export interface SrsStore {

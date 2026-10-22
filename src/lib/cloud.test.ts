@@ -80,7 +80,7 @@ describe('cloud backend', () => {
   it('sends the confirmation link back to the public site', async () => {
     const { api, signUps } = fakeSupabase({ confirmEmail: true });
     await api.register({ email: 'a@b.co', password: 'correct-horse', displayName: 'דנה' }).catch(() => undefined);
-    expect(signUps[0].options?.emailRedirectTo).toBe('https://baktanaenglish-hub.github.io/Spourt-English/');
+    expect(signUps[0].options?.emailRedirectTo).toBe('https://baktanaenglish-hub.github.io/baktana-english/');
   });
 
   it('rejects a wrong password with a Hebrew 401', async () => {

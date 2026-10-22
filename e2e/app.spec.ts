@@ -451,7 +451,7 @@ test.describe('v2 (docs/spec/v2.md §9)', () => {
     await card.getByRole('button', { name: 'אולי אחר כך' }).click();
     await expect(card).toHaveCount(0);
     const stored = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem('spourt-english:signup-prompt:v1') ?? '{}'),
+      JSON.parse(localStorage.getItem('baktana-english:signup-prompt:v1') ?? '{}'),
     );
     expect(stored.dismissCount).toBe(1);
     await page.getByRole('button', { name: 'המשך' }).click();
@@ -506,7 +506,7 @@ test.describe('v2 (docs/spec/v2.md §9)', () => {
     await openFresh(page);
     await openLesson(page, 'u1l1');
     await finishLesson(page, L1);
-    const queue = await page.evaluate(() => JSON.parse(localStorage.getItem('spourt-english:events:v1') ?? 'null'));
+    const queue = await page.evaluate(() => JSON.parse(localStorage.getItem('baktana-english:events:v1') ?? 'null'));
     expect(Array.isArray(queue)).toBe(true);
     const names = (queue as { name: string }[])
       .map((e) => e.name)

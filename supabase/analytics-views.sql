@@ -1,4 +1,4 @@
--- Spourt English – analytics views over public.events (docs/spec/v2.md §8.4–8.5).
+-- Baktana English – analytics views over public.events (docs/spec/v2.md §8.4–8.5).
 -- KPI definitions and example queries: docs/bi/kpis.md, docs/bi/dashboards.md, docs/bi/content-health.md.
 --
 -- Run AFTER supabase/schema.sql (which creates public.events), in the Supabase dashboard:

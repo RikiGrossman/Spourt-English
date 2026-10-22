@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 const apiTarget = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 3001}`;
 
 export default defineConfig({
-  // Sub-path for static hosting, e.g. BASE_PATH=/Spourt-English/ on GitHub Pages.
+  // Sub-path for static hosting, e.g. BASE_PATH=/baktana-english/ on GitHub Pages.
   base: process.env.BASE_PATH ?? '/',
   plugins: [react()],
   server: {

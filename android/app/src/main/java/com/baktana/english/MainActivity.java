@@ -1,4 +1,4 @@
-package com.spourt.english;
+package com.baktana.english;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

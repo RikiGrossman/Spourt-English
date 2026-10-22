@@ -5,7 +5,7 @@
 
 ## הורדה והתקנה
 
-1. בטלפון פותחים את הקישור https://baktanaenglish-hub.github.io/Spourt-English/SpourtEnglish.apk (אותו קובץ נמצא גם בדף הגרסה: https://github.com/baktanaenglish-hub/Spourt-English/releases/tag/android-latest).
+1. בטלפון פותחים את הקישור https://baktanaenglish-hub.github.io/baktana-english/BaktanaEnglish.apk (אותו קובץ נמצא גם בדף הגרסה: https://github.com/baktanaenglish-hub/baktana-english/releases/tag/android-latest).
 2. פותחים את הקובץ שירד.
 3. מאשרים "התקנה ממקורות לא ידועים" לדפדפן (אנדרואיד שואל בפעם הראשונה).
 
@@ -15,7 +15,7 @@
 
 בכל פתיחה האפליקציה בודקת אם יש גרסה חדשה (הקובץ `version.json` בגרסה `android-latest`). אם יש – מופיע חלון "יש גרסה חדשה!" עם כפתור "עדכון עכשיו": האפליקציה מורידה את ה־APK בעצמה ופותחת את מסך ההתקנה של אנדרואיד, בלי להיכנס לדף ההורדות.
 בפעם הראשונה אנדרואיד מבקש לאשר "התקנת אפליקציות לא מוכרות" עבור Baktana English. אם אין אינטרנט, הבדיקה פשוט מדלגת עד הפתיחה הבאה.
-הקוד: `src/lib/update.ts`, `src/components/UpdatePrompt.tsx` והתוסף הנייטיבי `android/app/src/main/java/com/spourt/english/AppUpdatePlugin.java`.
+הקוד: `src/lib/update.ts`, `src/components/UpdatePrompt.tsx` והתוסף הנייטיבי `android/app/src/main/java/com/baktana/english/AppUpdatePlugin.java`.
 
 ## איך זה נבנה
 
@@ -32,7 +32,7 @@
 
 ## דיבור (תרגילי "אמרו בקול")
 
-בכל שיעור יש שני תרגילים שבהם אומרים משפט באנגלית בקול. באתר הזיהוי עובר דרך ה־Web Speech API של הדפדפן (כרום); באפליקציה – דרך זיהוי הדיבור של אנדרואיד, בתוסף הנייטיבי `android/app/src/main/java/com/spourt/english/SpeechRecognizerPlugin.java` (ראו `src/lib/listen.ts`).
+בכל שיעור יש שני תרגילים שבהם אומרים משפט באנגלית בקול. באתר הזיהוי עובר דרך ה־Web Speech API של הדפדפן (כרום); באפליקציה – דרך זיהוי הדיבור של אנדרואיד, בתוסף הנייטיבי `android/app/src/main/java/com/baktana/english/SpeechRecognizerPlugin.java` (ראו `src/lib/listen.ts`).
 בפעם הראשונה האפליקציה מבקשת הרשאת מיקרופון. אם אין זיהוי דיבור בטלפון, מתקינים/מעדכנים את אפליקציית Google. אפשר לכבות את תרגילי הדיבור בפרופיל, ובתוך תרגיל יש כפתור "לא יכול/ה לדבר עכשיו".
 
 ## שתי גרסאות: APK להורדה ו־Google Play
@@ -48,7 +48,7 @@ Google Play מתירה את `REQUEST_INSTALL_PACKAGES` רק לאפליקציות
 
 ## חתימה
 
-ה־APK נחתם במפתח קבוע ששמור ב־repo (`android/app/spourt-debug.keystore`, סיסמה `android`). זה לפי המוסכמה של מפתחות debug באנדרואיד, והמפתח לא סודי. בזכותו כל בנייה חתומה באותה חתימה, וגרסה חדשה מתעדכנת מעל הקודמת.
+ה־APK נחתם במפתח קבוע ששמור ב־repo (`android/app/baktana-debug.keystore`, סיסמה `android`). זה לפי המוסכמה של מפתחות debug באנדרואיד, והמפתח לא סודי. בזכותו כל בנייה חתומה באותה חתימה, וגרסה חדשה מתעדכנת מעל הקודמת.
 לפרסום ב־Google Play צריך מפתח העלאה פרטי משלכם. ה־workflow בונה את ה־`.aab` החתום כשהסודות `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` ו־`ANDROID_KEY_PASSWORD` מוגדרים. הוראות מלאות: [store-release.md](store-release.md).
 
 ## פיתוח מקומי

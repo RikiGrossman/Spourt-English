@@ -6,7 +6,7 @@
 
 **סימונים:** 🟢 קיים היום · 🆕 חדש בשחרור הזה · מזהה כמו `US-H2` משמש לקישור מבדיקות.
 
-**קבועים:** `MAX_HEARTS = 5`, `HEART_REFILL_MS = 30 דקות`, `DAILY_GOAL_XP = 30`, XP לשיעור = 10 (+5 ללא טעויות). מפתח האחסון המקומי: `spourt-english:progress:v1`.
+**קבועים:** `MAX_HEARTS = 5`, `HEART_REFILL_MS = 30 דקות`, `DAILY_GOAL_XP = 30`, XP לשיעור = 10 (+5 ללא טעויות). מפתח האחסון המקומי: `baktana-english:progress:v1`.
 
 ---
 

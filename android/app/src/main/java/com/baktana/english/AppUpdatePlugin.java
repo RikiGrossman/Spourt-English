@@ -1,4 +1,4 @@
-package com.spourt.english;
+package com.baktana.english;
 
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -88,7 +88,7 @@ public class AppUpdatePlugin extends Plugin {
             try {
                 File dir = new File(getContext().getCacheDir(), "updates");
                 if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
-                File apk = new File(dir, "SpourtEnglish.apk");
+                File apk = new File(dir, "BaktanaEnglish.apk");
                 conn = open(url);
                 long total = conn.getContentLengthLong();
                 try (InputStream in = conn.getInputStream(); OutputStream out = new FileOutputStream(apk)) {

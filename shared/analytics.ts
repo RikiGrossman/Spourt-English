@@ -48,7 +48,7 @@ export interface AnalyticsEventInput {
 
 /** A queued/sent event: the input plus anonymous context. */
 export interface AnalyticsEvent extends AnalyticsEventInput {
-  /** Random UUID kept in localStorage (`spourt-english:anon-id:v1`). */
+  /** Random UUID kept in localStorage (`baktana-english:anon-id:v1`). */
   anonId: string;
   /** Client ms timestamp. */
   ts: number;

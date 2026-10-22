@@ -118,15 +118,15 @@ export function reminderCalendar(time: string, now = new Date()): string {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Spourt English//Daily reminder//HE',
+    'PRODID:-//Baktana English//Daily reminder//HE',
     'BEGIN:VEVENT',
-    `UID:spourt-english-daily-${day}@spourt`,
+    `UID:baktana-english-daily-${day}@baktana`,
     `DTSTAMP:${stamp}`,
     `DTSTART:${day}T${pad(h)}${pad(m)}00`,
     'DURATION:PT10M',
     'RRULE:FREQ=DAILY',
     'SUMMARY:🔥 תרגול אנגלית – Baktana English',
-    'DESCRIPTION:כמה דקות של אנגלית: https://baktanaenglish-hub.github.io/Spourt-English/',
+    'DESCRIPTION:כמה דקות של אנגלית: https://baktanaenglish-hub.github.io/baktana-english/',
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
     'DESCRIPTION:הגיע הזמן לתרגל אנגלית',
@@ -144,7 +144,7 @@ export function downloadReminderCalendar(time: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'spourt-english-reminder.ics';
+  a.download = 'baktana-english-reminder.ics';
   document.body.append(a);
   a.click();
   a.remove();

@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.spourt.english"
+    namespace = "com.baktana.english"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.spourt.english"
+        applicationId "com.baktana.english"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes the workflow run number so every new APK installs over the previous one.
@@ -28,13 +28,13 @@ android {
     productFlavors {
         sideload {
             dimension "store"
+            // The GitHub APK gets its own id, so it can sit next to the Play edition.
+            applicationIdSuffix ".sideload"
             buildConfigField "boolean", "IN_APP_UPDATES", "true"
         }
         play {
             dimension "store"
-            // The store edition has its own id (permanent once uploaded to Play), named after the
-            // app's public name; the GitHub APK keeps com.spourt.english so installed copies update.
-            applicationId "com.baktana.english"
+            // Keeps the default id, com.baktana.english (permanent once uploaded to Play).
             buildConfigField "boolean", "IN_APP_UPDATES", "false"
         }
     }
@@ -43,7 +43,7 @@ android {
         // APKs built on different machines share one signature and can update each other.
         // A store release needs its own private key – see docs/android.md.
         debug {
-            storeFile file('spourt-debug.keystore')
+            storeFile file('baktana-debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'

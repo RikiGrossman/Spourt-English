@@ -37,7 +37,7 @@ export function resolveSecret(env = process.env): string {
     console.warn('[auth] JWT_SECRET is not set – using an insecure development secret');
     warned = true;
   }
-  return 'spourt-dev-secret-do-not-use-in-production';
+  return 'baktana-dev-secret-do-not-use-in-production';
 }
 
 const b64url = (data: Buffer | string) => Buffer.from(data).toString('base64url');

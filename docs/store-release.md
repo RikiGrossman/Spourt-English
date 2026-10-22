@@ -55,9 +55,9 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 
 **שומרים את `upload.jks` והסיסמה במקום בטוח מחוץ ל־repo** (למשל במנהל סיסמאות), ולא מעלים אותם ל־git. ב־Play App Signing גוגל מחזיקה את מפתח החתימה הסופי, ואם מפתח ההעלאה אובד אפשר לבקש ממנה לאפס אותו.
 
-מהדחיפה הבאה ל־`main` (או בהרצה ידנית של ה־workflow ‏Android APK), הקובץ `SpourtEnglish-play-bundle` (‏`app-play-release.aab`) מופיע ב־Artifacts של הריצה.
+מהדחיפה הבאה ל־`main` (או בהרצה ידנית של ה־workflow ‏Android APK), הקובץ `BaktanaEnglish-play-bundle` (‏`app-play-release.aab`) מופיע ב־Artifacts של הריצה.
 
-> **שימו לב:** ה־APK מ־GitHub (`com.spourt.english`) וגרסת Play (`com.baktana.english`) הן שתי אפליקציות נפרדות בטלפון: מזהה שונה ומפתח חתימה שונה. אפשר להתקין את שתיהן, אבל ההתקדמות לא עוברת ביניהן לבד. מי שעובר ל־Play צריך חשבון מסונכרן כדי לשמור את ההתקדמות, ואז יכול להסיר את ה־APK.
+> **שימו לב:** ה־APK מ־GitHub (`com.baktana.english.sideload`) וגרסת Play (`com.baktana.english`) הן שתי אפליקציות נפרדות בטלפון: מזהה שונה ומפתח חתימה שונה. אפשר להתקין את שתיהן, אבל ההתקדמות לא עוברת ביניהן לבד. מי שעובר ל־Play צריך חשבון מסונכרן כדי לשמור את ההתקדמות, ואז יכול להסיר את ה־APK.
 
 ### 5. לפתוח חשבון ב־Play Console
 - https://play.google.com/console, תשלום חד־פעמי של 25$ ואימות זהות.
@@ -73,7 +73,7 @@ base64 -w0 upload.jks > upload.jks.b64   # במק: base64 -i upload.jks -o uploa
 ### 7. למלא את טפסי App content
 תשובות לפי מה שהאפליקציה עושה היום. אם מוסיפים פרסומות, תשלומים או SDK חדש, צריך לעדכן.
 
-**Privacy policy:** `https://baktanaenglish.co.il/privacy.html` (אחרי המעבר לדומיין, [domain.md](domain.md). עד אז: `https://baktanaenglish-hub.github.io/Spourt-English/privacy.html`)
+**Privacy policy:** `https://baktanaenglish.co.il/privacy.html` (אחרי המעבר לדומיין, [domain.md](domain.md). עד אז: `https://baktanaenglish-hub.github.io/baktana-english/privacy.html`)
 
 **App access:** כל האפליקציה זמינה בלי התחברות (מצב אורח). כדאי בכל זאת לתת לבודקים של גוגל חשבון בדיקה (אימייל וסיסמה) כדי שיוכלו לבדוק את הליגה ואת מחיקת החשבון.
 

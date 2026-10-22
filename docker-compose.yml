@@ -3,7 +3,7 @@
 services:
   app:
     build: .
-    image: spourt-english
+    image: baktana-english
     init: true
     restart: unless-stopped
     ports:
@@ -11,10 +11,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_PATH: /app/data/spourt.db
+      DATABASE_PATH: /app/data/baktana.db
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (see .env.example)}
     volumes:
-      - spourt-data:/app/data
+      - baktana-data:/app/data
 
 volumes:
-  spourt-data:
+  baktana-data:
