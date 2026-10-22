@@ -91,6 +91,8 @@ export interface Milestones {
   streak: number;
   /** Group challenges whose prize the learner collected (the pet keeps the count, see recordGroupChallenge). */
   groupChallenges?: number;
+  /** Head-to-head duels won (the pet keeps the count, see recordDuelWin). */
+  duelWins?: number;
 }
 
 export const ACCESSORIES: Accessory[] = [
@@ -128,6 +130,14 @@ export const ACCESSORIES: Accessory[] = [
     hint: '5 אתגרים קבוצתיים',
     earned: (m) => (m.groupChallenges ?? 0) >= 5,
     group: true,
+  },
+  {
+    id: 'gold-medal',
+    icon: '🥇',
+    name: 'מדליית ניצחון',
+    slot: 'neck',
+    hint: 'ניצחון בתחרות ראש בראש',
+    earned: (m) => (m.duelWins ?? 0) >= 1,
   },
 ];
 
@@ -170,6 +180,8 @@ export interface PetState {
   challengeClaimed: boolean;
   /** Group challenges whose prize was collected (shared prizes, see ACCESSORIES). */
   groupChallenges: number;
+  /** Head-to-head duels won. */
+  duelWins: number;
 }
 
 const SLOTS: Slot[] = ['head', 'face', 'neck'];
@@ -191,6 +203,7 @@ export function adoptPet(speciesId: string, name: string, now = Date.now()): Pet
     challengeProgress: 0,
     challengeClaimed: false,
     groupChallenges: 0,
+    duelWins: 0,
   };
 }
 
@@ -225,6 +238,7 @@ export function parsePet(raw: string | null): PetState | null {
       challengeProgress: count(d.challengeProgress),
       challengeClaimed: d.challengeClaimed === true,
       groupChallenges: count(d.groupChallenges),
+      duelWins: count(d.duelWins),
     };
   } catch {
     return null;
@@ -302,7 +316,7 @@ export interface PetUpdate {
  * accessory is put on when its slot is free.
  */
 export function growPet(pet: PetState, milestones: Milestones): PetUpdate {
-  const m = { ...milestones, groupChallenges: pet.groupChallenges };
+  const m = { ...milestones, groupChallenges: pet.groupChallenges, duelWins: pet.duelWins };
   const stage = stageFor(m.xp);
   let gems = 0;
   for (let s = pet.stageSeen + 1; s <= stage; s++) gems += EVOLVE_GEMS * s;
@@ -344,6 +358,11 @@ export function applyDesign(pet: PetState, design: PetDesign | null): PetState {
  */
 export function recordGroupChallenge(pet: PetState, m: Milestones): PetUpdate {
   return growPet({ ...pet, groupChallenges: pet.groupChallenges + 1 }, m);
+}
+
+/** A head-to-head duel was won: the pet counts it (and earns the winner's medal). */
+export function recordDuelWin(pet: PetState, m: Milestones): PetUpdate {
+  return growPet({ ...pet, duelWins: pet.duelWins + 1 }, m);
 }
 
 /** The pet as the learner's groups see it (shared/pet-design.ts PetBadge). */

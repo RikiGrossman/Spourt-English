@@ -235,6 +235,33 @@ describe('cloud groups', () => {
     // A shared pet is checked on the way in; members without one have none.
     expect(members.members.map((m) => m.pet?.worn ?? null)).toEqual([['🧢'], null]);
   });
+
+  it('lists, opens and joins duels, with their errors in Hebrew', async () => {
+    const now = Date.now();
+    const row = {
+      id: 'd1',
+      invite_code: 'ABC234',
+      is_challenger: false,
+      created_at: new Date(now - 60_000).toISOString(),
+      starts_at: new Date(now - 30_000).toISOString(),
+      my_name: 'יוסי',
+      my_pet: null,
+      my_xp: '25',
+      opp_name: 'דנה',
+      opp_pet: { name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: [] },
+      opp_xp: '40',
+    };
+    const { api, calls } = groupsApi({ my_duels: [row], join_duel: 'd1', create_duel: { message: 'too_many_duels' } });
+    expect((await api.duels()).duels[0]).toMatchObject({
+      state: 'active',
+      me: { displayName: 'יוסי', xp: 25, pet: null },
+      opponent: { displayName: 'דנה', xp: 40, pet: { emoji: '🐲' } },
+    });
+    expect((await api.joinDuel(' abc-234 ')).duel.id).toBe('d1');
+    expect(calls.find((c) => c.name === 'join_duel')?.args).toEqual({ code: 'ABC234' });
+    await expect(api.createDuel()).rejects.toMatchObject({ status: 409, code: 'too_many_duels' });
+    await expect(api.joinDuel('x')).rejects.toMatchObject({ code: 'invalid_code' });
+  });
 });
 
 describe('cloudError', () => {

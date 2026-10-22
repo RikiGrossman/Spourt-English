@@ -335,4 +335,58 @@ end $$;
 select count(*) from public.group_totals(now() - interval '7 days', null);
 reset role;
 
+-- Duels: C1 opens one, C2 accepts it; only XP from the start on counts. C3 can't join or see it.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c1', false);
+do $$ begin
+  perform * from public.duels;
+  raise exception 'duels: a learner could read the table directly';
+exception when insufficient_privilege then null;
+end $$;
+create temporary table if not exists test_duel (id uuid, code text);
+grant all on test_duel to authenticated;
+insert into test_duel (id) select public.create_duel();
+update test_duel set code = (select d.invite_code from public.my_duels() d where d.id = test_duel.id);
+do $$ begin
+  perform public.join_duel((select code from test_duel));
+  raise exception 'join_duel: the challenger joined their own duel';
+exception when raise_exception then
+  if sqlerrm <> 'own_duel' then raise; end if;
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c2', false);
+select public.join_duel(lower((select code from test_duel)));
+insert into public.xp_events (xp, lesson) values (20, true);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c1', false);
+do $$ declare r record; begin
+  select * into strict r from public.my_duels();
+  if not r.is_challenger or r.starts_at is null or r.my_xp <> 0 or r.opp_xp <> 20 or r.opp_name <> 'Group C2' then
+    raise exception 'my_duels failed: %', r;
+  end if;
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c3', false);
+do $$ begin
+  perform public.join_duel((select code from test_duel));
+  raise exception 'join_duel: a duel was joined a second time';
+exception when raise_exception then
+  if sqlerrm <> 'duel_not_found' then raise; end if;
+end $$;
+do $$ begin
+  if exists (select 1 from public.my_duels()) then raise exception 'my_duels: a stranger saw a duel'; end if;
+  perform public.cancel_duel((select id from test_duel));
+  raise exception 'cancel_duel: a stranger cancelled a duel';
+exception when raise_exception then
+  if sqlerrm <> 'not_in_duel' then raise; end if;
+end $$;
+-- At most 3 open duels; withdrawing an invite frees a place.
+select public.create_duel() from generate_series(1, 3);
+do $$ begin
+  perform public.create_duel();
+  raise exception 'create_duel: more than 3 open duels';
+exception when raise_exception then
+  if sqlerrm <> 'too_many_duels' then raise; end if;
+end $$;
+select public.cancel_duel((select d.id from public.my_duels() d limit 1));
+select public.create_duel();
+reset role;
+
 select 'supabase acceptance: all checks passed' as result;

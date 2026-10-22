@@ -31,6 +31,7 @@
 | `xp_events` | נקודות שנצברו, לליגה | אף אחד ישירות. הליגה נקראת דרך הפונקציה `weekly_leaderboard`, שמחזירה רק שם תצוגה ו־XP (אף פעם לא אימייל) |
 | `srs_state` (v2) | מצב החזרה המרווחת, שורה לכל מילה/משפט | רק המשתמש עצמו. הכתיבה דרך הפונקציה `merge_srs` (אותם כללי מיזוג כמו `PUT /api/srs`) |
 | `groups`, `group_members` | קבוצות וחברות בהן ([groups.md](groups.md)) | אף אחד ישירות. הכול דרך הפונקציות `create_group`, `join_group`, `leave_group`, `my_groups`, `group_member_stats`, `group_totals`, `xp_leaderboard`, שבודקות חברות ומחזירות רק שמות |
+| `duels` | תחרויות ראש בראש ([groups.md](groups.md)) | אף אחד ישירות. הכול דרך `create_duel`, `join_duel`, `cancel_duel`, `my_duels`, שמחזירות רק שמות תצוגה, חיות ו־XP של שני הצדדים |
 | `profiles.pet` | החיה האישית כפי שחברי הקבוצה רואים אותה ([pets.md](spec/pets.md)) | הלומד מעדכן את הפרופיל שלו. אחרים רואים אותה רק דרך `group_member_stats`. **דורש הרצה חוזרת של `schema.sql`** – עד אז החיות לא יופיעו בקבוצות, ושאר האפליקציה ממשיכה לעבוד |
 | `events` (v2) | אירועי אנליטיקה אנונימיים | אף לקוח לא יכול לקרוא (insert בלבד, גם לאורח). הדשבורדים קוראים עם ה־service role |
 

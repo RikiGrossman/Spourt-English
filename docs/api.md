@@ -256,6 +256,21 @@ Authorization: Bearer eyJhbGciOi...   (אופציונלי)
 חברי הקבוצה בלבד. `200 { "members": [{ "rank": 1, "displayName": "דנה", "xp": 40, "isMe": true, "isOwner": true }] }`. ה־XP של כל חבר נספר מרגע ההצטרפות שלו.
 - `pet` (אופציונלי): החיה של החבר, אם יש לו – `{ "name": "שלהבת", "emoji": "🐲", "stage": 2, "color": "#4caf50", "worn": ["🧢"] }` (`PetBadge`, [pets.md](spec/pets.md)). חבר בלי חיה – בלי השדה.
 
+#### ראש בראש – `GET/POST /api/duels`, `POST /api/duels/join`, `DELETE /api/duels/:id` 🔒
+תחרות XP של 7 ימים בין שני חברים (`shared/duels.ts`, [groups.md](groups.md)).
+- `GET /api/duels` → `200 { "duels": DuelSummary[] }`: הזמנות פתוחות, תחרויות שרצות ותחרויות שהסתיימו בשבועיים האחרונים, מהחדשה לישנה.
+- `POST /api/duels` (בלי גוף) → `201 { "duel": DuelSummary }` עם `inviteCode`. `POST /api/duels/join` `{ "code": "ABC234" }` → `200 { "duel" }`, והתחרות מתחילה.
+- `DELETE /api/duels/:id` → `204`: ביטול הזמנה שעוד לא התקבלה (רק מי שפתח אותה).
+```json
+{ "id": "…", "inviteCode": "ABC234", "isChallenger": true, "state": "active", "createdAt": 1761000000000,
+  "startsAt": 1761000600000, "endsAt": 1761605400000, "result": null,
+  "me": { "displayName": "דנה", "xp": 40, "pet": { "name": "שלהבת", "emoji": "🐲", "stage": 2, "color": "#4caf50", "worn": [] } },
+  "opponent": { "displayName": "יוסי", "xp": 25, "pet": null } }
+```
+- `state`: `waiting` (אין עדיין יריב; `endsAt` הוא מועד פקיעת ההזמנה) | `active` | `finished`, ואז `result` הוא `won` | `lost` | `tie` מצד הלומד.
+- שגיאות: `400 invalid_code`, `404 duel_not_found` (אין הזמנה פתוחה עם הקוד, היא כבר התקבלה או פגה), `409 own_duel`, `409 too_many_duels` (עד 3 פתוחות), `404 not_in_duel`.
+- ב־Supabase: הטבלה `duels` והפונקציות `create_duel`, `join_duel`, `cancel_duel`, `my_duels`.
+
 #### `PUT /api/me/pet` 🔒
 שיתוף החיה האישית עם הקבוצות: `{ "pet": PetBadge }`, או `{ "pet": null }` כדי להפסיק → `204`. התג נבדק ב־`parsePetBadge` (מראה ואביזרים מתוך הרשימות המוכרות, שלב 0–4, שם עד 16 תווים). תג לא תקין → `400 invalid_pet`. ב־Supabase: העמודה `profiles.pet` (הלומד מעדכן את הפרופיל שלו), והפונקציה `group_member_stats` מחזירה אותה.
 

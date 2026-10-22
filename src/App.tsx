@@ -27,6 +27,7 @@ import { CALLS_ENABLED, CALLS_LOCKED, getCallStatus } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
 import { canListen } from './lib/listen';
+import { takeDuelCode, useDuels } from './lib/duels';
 import { takeJoinCode, useGroups } from './lib/groups';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-seen';
@@ -56,6 +57,7 @@ import {
   petLook,
   reactionLine,
   recordChallenge,
+  recordDuelWin,
   recordGroupChallenge,
   stageFor,
   toggleAccessory,
@@ -208,6 +210,7 @@ function Screens() {
   const [intro, setIntro] = useState<IntroState | null>(null);
   /** An invite code from a `?join=` link, until the learner joins (or signs in to join). */
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [duelCode, setDuelCode] = useState<string | null>(null);
   /** Premium and today's call count, as last heard from the server (the call tab refreshes it). */
   const [callStatus, setCallStatus] = useState<CallStatusResponse | null>(null);
   const streak = visibleStreak(progress);
@@ -300,6 +303,8 @@ function Screens() {
   }, [userId]);
   const premium = account.user !== null && callStatus?.premium === true;
   const groups = useGroups(ACCOUNTS_ENABLED ? userId : null);
+  const duels = useDuels(ACCOUNTS_ENABLED ? userId : null);
+  const leagueBadge = groups.unread + duels.unclaimed;
 
   // A shared invite link opens "my groups" with the code filled in.
   useEffect(() => {
@@ -308,12 +313,22 @@ function Screens() {
     setJoinCode(code);
     setScreen({ name: 'league', view: 'mine' });
   }, []);
+  // A shared duel link opens "head to head" with the code filled in.
+  useEffect(() => {
+    const code = ACCOUNTS_ENABLED ? takeDuelCode() : null;
+    if (!code) return;
+    setDuelCode(code);
+    setScreen({ name: 'league', view: 'duels' });
+  }, []);
 
   // Group standings change as everyone learns: refresh when the league opens or a lesson is done.
   const { refresh: refreshGroups } = groups;
+  const { refresh: refreshDuels } = duels;
   useEffect(() => {
-    if (screen.name === 'league' || screen.name === 'path') void refreshGroups();
-  }, [screen.name, refreshGroups]);
+    if (screen.name !== 'league' && screen.name !== 'path') return;
+    void refreshGroups();
+    void refreshDuels();
+  }, [screen.name, refreshGroups, refreshDuels]);
 
   function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
     account.signIn(res);
@@ -322,6 +337,7 @@ function Screens() {
     identify();
     // Signing in from the call tab goes back to the characters; with an invite link, back to joining.
     if (joinCode) setScreen({ name: 'league', view: 'mine' });
+    else if (duelCode) setScreen({ name: 'league', view: 'duels' });
     else setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
   }
 
@@ -829,6 +845,19 @@ function Screens() {
             }}
             joinCode={joinCode}
             onJoinCodeUsed={() => setJoinCode(null)}
+            duels={duels}
+            onDuelPrize={(result, gems) => {
+              sounds.gem();
+              // The winner's pet counts the win and earns the winner's medal.
+              const won = result === 'won' && pet ? recordDuelWin(pet, milestones) : null;
+              if (won) updatePet(() => won.pet);
+              updateGems((s) => earn(s, gems + (won?.gems ?? 0)));
+              const accessory = won?.newAccessories[0];
+              if (!pet || !accessory) return null;
+              return `🐾 ${pet.name} קיבלה ${accessory.name} ${accessory.icon}!`;
+            }}
+            duelCode={duelCode}
+            onDuelCodeUsed={() => setDuelCode(null)}
           />
         )}
         {screen.name === 'call' && (
@@ -900,9 +929,9 @@ function Screens() {
               }}
             >
               <span aria-hidden="true">{locked ? '🔒' : tab.icon}</span> <span>{tab.label}</span>
-              {tab.name === 'league' && groups.unread > 0 && screen.name !== 'league' && (
-                <span className="badge nav-badge" aria-label={`${groups.unread} התראות קבוצה חדשות`}>
-                  {groups.unread}
+              {tab.name === 'league' && leagueBadge > 0 && screen.name !== 'league' && (
+                <span className="badge nav-badge" aria-label={`${leagueBadge} עדכונים חדשים בליגה`}>
+                  {leagueBadge}
                 </span>
               )}
             </button>

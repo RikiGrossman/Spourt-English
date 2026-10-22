@@ -29,6 +29,16 @@ import {
   type Period,
   type PeriodRange,
 } from '../../shared/groups';
+import {
+  DUEL_ERRORS,
+  DUEL_STATUS,
+  summarizeDuel,
+  summarizeDuels,
+  type DuelErrorCode,
+  type DuelRecord,
+  type DuelResponse,
+  type DuelsResponse,
+} from '../../shared/duels';
 import { parsePetBadge, type PetBadge } from '../../shared/pet-design';
 import { MAX_LESSON_XP, mergeProgress, plausibleLocalDate, sanitizeProgress } from '../../shared/progress-merge';
 import { MAX_ITEMS_PER_REQUEST } from '../../shared/srs';
@@ -120,6 +130,44 @@ function groupError(error: { message?: string; status?: number; code?: string })
   }
   if (code === 'not_signed_in') return new ApiRequestError(401, 'unauthorized', NOT_SIGNED_IN);
   return cloudError(error);
+}
+
+function duelError(error: { message?: string; status?: number; code?: string }): ApiRequestError {
+  const code = (error.message ?? '').trim();
+  if (code in DUEL_ERRORS) {
+    const known = code as DuelErrorCode;
+    return new ApiRequestError(DUEL_STATUS[known], known, DUEL_ERRORS[known]);
+  }
+  if (code === 'not_signed_in') return new ApiRequestError(401, 'unauthorized', NOT_SIGNED_IN);
+  return cloudError(error);
+}
+
+interface DuelRow {
+  id: string;
+  invite_code: string;
+  is_challenger: boolean;
+  created_at: string;
+  starts_at: string | null;
+  my_name: string;
+  my_pet: unknown;
+  my_xp: number | string;
+  opp_name: string | null;
+  opp_pet: unknown;
+  opp_xp: number | string;
+}
+
+/** A my_duels() row as the DuelRecord shared/duels.ts summarizes. */
+export function duelRecord(r: DuelRow): DuelRecord {
+  return {
+    id: r.id,
+    inviteCode: r.invite_code,
+    isChallenger: r.is_challenger,
+    createdAt: Date.parse(r.created_at),
+    startsAt: r.starts_at === null ? null : Date.parse(r.starts_at),
+    me: { displayName: r.my_name, xp: Number(r.my_xp), pet: parsePetBadge(r.my_pet) },
+    opponent:
+      r.opp_name === null ? null : { displayName: r.opp_name, xp: Number(r.opp_xp), pet: parsePetBadge(r.opp_pet) },
+  };
 }
 
 const iso = (t: number | null) => (t === null ? null : new Date(t).toISOString());
@@ -221,6 +269,20 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
     const group = (await myGroups(client)).groups.find((g) => g.id === id);
     if (!group) throw groupError({ message: 'not_member' });
     return { group };
+  }
+
+  /** Same as GET /api/duels. */
+  async function myDuels(client: SupabaseClient): Promise<DuelRecord[]> {
+    await userId(client);
+    const { data, error } = await client.rpc('my_duels');
+    if (error) throw duelError(error);
+    return ((data ?? []) as DuelRow[]).map(duelRecord);
+  }
+
+  async function duelById(client: SupabaseClient, id: string): Promise<DuelResponse> {
+    const record = (await myDuels(client)).find((d) => d.id === id);
+    if (!record) throw duelError({ message: 'not_in_duel' });
+    return { duel: summarizeDuel(record) };
   }
 
   async function toAuthResponse(
@@ -367,6 +429,35 @@ export function createCloudApi(getClient: () => Promise<SupabaseClient>) {
       const id = await userId(client);
       const { error } = await client.from('srs_state').delete().eq('user_id', id);
       if (error) throw cloudError(error);
+    },
+
+    async duels(): Promise<DuelsResponse> {
+      return { duels: summarizeDuels(await myDuels(await getClient())) };
+    },
+
+    async createDuel(): Promise<DuelResponse> {
+      const client = await getClient();
+      await userId(client);
+      const { data, error } = await client.rpc('create_duel');
+      if (error) throw duelError(error);
+      return duelById(client, data as string);
+    },
+
+    async joinDuel(code: string): Promise<DuelResponse> {
+      const clean = normalizeInviteCode(code);
+      if (!clean) throw duelError({ message: 'invalid_code' });
+      const client = await getClient();
+      await userId(client);
+      const { data, error } = await client.rpc('join_duel', { code: clean });
+      if (error) throw duelError(error);
+      return duelById(client, data as string);
+    },
+
+    async cancelDuel(id: string): Promise<void> {
+      const client = await getClient();
+      await userId(client);
+      const { error } = await client.rpc('cancel_duel', { did: id });
+      if (error) throw duelError(error);
     },
 
     /** Shares the learner's pet with their groups (PUT /api/me/pet); RLS lets learners edit their own profile. */

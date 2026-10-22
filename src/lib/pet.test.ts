@@ -15,6 +15,7 @@ import {
   petReminderText,
   reactionLine,
   recordChallenge,
+  recordDuelWin,
   recordGroupChallenge,
   shareText,
   stageFor,
@@ -215,5 +216,15 @@ describe('pets and groups', () => {
     for (const s of SPECIES) for (const look of s.looks) expect(PET_EMOJIS).toContain(look);
     for (const a of ACCESSORIES) expect(PET_ACCESSORY_ICONS).toContain(a.icon);
     expect(STAGES.length - 1).toBe(MAX_PET_STAGE);
+  });
+});
+
+describe('pets and duels', () => {
+  it("earns the winner's medal with the first duel won", () => {
+    const m = { xp: 250, lessons: 3, streak: 0 };
+    const won = recordDuelWin(growPet(pet(), m).pet, m);
+    expect(won.pet.duelWins).toBe(1);
+    expect(won.newAccessories.map((a) => a.id)).toEqual(['gold-medal']);
+    expect(parsePet(JSON.stringify(won.pet))?.duelWins).toBe(1);
   });
 });

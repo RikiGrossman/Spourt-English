@@ -4326,3 +4326,63 @@ button.pet-avatar {
   color: var(--gem-dark);
   font-weight: 700;
 }
+
+/* ---------- Head-to-head duels ⚔️ ---------- */
+
+.duel-card {
+  margin-bottom: 14px;
+}
+
+.duel-card.won {
+  border-color: var(--gold);
+}
+
+.duel-vs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.duel-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.duel-side strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duel-vs-mark {
+  font-size: 1.6rem;
+}
+
+.duel-xp {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--brand);
+}
+
+/* My share of the XP, from my side (the start of the line). */
+.duel-bar {
+  height: 12px;
+  margin: 12px 0 6px;
+  border-radius: 999px;
+  background: linear-gradient(to left, var(--brand) 0 var(--share), var(--red) var(--share) 100%);
+}
+
+.duel-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}

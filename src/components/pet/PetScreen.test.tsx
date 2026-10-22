@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { adoptPet, growPet } from '../../lib/pet';
+import { DuelCard } from '../Duels';
 import { MemberPet } from '../MyGroups';
 import { PetScreen } from './PetScreen';
 
@@ -54,5 +55,39 @@ describe('MemberPet', () => {
     expect(html).toContain('🐲');
     expect(html).toContain('🧢');
     expect(html).toContain('החיה שלהבת');
+  });
+});
+
+describe('DuelCard', () => {
+  const duel = {
+    id: 'd1',
+    inviteCode: 'ABC234',
+    isChallenger: true,
+    createdAt: 0,
+    startsAt: 1,
+    endsAt: 2,
+    me: { displayName: 'דנה', xp: 40, pet: { name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: [] } },
+    opponent: { displayName: 'יוסי', xp: 25 },
+  };
+
+  it('shows both sides and the prize of a won duel', () => {
+    const html = renderToStaticMarkup(
+      <DuelCard duel={{ ...duel, state: 'finished', result: 'won' }} claimed={false} onClaim={() => null} />,
+    );
+    expect(html).toContain('🐲');
+    expect(html).toContain('יוסי');
+    expect(html).toContain('ניצחתם');
+    expect(html).toContain('קבלת 30 💎');
+  });
+
+  it('shows who leads while it runs', () => {
+    const html = renderToStaticMarkup(
+      <DuelCard
+        duel={{ ...duel, state: 'active', result: null, endsAt: Date.now() + 3_600_000 * 30 }}
+        claimed={false}
+        onClaim={() => null}
+      />,
+    );
+    expect(html).toContain('אתם מובילים ב־15 XP');
   });
 });

@@ -1,31 +1,52 @@
 import { useState } from 'react';
 import type { User } from '../../shared/api';
+import type { DuelResult } from '../../shared/duels';
+import type { DuelsState } from '../lib/duels';
 import type { GroupsState } from '../lib/groups';
+import { Duels } from './Duels';
 import { GroupBoard } from './GroupBoard';
 import { Leaderboard } from './Leaderboard';
 import { MyGroups } from './MyGroups';
 
-export type LeagueView = 'me' | 'groups' | 'mine';
+export type LeagueView = 'me' | 'groups' | 'mine' | 'duels';
 
 interface Props {
   user: User | null;
   groups: GroupsState;
+  duels: DuelsState;
   initialView?: LeagueView;
   onSignIn: () => void;
   /** See MyGroups: may return the pet's share of the prize. */
   onGems: (gems: number) => string | null | void;
   joinCode: string | null;
   onJoinCodeUsed: () => void;
+  /** See Duels: may return the pet's share of the prize. */
+  onDuelPrize: (result: DuelResult, gems: number) => string | null | void;
+  duelCode: string | null;
+  onDuelCodeUsed: () => void;
 }
 
 const VIEWS: { view: LeagueView; label: string }[] = [
   { view: 'me', label: '🏆 אישי' },
   { view: 'groups', label: '🏟️ קבוצות' },
   { view: 'mine', label: '👥 הקבוצות שלי' },
+  { view: 'duels', label: '⚔️ ראש בראש' },
 ];
 
-/** The league tab: the personal league, the group league, and the learner's own groups. */
-export function League({ user, groups, initialView = 'me', onSignIn, onGems, joinCode, onJoinCodeUsed }: Props) {
+/** The league tab: the personal league, the group league, the learner's own groups and head-to-head duels. */
+export function League({
+  user,
+  groups,
+  duels,
+  initialView = 'me',
+  onSignIn,
+  onGems,
+  joinCode,
+  onJoinCodeUsed,
+  onDuelPrize,
+  duelCode,
+  onDuelCodeUsed,
+}: Props) {
   const [view, setView] = useState<LeagueView>(initialView);
   return (
     <div className="league">
@@ -45,6 +66,11 @@ export function League({ user, groups, initialView = 'me', onSignIn, onGems, joi
                 {groups.unread}
               </span>
             )}
+            {v === 'duels' && duels.unclaimed > 0 && view !== 'duels' && (
+              <span className="badge" aria-label={`${duels.unclaimed} פרסים מחכים`}>
+                {duels.unclaimed}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -58,6 +84,16 @@ export function League({ user, groups, initialView = 'me', onSignIn, onGems, joi
           onGems={onGems}
           joinCode={joinCode}
           onJoinCodeUsed={onJoinCodeUsed}
+        />
+      )}
+      {view === 'duels' && (
+        <Duels
+          user={user}
+          state={duels}
+          onSignIn={onSignIn}
+          onPrize={onDuelPrize}
+          duelCode={duelCode}
+          onDuelCodeUsed={onDuelCodeUsed}
         />
       )}
     </div>
