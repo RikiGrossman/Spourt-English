@@ -12,7 +12,8 @@ interface Props {
   groups: GroupsState;
   initialView?: LeagueView;
   onSignIn: () => void;
-  onGems: (gems: number) => void;
+  /** See MyGroups: may return the pet's share of the prize. */
+  onGems: (gems: number) => string | null | void;
   joinCode: string | null;
   onJoinCodeUsed: () => void;
 }

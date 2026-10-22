@@ -244,13 +244,23 @@ function PetHome(props: Props & { pet: PetState }) {
       </ol>
 
       <h3>👫 עם חברים</h3>
+      {props.onLeague && (
+        <p className="muted">
+          {pet.name} מופיעה ליד השם שלכם בדירוג של הקבוצות שלכם. כשהקבוצה משלימה אתגר שבועי, כל החיות בקבוצה מקבלות פרס
+          משותף:{' '}
+          {ACCESSORIES.filter((a) => a.group)
+            .map((a) => `${a.icon} ${a.name}`)
+            .join(', ')}
+          .
+        </p>
+      )}
       <div className="pet-social">
         <button type="button" className="btn secondary" onClick={() => void share()}>
           📤 שתפו את {pet.name}
         </button>
         {props.onLeague && (
           <button type="button" className="btn secondary" onClick={props.onLeague}>
-            🏆 לליגה השבועית
+            👥 לקבוצות שלי
           </button>
         )}
         {shared && (

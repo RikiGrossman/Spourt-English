@@ -4301,3 +4301,28 @@ button.pet-avatar {
     animation: none !important;
   }
 }
+
+/* ---------- Pets in groups 🐾 ---------- */
+
+.board-avatar.member-pet {
+  position: relative;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pet-color) 45%, var(--surface)), var(--surface) 75%);
+  font-size: 1.3rem;
+}
+
+.member-pet-worn {
+  position: absolute;
+  bottom: -4px;
+  inset-inline-end: -6px;
+  font-size: 0.7rem;
+  letter-spacing: -2px;
+}
+
+.group-pet-prize {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--gem-soft);
+  color: var(--gem-dark);
+  font-weight: 700;
+}

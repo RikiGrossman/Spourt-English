@@ -254,6 +254,10 @@ Authorization: Bearer eyJhbGciOi...   (אופציונלי)
 
 #### `GET /api/groups/:id/members?period=week|month|all` 🔒
 חברי הקבוצה בלבד. `200 { "members": [{ "rank": 1, "displayName": "דנה", "xp": 40, "isMe": true, "isOwner": true }] }`. ה־XP של כל חבר נספר מרגע ההצטרפות שלו.
+- `pet` (אופציונלי): החיה של החבר, אם יש לו – `{ "name": "שלהבת", "emoji": "🐲", "stage": 2, "color": "#4caf50", "worn": ["🧢"] }` (`PetBadge`, [pets.md](spec/pets.md)). חבר בלי חיה – בלי השדה.
+
+#### `PUT /api/me/pet` 🔒
+שיתוף החיה האישית עם הקבוצות: `{ "pet": PetBadge }`, או `{ "pet": null }` כדי להפסיק → `204`. התג נבדק ב־`parsePetBadge` (מראה ואביזרים מתוך הרשימות המוכרות, שלב 0–4, שם עד 16 תווים). תג לא תקין → `400 invalid_pet`. ב־Supabase: העמודה `profiles.pet` (הלומד מעדכן את הפרופיל שלו), והפונקציה `group_member_stats` מחזירה אותה.
 
 #### `DELETE /api/groups/:id/membership` 🔒
 עזיבת הקבוצה → `204`. אם המייסד עוזב, הקבוצה עוברת לחבר הוותיק ביותר; קבוצה ריקה נמחקת.

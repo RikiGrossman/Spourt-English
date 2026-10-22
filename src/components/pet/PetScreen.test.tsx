@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { adoptPet, growPet } from '../../lib/pet';
+import { MemberPet } from '../MyGroups';
 import { PetScreen } from './PetScreen';
 
 const noop = () => {};
@@ -42,5 +43,16 @@ describe('PetScreen', () => {
     const pet = adoptPet('dragon', 'שלהבת');
     expect(renderToStaticMarkup(<PetScreen {...base} pet={pet} onPremium={noop} />)).toContain('לפרטים על פרימיום');
     expect(renderToStaticMarkup(<PetScreen {...base} pet={pet} premium />)).toContain('לעצב חיה ייחודית');
+  });
+});
+
+describe('MemberPet', () => {
+  it("shows a member's pet with what it wears", () => {
+    const html = renderToStaticMarkup(
+      <MemberPet pet={{ name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: ['🧢'] }} />,
+    );
+    expect(html).toContain('🐲');
+    expect(html).toContain('🧢');
+    expect(html).toContain('החיה שלהבת');
   });
 });

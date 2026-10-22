@@ -5,6 +5,7 @@ import {
   PET_DESIGN_SCHEMA,
   buildDesignSystemPrompt,
   buildDesignUserMessage,
+  parsePetBadge,
   parsePetDesign,
   sanitizeDesignRequest,
   type PetDesignResponse,
@@ -103,6 +104,15 @@ export function petRouter(
     if (usage.size > 10_000) usage.clear();
     usage.set(key, used + 1);
     res.json(design);
+  });
+
+  /** Shares the learner's pet with their groups (shared/pet-design.ts PetBadge); `pet: null` stops sharing. */
+  router.put('/me/pet', requireAuth, (req, res) => {
+    const raw = (req.body as { pet?: unknown } | undefined)?.pet;
+    const pet = raw === null ? null : parsePetBadge(raw);
+    if (raw !== null && !pet) throw badRequest('invalid_pet', 'פרטי החיה אינם תקינים');
+    repo.setPet(res.locals.userId!, pet);
+    res.status(204).end();
   });
 
   return router;

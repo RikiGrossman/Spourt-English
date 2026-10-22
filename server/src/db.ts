@@ -84,6 +84,8 @@ const migrations: string[] = [
   CREATE INDEX group_members_user ON group_members(user_id);
   ALTER TABLE xp_events ADD COLUMN lesson INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX xp_events_user_created ON xp_events(user_id, created_at);`,
+  // #6 – the learner's pet as their groups see it (shared/pet-design.ts PetBadge, JSON), or NULL.
+  `ALTER TABLE users ADD COLUMN pet TEXT;`,
 ];
 
 export function migrate(db: Db): void {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import type { GroupMember, GroupSummary, User } from '../../shared/api';
 import {
   GROUP_NAME_MAX,
@@ -14,13 +14,18 @@ import { authRedirectUrl } from '../lib/config';
 import { claimKey, claimable, endsInText, type GroupsState } from '../lib/groups';
 import { MEDALS } from './Leaderboard';
 import { PeriodPicker } from './PeriodPicker';
+import { STAGES } from '../lib/pet';
+import type { PetBadge } from '../../shared/pet-design';
 
 interface Props {
   user: User | null;
   state: GroupsState;
   onSignIn: () => void;
-  /** Gems collected from a completed challenge. */
-  onGems: (gems: number) => void;
+  /**
+   * Gems collected from a completed challenge. May return what the learner's pet got from the shared
+   * prize, shown under the challenges.
+   */
+  onGems: (gems: number) => string | null | void;
   /** An invite code from a shared link, filled into the join form. */
   joinCode: string | null;
   onJoinCodeUsed: () => void;
@@ -236,10 +241,11 @@ function GroupPage({
   group: GroupSummary;
   state: GroupsState;
   onBack: () => void;
-  onGems: (gems: number) => void;
+  onGems: Props['onGems'];
   onLeft: () => void;
 }) {
   const [period, setPeriod] = useState<Period>('week');
+  const [prize, setPrize] = useState<string | null>(null);
   const [members, setMembers] = useState<GroupMember[] | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
@@ -319,6 +325,11 @@ function GroupPage({
       <section className="panel challenges">
         <h3>🎯 אתגרי השבוע</h3>
         <p className="muted">{endsInText(group.weekEnd)} · היעדים גדלים עם מספר החברים</p>
+        {prize && (
+          <p className="group-pet-prize pop" role="status">
+            {prize}
+          </p>
+        )}
         <ul>
           {group.challenges.map((c) => (
             <ChallengeRow
@@ -327,7 +338,7 @@ function GroupPage({
               claimed={state.local.claimed.includes(claimKey(group.id, c.id))}
               onClaim={() => {
                 const gems = state.claim(group.id, c.id);
-                if (gems > 0) onGems(gems);
+                if (gems > 0) setPrize(onGems(gems) || null);
               }}
             />
           ))}
@@ -347,13 +358,22 @@ function GroupPage({
             {members.map((m) => (
               <li key={`${m.rank}-${m.displayName}`} className={`board-row${m.isMe ? ' me' : ''}`}>
                 <span className="board-rank">{MEDALS[m.rank - 1] ?? m.rank}</span>
-                <span className="board-avatar" aria-hidden="true">
-                  {m.displayName.trim().charAt(0).toUpperCase() || '?'}
-                </span>
+                {m.pet ? (
+                  <MemberPet pet={m.pet} />
+                ) : (
+                  <span className="board-avatar" aria-hidden="true">
+                    {m.displayName.trim().charAt(0).toUpperCase() || '?'}
+                  </span>
+                )}
                 <span className="board-name" dir="auto">
                   {m.displayName}
                   {m.isMe && <span className="me-tag"> (אני)</span>}
                   {m.isOwner && <span className="board-sub">מייסד/ת הקבוצה</span>}
+                  {m.pet && (
+                    <span className="board-sub">
+                      🐾 {m.pet.name} · {STAGES[m.pet.stage]?.name}
+                    </span>
+                  )}
                 </span>
                 <span className="board-xp" dir="ltr">
                   {m.xp} XP
@@ -434,5 +454,20 @@ function ChallengeRow({
         </span>
       )}
     </li>
+  );
+}
+
+/** A member's shared pet in the group board, in place of their initial. */
+export function MemberPet({ pet }: { pet: PetBadge }) {
+  const style = { '--pet-color': pet.color } as CSSProperties;
+  return (
+    <span className="board-avatar member-pet" style={style} role="img" aria-label={`החיה ${pet.name}`}>
+      <span aria-hidden="true">{pet.emoji}</span>
+      {pet.worn.length > 0 && (
+        <span className="member-pet-worn" aria-hidden="true">
+          {pet.worn.join('')}
+        </span>
+      )}
+    </span>
   );
 }

@@ -7,6 +7,8 @@
  */
 
 /** Leaderboard periods: the calendar week (from Sunday), the calendar month, or all time. */
+import type { PetBadge } from './pet-design';
+
 export type Period = 'week' | 'month' | 'all';
 export const PERIODS: Period[] = ['week', 'month', 'all'];
 
@@ -340,15 +342,24 @@ export interface GroupMember {
   xp: number;
   isMe: boolean;
   isOwner: boolean;
+  /** The member's personal pet, when they share one (shared/pet-design.ts). */
+  pet?: PetBadge | null;
 }
 
 /** Members by XP in the period (ties: who joined first), ranked from 1. */
 export function rankMembers(
-  rows: { displayName: string; xp: number; isMe: boolean; isOwner: boolean; joinedAt: number }[],
+  rows: { displayName: string; xp: number; isMe: boolean; isOwner: boolean; joinedAt: number; pet?: PetBadge | null }[],
 ): GroupMember[] {
   return [...rows]
     .sort((a, b) => b.xp - a.xp || a.joinedAt - b.joinedAt)
-    .map(({ displayName, xp, isMe, isOwner }, i) => ({ rank: i + 1, displayName, xp, isMe, isOwner }));
+    .map(({ displayName, xp, isMe, isOwner, pet }, i) => ({
+      rank: i + 1,
+      displayName,
+      xp,
+      isMe,
+      isOwner,
+      ...(pet ? { pet } : {}),
+    }));
 }
 
 /** Hebrew messages for the group errors both backends report. */

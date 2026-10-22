@@ -11,9 +11,20 @@ import {
   type GroupTotals,
   type MemberXpEvent,
 } from '../../shared/groups';
+import { parsePetBadge, type PetBadge } from '../../shared/pet-design';
 import type { Box } from '../../shared/srs';
 import { initialProgress, type Progress } from '../../src/lib/progress';
 import type { Db } from './db';
+
+/** A stored pet badge, re-checked on the way out (null when missing or unreadable). */
+function readPet(raw: string | null): PetBadge | null {
+  if (!raw) return null;
+  try {
+    return parsePetBadge(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
 
 interface UserRow {
   id: string;
@@ -99,6 +110,7 @@ export function createRepo(db: Db) {
     ),
     insertGroup: db.prepare('INSERT INTO groups (id, name, invite_code, owner_id, created_at) VALUES (?, ?, ?, ?, ?)'),
     groupByCode: db.prepare('SELECT id FROM groups WHERE invite_code = ?'),
+    setPet: db.prepare('UPDATE users SET pet = ? WHERE id = ?'),
     insertMember: db.prepare('INSERT INTO group_members (group_id, user_id, joined_at) VALUES (?, ?, ?)'),
     deleteMember: db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?'),
     memberCount: db.prepare('SELECT COUNT(*) AS n FROM group_members WHERE group_id = ?'),
@@ -118,7 +130,7 @@ export function createRepo(db: Db) {
        WHERE m.group_id = ? AND e.created_at >= MAX(?, m.joined_at) AND e.created_at < ?`,
     ),
     groupMembers: db.prepare(
-      `SELECT u.id, u.display_name AS displayName, m.joined_at AS joinedAt, g.owner_id AS ownerId,
+      `SELECT u.id, u.display_name AS displayName, u.pet, m.joined_at AS joinedAt, g.owner_id AS ownerId,
          COALESCE((SELECT SUM(e.xp) FROM xp_events e
            WHERE e.user_id = m.user_id AND e.created_at >= MAX(?, m.joined_at) AND e.created_at < ?), 0) AS xp
        FROM group_members m JOIN users u ON u.id = m.user_id JOIN groups g ON g.id = m.group_id
@@ -410,6 +422,7 @@ export function createRepo(db: Db) {
         joinedAt: number;
         ownerId: string | null;
         xp: number;
+        pet: string | null;
       }[];
       return rows.map((r) => ({
         displayName: r.displayName,
@@ -417,7 +430,12 @@ export function createRepo(db: Db) {
         isMe: r.id === meId,
         isOwner: r.id === r.ownerId,
         joinedAt: Number(r.joinedAt),
+        pet: readPet(r.pet),
       }));
+    },
+    /** Stores the pet the learner's groups see (null stops sharing it). */
+    setPet(userId: string, pet: PetBadge | null) {
+      q.setPet.run(pet ? JSON.stringify(pet) : null, userId);
     },
     /** Every group's member count and XP in [start, end); `isMine` marks the caller's groups. */
     groupTotals(meId: string | undefined, start: number, end: number): GroupTotals[] {

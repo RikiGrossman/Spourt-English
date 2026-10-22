@@ -15,10 +15,12 @@ import type {
   LoginRequest,
   MeResponse,
   Period,
+  PetBadge,
   Progress,
   ProgressResponse,
   PutSrsRequest,
   RegisterRequest,
+  SetPetRequest,
   SrsResponse,
   User,
 } from '../../shared/api';
@@ -142,6 +144,8 @@ const restApi = {
   /** Works signed out too; with a token the learner's groups are marked (`isMine`). */
   groupLeaderboard: (period: Period) =>
     request<GroupLeaderboardResponse>('GET', `/groups/leaderboard?period=${period}`),
+  /** Shares the learner's pet with their groups; null stops sharing. */
+  setPet: (pet: PetBadge | null) => request<void>('PUT', '/me/pet', { pet } satisfies SetPetRequest, true),
   /** Tokens are stateless – signing out only forgets the stored one (see clearAuth). */
   signOut: async () => {},
 };

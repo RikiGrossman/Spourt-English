@@ -203,7 +203,14 @@ describe('cloud groups', () => {
       xp_leaderboard: [{ rank: 1, display_name: 'דנה', xp: '70', is_me: true }],
       group_member_stats: [
         { display_name: 'יוסי', xp: '5', is_me: false, is_owner: false, joined_at: '2026-10-02T00:00:00Z' },
-        { display_name: 'דנה', xp: '40', is_me: true, is_owner: true, joined_at: '2026-10-01T00:00:00Z' },
+        {
+          display_name: 'דנה',
+          xp: '40',
+          is_me: true,
+          is_owner: true,
+          joined_at: '2026-10-01T00:00:00Z',
+          pet: { name: 'שלהבת', emoji: '🐲', stage: 2, color: '#4caf50', worn: ['🧢', '🔪'] },
+        },
       ],
     });
     const board = await api.groupLeaderboard('month');
@@ -225,6 +232,8 @@ describe('cloud groups', () => {
     ]);
     const members = await api.groupMembers('g1', 'week');
     expect(members.members.map((m) => m.displayName)).toEqual(['דנה', 'יוסי']);
+    // A shared pet is checked on the way in; members without one have none.
+    expect(members.members.map((m) => m.pet?.worn ?? null)).toEqual([['🧢'], null]);
   });
 });
 
