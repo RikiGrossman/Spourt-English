@@ -6,6 +6,7 @@ import {
   type CallTurnResponse,
   type Correction,
 } from '../../shared/call';
+import { parsePetDesign, type PetDesign, type PetDesignRequest } from '../../shared/pet-design';
 import { loadAuth } from './api';
 import { ApiRequestError } from './api-error';
 import { ACCOUNTS_ENABLED, SUPABASE_ANON_KEY, SUPABASE_URL, USE_SUPABASE } from './config';
@@ -102,21 +103,24 @@ async function supabaseToken(): Promise<string | null> {
   }
 }
 
+type Path = 'turn' | 'status' | 'pet-design';
+
 /** URL and headers for a call request; throws a 401 ApiRequestError when nobody is signed in. */
-async function endpoint(path: 'turn' | 'status'): Promise<{ url: string; headers: Record<string, string> }> {
+async function endpoint(path: Path): Promise<{ url: string; headers: Record<string, string> }> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (USE_SUPABASE) {
     const token = await supabaseToken();
     if (!token) throw signedOut();
     headers.apikey = SUPABASE_ANON_KEY;
     headers.Authorization = `Bearer ${token}`;
-    // One function serves both: POST is a turn, GET the status.
-    return { url: `${SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/call-turn`, headers };
+    // One function serves both call requests: POST is a turn, GET the status.
+    const fn = path === 'pet-design' ? 'pet-design' : 'call-turn';
+    return { url: `${SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/${fn}`, headers };
   }
   const token = loadAuth()?.token;
   if (!token) throw signedOut();
   headers.Authorization = `Bearer ${token}`;
-  return { url: `/api/call/${path}`, headers };
+  return { url: path === 'pet-design' ? '/api/pet/design' : `/api/call/${path}`, headers };
 }
 
 /** The error for a non-OK response: the server's Hebrew message when it sent one. */
@@ -134,7 +138,7 @@ function httpError(status: number, data: unknown): ApiRequestError {
 }
 
 async function call(
-  path: 'turn' | 'status',
+  path: Path,
   init: { method: 'GET' | 'POST'; body?: unknown; timeoutMs: number; signal?: AbortSignal },
 ): Promise<unknown> {
   const { url, headers } = await endpoint(path);
@@ -193,4 +197,12 @@ export function isCallBlocked(error: unknown): error is ApiRequestError {
     error instanceof ApiRequestError &&
     (error.status === 401 || error.status === 403 || (error.status === 429 && error.code === 'daily_limit'))
   );
+}
+
+/** Designs a premium pet with AI (shared/pet-design.ts). Throws ApiRequestError (Hebrew message). */
+export async function designPet(req: PetDesignRequest, signal?: AbortSignal): Promise<PetDesign> {
+  const data = await call('pet-design', { method: 'POST', body: req, timeoutMs: TURN_TIMEOUT_MS, signal });
+  const parsed = parsePetDesign(data);
+  if (!parsed) throw new ApiRequestError(0, 'bad-response', 'העיצוב לא הצליח הפעם. נסו שוב בעוד רגע.');
+  return parsed;
 }
