@@ -12,7 +12,9 @@
  *   429 daily_limit / rate_limited, 400 invalid_call / invalid_json, 502 call_failed, 503 call_unavailable.
  *
  * Premium = the token's email is in the PREMIUM_EMAILS secret (comma-separated), or the learner's paid
- * subscription in public.entitlements (written by the billing-webhook function) is still valid. Usage is counted per
+ * subscription in public.entitlements (written by the billing-webhook function) is still valid.
+ * Testers (TESTER_EMAILS secret) who aren't premium get a short daily trial (shared/call.ts TESTER_LIMITS);
+ * the status says `tester: true` and their callsPerDay. Usage is counted per
  * learner and Asia/Jerusalem day in public.call_usage through public.increment_call_usage (schema.sql),
  * called with the auto-provided SUPABASE_SERVICE_ROLE_KEY. A valid turn is counted before the model call
  * (flagged and goodbye turns too; a 502 is not refunded); invalid requests and 503s are not counted.
@@ -23,7 +25,7 @@
  *
  * Message content is never logged or stored.
  */
-import { CALL_LIMITS, findPersona } from '../../../shared/call.ts';
+import { callsLimitMessage, findPersona, limitsFor } from '../../../shared/call.ts';
 import type { CallMessage, CallStatusResponse, CallTurnResponse } from '../../../shared/call.ts';
 import { buildSystemPrompt, parseModelOutput } from '../../../shared/call-prompts.ts';
 import { checkModelReply, checkUserMessage, safeReply, sanitizeTurnRequest } from '../../../shared/call-safety.ts';
@@ -90,7 +92,7 @@ const failed = () => new HttpError(502, 'call_failed', 'השיחה נתקעה ל
 const unavailable = () => new HttpError(503, 'call_unavailable', 'שיחות הווידאו לא זמינות כרגע');
 const unauthorized = () => new HttpError(401, 'unauthorized', 'יש להתחבר כדי להמשיך');
 const premiumRequired = () => new HttpError(403, 'premium_required', 'שיחות וידאו זמינות רק למנויי פרימיום');
-const callsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלה של 10 שיחות ביום. נתראה מחר!');
+const callsLimit = (perDay: number) => new HttpError(429, 'daily_limit', callsLimitMessage(perDay));
 const turnsLimit = () => new HttpError(429, 'daily_limit', 'הגעתם למגבלת השיחות להיום. נתראה מחר!');
 
 function corsHeaders(origin: string | null): Record<string, string> {
@@ -180,9 +182,13 @@ async function signedInUser(request: Request): Promise<SignedInUser> {
 }
 
 const premiumEmails = () => parsePremiumEmails(Deno.env.get('PREMIUM_EMAILS'));
+/** Testers get a short daily trial call (TESTER_LIMITS) before premium is sold. */
+const testerEmails = () => parsePremiumEmails(Deno.env.get('TESTER_EMAILS'));
 
 interface Premium {
   premium: boolean;
+  /** Not premium, but on the TESTER_EMAILS list. */
+  tester?: boolean;
   /** Set when the learner has (or had) a subscription. */
   premiumUntil?: string;
   willRenew?: boolean;
@@ -206,6 +212,7 @@ async function premiumOf(user: SignedInUser): Promise<Premium> {
     { premium_until?: string | null; will_renew?: boolean | null }[] | null;
   const row = rows?.[0];
   const result: Premium = { premium: listed || isEntitled(row?.premium_until) };
+  if (!result.premium && isPremium(user.email, testerEmails())) result.tester = true;
   if (row?.premium_until) result.premiumUntil = new Date(row.premium_until).toISOString();
   if (typeof row?.will_renew === 'boolean') result.willRenew = row.will_renew;
   return result;
@@ -227,7 +234,7 @@ async function callsToday(userId: string): Promise<number> {
 }
 
 /** Checks the daily limits and counts the turn atomically (public.increment_call_usage); returns today's calls. */
-async function chargeTurn(userId: string, newCall: boolean): Promise<number> {
+async function chargeTurn(userId: string, newCall: boolean, limits: Limits): Promise<number> {
   const { url, serviceKey } = supabaseEnv();
   const res = await fetch(`${url}/rest/v1/rpc/increment_call_usage`, {
     method: 'POST',
@@ -236,8 +243,8 @@ async function chargeTurn(userId: string, newCall: boolean): Promise<number> {
       p_user: userId,
       p_day: usageDay(Date.now(), TIME_ZONE),
       p_new_call: newCall,
-      p_calls_limit: CALL_LIMITS.callsPerDay,
-      p_turns_limit: CALL_LIMITS.turnsPerDay,
+      p_calls_limit: limits.callsPerDay,
+      p_turns_limit: limits.turnsPerDay,
     }),
   }).catch(() => null);
   if (!res?.ok) {
@@ -246,7 +253,7 @@ async function chargeTurn(userId: string, newCall: boolean): Promise<number> {
   }
   const result = (await res.json().catch(() => null)) as { allowed?: boolean; reason?: string; calls?: number } | null;
   if (!result || typeof result.allowed !== 'boolean') throw failed();
-  if (!result.allowed) throw result.reason === 'calls' ? callsLimit() : turnsLimit();
+  if (!result.allowed) throw result.reason === 'calls' ? callsLimit(limits.callsPerDay) : turnsLimit();
   return Number(result.calls ?? 0);
 }
 
@@ -285,7 +292,9 @@ async function callModel(apiKey: string, system: string, messages: AnthropicMess
     .join('');
 }
 
-async function callTurn(body: unknown, user: SignedInUser): Promise<CallTurnResponse> {
+type Limits = ReturnType<typeof limitsFor>;
+
+async function callTurn(body: unknown, user: SignedInUser, limits: Limits): Promise<CallTurnResponse> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw unavailable();
   supabaseEnv(); // 503 before counting anything when the service key is missing
@@ -294,12 +303,12 @@ async function callTurn(body: unknown, user: SignedInUser): Promise<CallTurnResp
   if (!req || !persona) throw new HttpError(400, 'invalid_call', 'הבקשה לשיחה אינה תקינה');
 
   const rawHistory = (body as { history?: unknown }).history;
-  const callsToday = await chargeTurn(user.id, isNewCall(rawHistory));
+  const callsToday = await chargeTurn(user.id, isNewCall(rawHistory), limits);
 
   const learnerTurns = Array.isArray(rawHistory)
     ? rawHistory.filter((m) => (m as { role?: unknown })?.role === 'user').length
     : 0;
-  if (learnerTurns >= CALL_LIMITS.maxTurns) return { ...GOODBYE, corrections: [], ended: true, callsToday };
+  if (learnerTurns >= limits.maxTurns) return { ...GOODBYE, corrections: [], ended: true, callsToday };
 
   const check = checkUserMessage(req.message);
   if (check.flagged) {
@@ -321,7 +330,7 @@ async function callTurn(body: unknown, user: SignedInUser): Promise<CallTurnResp
 
 async function callStatus(user: SignedInUser): Promise<CallStatusResponse> {
   const [premium, calls] = await Promise.all([premiumOf(user), callsToday(user.id)]);
-  return { ...premium, callsToday: calls, callsPerDay: CALL_LIMITS.callsPerDay };
+  return { ...premium, callsToday: calls, callsPerDay: limitsFor(premium.tester ? 'tester' : 'premium').callsPerDay };
 }
 
 Deno.serve(async (request) => {
@@ -349,7 +358,9 @@ Deno.serve(async (request) => {
   try {
     const user = await signedInUser(request);
     if (request.method === 'GET') return json(200, await callStatus(user));
-    if (!(await premiumOf(user)).premium) throw premiumRequired();
+    const access = await premiumOf(user);
+    if (!access.premium && !access.tester) throw premiumRequired();
+    const limits = limitsFor(access.premium ? 'premium' : 'tester');
 
     let body: unknown;
     try {
@@ -357,7 +368,7 @@ Deno.serve(async (request) => {
     } catch {
       return json(400, { error: 'invalid_json', message: 'הבקשה אינה תקינה' });
     }
-    return json(200, await callTurn(body, user));
+    return json(200, await callTurn(body, user, limits));
   } catch (err) {
     if (err instanceof HttpError) return json(err.status, { error: err.code, message: err.hebrew });
     console.error('[call-turn] unexpected error');

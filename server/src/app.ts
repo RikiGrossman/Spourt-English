@@ -27,6 +27,8 @@ export interface AppOptions {
   anthropic?: CallModelOptions;
   /** Comma-separated emails allowed to use the AI video call (defaults to the PREMIUM_EMAILS env). */
   premiumEmails?: string;
+  /** Comma-separated emails of testers, who get a short daily trial call (defaults to the TESTER_EMAILS env). */
+  testerEmails?: string;
   /** Directory of the built web app to serve; defaults to ../dist in production. */
   staticDir?: string | false;
   /** Allow cross-origin requests from localhost (dev only by default). */
@@ -86,12 +88,12 @@ export function createApp(db: Db, options: AppOptions = {}) {
   api.use(srsRouter(repo, requireAuth));
   api.use(eventsRouter(repo, optionalAuth, eventsLimiter));
   const premiumEmails = parsePremiumEmails(options.premiumEmails ?? process.env.PREMIUM_EMAILS);
-  api.use(callRouter(repo, options.anthropic ?? {}, premiumEmails, requireAuth, callLimiter));
+  const testerEmails = parsePremiumEmails(options.testerEmails ?? process.env.TESTER_EMAILS);
+  api.use(callRouter(repo, options.anthropic ?? {}, premiumEmails, requireAuth, callLimiter, testerEmails));
   api.use((_req, _res, next) => next(new HttpError(404, 'not_found', 'הנתיב המבוקש לא נמצא')));
   app.use('/api', api);
 
-  const staticDir =
-    options.staticDir ?? (production ? resolve(import.meta.dirname, '../../dist') : false);
+  const staticDir = options.staticDir ?? (production ? resolve(import.meta.dirname, '../../dist') : false);
   if (staticDir) {
     if (!existsSync(join(staticDir, 'index.html'))) {
       console.warn(`[server] ${staticDir}/index.html not found – run "npm run build" at the repo root`);

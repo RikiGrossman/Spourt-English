@@ -25,6 +25,7 @@ echo "✓ schema"
 secrets=()
 [ -n "${ANTHROPIC_API_KEY:-}" ] && secrets+=("ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
 [ -n "${PREMIUM_EMAILS:-}" ] && secrets+=("PREMIUM_EMAILS=$PREMIUM_EMAILS")
+[ -n "${TESTER_EMAILS:-}" ] && secrets+=("TESTER_EMAILS=$TESTER_EMAILS")
 [ -n "${CALL_MODEL:-}" ] && secrets+=("CALL_MODEL=$CALL_MODEL")
 [ -n "${REVENUECAT_WEBHOOK_SECRET:-}" ] && secrets+=("REVENUECAT_WEBHOOK_SECRET=$REVENUECAT_WEBHOOK_SECRET")
 [ -n "${REVENUECAT_API_KEY:-}" ] && secrets+=("REVENUECAT_API_KEY=$REVENUECAT_API_KEY")

@@ -208,6 +208,14 @@ describe('getCallStatus', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('passes on a tester’s trial, but never for a premium learner', async () => {
+    const { getCallStatus } = await load();
+    fetchMock.mockResolvedValueOnce(json(200, { premium: false, tester: true, callsToday: 0, callsPerDay: 1 }));
+    await expect(getCallStatus()).resolves.toEqual({ premium: false, tester: true, callsToday: 0, callsPerDay: 1 });
+    fetchMock.mockResolvedValueOnce(json(200, { ...status, tester: true }));
+    await expect(getCallStatus()).resolves.toEqual(status);
+  });
+
   it('fills in a missing daily allowance and rejects malformed responses', async () => {
     const { getCallStatus } = await load();
     fetchMock.mockResolvedValueOnce(json(200, { premium: false }));

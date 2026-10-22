@@ -104,8 +104,38 @@ export const CALL_LIMITS = {
 } as const;
 
 /**
+ * Testers (TESTER_EMAILS) try the call before premium is sold: one short call a day. A call ends
+ * with the character's goodbye after `maxTurns` learner sentences; `turnsPerDay` leaves room for
+ * that goodbye and a few retries after a failed turn.
+ */
+export const TESTER_LIMITS = {
+  maxTurns: 10,
+  callsPerDay: 1,
+  turnsPerDay: 15,
+} as const;
+
+/** The limits a learner's calls run under: premium, a tester's trial, or none (can't call). */
+export type CallAccess = 'premium' | 'tester' | null;
+
+export function limitsFor(access: 'premium' | 'tester'): {
+  maxTurns: number;
+  callsPerDay: number;
+  turnsPerDay: number;
+} {
+  return access === 'tester' ? TESTER_LIMITS : CALL_LIMITS;
+}
+
+/** The Hebrew 429 message when a learner has used today's calls. */
+export function callsLimitMessage(callsPerDay: number): string {
+  return callsPerDay === 1
+    ? 'השיחה של היום כבר נוצלה. נתראה מחר!'
+    : `הגעתם למגבלה של ${callsPerDay} שיחות ביום. נתראה מחר!`;
+}
+
+/**
  * Calls need a signed-in premium account: an email on the server-side allowlist (PREMIUM_EMAILS),
  * or – on Supabase – a paid Google Play subscription (shared/billing.ts, docs/subscriptions.md).
+ * Testers (TESTER_EMAILS) who aren't premium get a short daily trial under TESTER_LIMITS.
  *
  * A turn whose `history` has no learner message starts a new call and counts toward
  * `callsPerDay`. Errors: 401 `unauthorized` (not signed in), 403 `premium_required`,
@@ -115,6 +145,8 @@ export const CALL_LIMITS = {
 /** GET /api/call/status (auth) – whether the learner can call, and today's usage. */
 export interface CallStatusResponse {
   premium: boolean;
+  /** Not premium, but on the tester list: may call under TESTER_LIMITS (`callsPerDay` says how many). */
+  tester?: boolean;
   callsToday: number;
   callsPerDay: number;
   /** ISO time a paid subscription runs until; only when the learner has (or had) one. */

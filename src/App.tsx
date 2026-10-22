@@ -491,7 +491,9 @@ function Screens() {
           if (error.status === 401) setCallStatus(null);
           else
             setCallStatus(
-              (s) => s && (error.status === 403 ? { ...s, premium: false } : { ...s, callsToday: s.callsPerDay }),
+              (s) =>
+                s &&
+                (error.status === 403 ? { ...s, premium: false, tester: false } : { ...s, callsToday: s.callsPerDay }),
             );
         }}
       />
