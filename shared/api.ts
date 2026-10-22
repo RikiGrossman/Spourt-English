@@ -114,6 +114,9 @@ export type { ChallengeStatus } from './groups';
 /** The learner's pet as their groups see it: PUT /api/me/pet (auth) with SetPetRequest → 204. */
 export type { PetBadge, SetPetRequest } from './pet-design';
 
+// ---- Head-to-head duels (shared/duels.ts): GET/POST /api/duels, POST /api/duels/join, DELETE /api/duels/:id ----
+export type { DuelResponse, DuelsResponse, DuelSummary, JoinDuelRequest } from './duels';
+
 /** GET /api/groups (auth) – the learner's groups with this week's standing and challenges. */
 export interface GroupsResponse {
   groups: GroupSummary[];

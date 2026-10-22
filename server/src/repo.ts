@@ -11,6 +11,14 @@ import {
   type GroupTotals,
   type MemberXpEvent,
 } from '../../shared/groups';
+import {
+  DUEL_INVITE_MS,
+  DUEL_MS,
+  MAX_OPEN_DUELS,
+  duelOpen,
+  type DuelErrorCode,
+  type DuelRecord,
+} from '../../shared/duels';
 import { parsePetBadge, type PetBadge } from '../../shared/pet-design';
 import type { Box } from '../../shared/srs';
 import { initialProgress, type Progress } from '../../src/lib/progress';
@@ -75,6 +83,7 @@ export type CallTurnCharge =
 
 /** Outcome of creating or joining a group: its id, or the reason it was refused. */
 export type GroupChange = { ok: true; groupId: string } | { ok: false; error: GroupErrorCode };
+export type DuelChange = { ok: true; duelId: string } | { ok: false; error: DuelErrorCode };
 
 interface GroupRow {
   id: string;
@@ -179,9 +188,34 @@ export function createRepo(db: Db) {
       `INSERT INTO call_usage (user_id, day, calls, turns) VALUES (?, ?, ?, 1)
        ON CONFLICT(user_id, day) DO UPDATE SET calls = calls + excluded.calls, turns = turns + 1`,
     ),
+    insertDuel: db.prepare('INSERT INTO duels (id, invite_code, challenger_id, created_at) VALUES (?, ?, ?, ?)'),
+    duelByCode: db.prepare('SELECT id, challenger_id, opponent_id, created_at FROM duels WHERE invite_code = ?'),
+    duelTimes: db.prepare(
+      'SELECT created_at AS createdAt, starts_at AS startsAt FROM duels WHERE challenger_id = ? OR opponent_id = ?',
+    ),
+    acceptDuel: db.prepare('UPDATE duels SET opponent_id = ?, starts_at = ? WHERE id = ? AND opponent_id IS NULL'),
+    cancelDuel: db.prepare('DELETE FROM duels WHERE id = ? AND challenger_id = ? AND opponent_id IS NULL'),
+    dropExpiredInvites: db.prepare('DELETE FROM duels WHERE opponent_id IS NULL AND created_at < ?'),
+    myDuels: db.prepare(
+      `SELECT d.id, d.invite_code AS inviteCode, d.challenger_id AS challengerId, d.created_at AS createdAt,
+         d.starts_at AS startsAt,
+         c.display_name AS cName, c.pet AS cPet, o.display_name AS oName, o.pet AS oPet,
+         COALESCE((SELECT SUM(e.xp) FROM xp_events e WHERE e.user_id = d.challenger_id
+           AND e.created_at >= d.starts_at AND e.created_at < d.starts_at + ?), 0) AS cXp,
+         COALESCE((SELECT SUM(e.xp) FROM xp_events e WHERE e.user_id = d.opponent_id
+           AND e.created_at >= d.starts_at AND e.created_at < d.starts_at + ?), 0) AS oXp
+       FROM duels d JOIN users c ON c.id = d.challenger_id LEFT JOIN users o ON o.id = d.opponent_id
+       WHERE d.challenger_id = ? OR d.opponent_id = ?`,
+    ),
   };
 
   const bool = (v: boolean | undefined) => (v === undefined ? null : v ? 1 : 0);
+
+  /** Open invites and running duels of the learner (shared/duels.ts MAX_OPEN_DUELS). */
+  function openDuelCount(userId: string, now = Date.now()): number {
+    const rows = q.duelTimes.all(userId, userId) as { createdAt: number; startsAt: number | null }[];
+    return rows.filter((r) => duelOpen({ createdAt: Number(r.createdAt), startsAt: r.startsAt }, now)).length;
+  }
 
   function transaction(fn: () => void): void {
     db.exec('BEGIN');
@@ -436,6 +470,70 @@ export function createRepo(db: Db) {
     /** Stores the pet the learner's groups see (null stops sharing it). */
     setPet(userId: string, pet: PetBadge | null) {
       q.setPet.run(pet ? JSON.stringify(pet) : null, userId);
+    },
+    openDuelCount,
+    createDuel(userId: string, now = Date.now()): DuelChange {
+      let result: DuelChange = { ok: false, error: 'too_many_duels' };
+      transaction(() => {
+        q.dropExpiredInvites.run(now - DUEL_INVITE_MS);
+        if (openDuelCount(userId, now) >= MAX_OPEN_DUELS) return;
+        let code = newInviteCode();
+        while (q.duelByCode.get(code)) code = newInviteCode();
+        const id = randomUUID();
+        q.insertDuel.run(id, code, userId, now);
+        result = { ok: true, duelId: id };
+      });
+      return result;
+    },
+    /** Accepts an open invite: the duel starts now. */
+    joinDuel(userId: string, code: string, now = Date.now()): DuelChange {
+      let result: DuelChange = { ok: false, error: 'duel_not_found' };
+      transaction(() => {
+        const duel = q.duelByCode.get(code) as
+          { id: string; challenger_id: string; opponent_id: string | null; created_at: number } | undefined;
+        if (!duel || duel.opponent_id !== null || Number(duel.created_at) + DUEL_INVITE_MS <= now) return;
+        if (duel.challenger_id === userId) result = { ok: false, error: 'own_duel' };
+        else if (openDuelCount(userId, now) >= MAX_OPEN_DUELS) result = { ok: false, error: 'too_many_duels' };
+        else {
+          q.acceptDuel.run(userId, now, duel.id);
+          result = { ok: true, duelId: duel.id };
+        }
+      });
+      return result;
+    },
+    /** Withdraws an invite nobody accepted yet; false when there is no such invite of the learner. */
+    cancelDuel(userId: string, duelId: string): boolean {
+      return Number(q.cancelDuel.run(duelId, userId).changes) > 0;
+    },
+    /** Every duel of the learner, from their side (shared/duels.ts summarizeDuels filters and sorts). */
+    myDuels(userId: string): DuelRecord[] {
+      const rows = q.myDuels.all(DUEL_MS, DUEL_MS, userId, userId) as {
+        id: string;
+        inviteCode: string;
+        challengerId: string;
+        createdAt: number;
+        startsAt: number | null;
+        cName: string;
+        cPet: string | null;
+        oName: string | null;
+        oPet: string | null;
+        cXp: number;
+        oXp: number;
+      }[];
+      return rows.map((r) => {
+        const challenger = { displayName: r.cName, xp: Number(r.cXp), pet: readPet(r.cPet) };
+        const opponent = r.oName === null ? null : { displayName: r.oName, xp: Number(r.oXp), pet: readPet(r.oPet) };
+        const isChallenger = r.challengerId === userId;
+        return {
+          id: r.id,
+          inviteCode: r.inviteCode,
+          isChallenger,
+          createdAt: Number(r.createdAt),
+          startsAt: r.startsAt === null ? null : Number(r.startsAt),
+          me: isChallenger ? challenger : opponent!,
+          opponent: isChallenger ? opponent : challenger,
+        };
+      });
     },
     /** Every group's member count and XP in [start, end); `isMine` marks the caller's groups. */
     groupTotals(meId: string | undefined, start: number, end: number): GroupTotals[] {

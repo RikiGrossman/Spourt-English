@@ -86,6 +86,18 @@ const migrations: string[] = [
   CREATE INDEX xp_events_user_created ON xp_events(user_id, created_at);`,
   // #6 – the learner's pet as their groups see it (shared/pet-design.ts PetBadge, JSON), or NULL.
   `ALTER TABLE users ADD COLUMN pet TEXT;`,
+  // #7 – head-to-head duels between two friends (shared/duels.ts). `opponent_id` and `starts_at` stay NULL
+  // until a friend accepts the invite.
+  `CREATE TABLE duels (
+    id TEXT PRIMARY KEY,
+    invite_code TEXT NOT NULL UNIQUE,
+    challenger_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    opponent_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    starts_at INTEGER
+  );
+  CREATE INDEX duels_challenger ON duels(challenger_id);
+  CREATE INDEX duels_opponent ON duels(opponent_id);`,
 ];
 
 export function migrate(db: Db): void {

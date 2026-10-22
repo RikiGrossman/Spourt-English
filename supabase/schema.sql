@@ -518,3 +518,112 @@ grant execute on function public.create_group(text), public.join_group(text), pu
   to authenticated;
 grant execute on function public.group_totals(timestamptz, timestamptz), public.xp_leaderboard(timestamptz, timestamptz)
   to anon, authenticated;
+
+-- (8) Head-to-head duels between two friends (shared/duels.ts, docs/groups.md). One learner opens a duel and
+-- sends its invite code; the first friend to accept starts a 7-day XP race. Like groups, clients only reach
+-- the table through the functions below, which return display names, pets and XP – never ids or emails.
+-- Limits (shared/duels.ts): invites expire after 7 days; 3 open invites plus running duels per learner.
+create table if not exists public.duels (
+  id uuid primary key default gen_random_uuid(),
+  invite_code text not null unique check (invite_code ~ '^[A-HJKMNP-Z2-9]{6}$'),
+  challenger_id uuid not null references auth.users (id) on delete cascade,
+  opponent_id uuid references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  starts_at timestamptz,
+  check ((opponent_id is null) = (starts_at is null)),
+  check (opponent_id is distinct from challenger_id)
+);
+create index if not exists duels_challenger on public.duels (challenger_id);
+create index if not exists duels_opponent on public.duels (opponent_id);
+alter table public.duels enable row level security;
+revoke all on public.duels from public, anon, authenticated;
+
+-- Open invites plus running duels of a learner (shared/duels.ts duelOpen).
+create or replace function public.open_duel_count(who uuid)
+returns integer language sql stable security definer set search_path = '' as $$
+  select count(*)::integer from public.duels d
+  where (d.challenger_id = who or d.opponent_id = who)
+    and case when d.starts_at is null then d.created_at > now() - interval '7 days'
+             else d.starts_at > now() - interval '7 days' end;
+$$;
+
+create or replace function public.create_duel()
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  code text;
+  did uuid;
+begin
+  if me is null then raise exception 'not_signed_in'; end if;
+  perform pg_advisory_xact_lock(hashtext(me::text));
+  delete from public.duels where opponent_id is null and created_at <= now() - interval '7 days';
+  if public.open_duel_count(me) >= 3 then raise exception 'too_many_duels'; end if;
+  loop
+    select string_agg(substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', 1 + floor(random() * 31)::int, 1), '')
+      into code from generate_series(1, 6);
+    exit when not exists (select 1 from public.duels where invite_code = code);
+  end loop;
+  insert into public.duels (invite_code, challenger_id) values (code, me) returning id into did;
+  return did;
+end; $$;
+
+create or replace function public.join_duel(code text)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  clean text := upper(regexp_replace(coalesce(code, ''), '[\s-]', '', 'g'));
+  d public.duels;
+begin
+  if me is null then raise exception 'not_signed_in'; end if;
+  if clean !~ '^[A-HJKMNP-Z2-9]{6}$' then raise exception 'invalid_code'; end if;
+  -- Locks the row, so two friends accepting at once can't both get in.
+  select * into d from public.duels where invite_code = clean for update;
+  if d.id is null or d.opponent_id is not null or d.created_at <= now() - interval '7 days' then
+    raise exception 'duel_not_found';
+  end if;
+  if d.challenger_id = me then raise exception 'own_duel'; end if;
+  perform pg_advisory_xact_lock(hashtext(me::text));
+  if public.open_duel_count(me) >= 3 then raise exception 'too_many_duels'; end if;
+  update public.duels set opponent_id = me, starts_at = now() where id = d.id;
+  return d.id;
+end; $$;
+
+-- Withdraws an invite nobody accepted yet (a running duel can't be left).
+create or replace function public.cancel_duel(did uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.duels where id = did and challenger_id = auth.uid() and opponent_id is null;
+  if not found then raise exception 'not_in_duel'; end if;
+end; $$;
+
+-- Every duel of the caller, from their side, with both learners' XP since the start; the client filters
+-- and sorts them with shared/duels.ts summarizeDuels.
+create or replace function public.my_duels()
+returns table (
+  id uuid, invite_code text, is_challenger boolean, created_at timestamptz, starts_at timestamptz,
+  my_name text, my_pet jsonb, my_xp bigint, opp_name text, opp_pet jsonb, opp_xp bigint
+)
+language sql stable security definer set search_path = '' as $$
+  with mine as (
+    select d.*, (d.challenger_id = auth.uid()) as is_challenger,
+      case when d.challenger_id = auth.uid() then d.opponent_id else d.challenger_id end as other_id
+    from public.duels d
+    where d.challenger_id = auth.uid() or d.opponent_id = auth.uid()
+  )
+  select m.id, m.invite_code, m.is_challenger, m.created_at, m.starts_at,
+    me.display_name, me.pet,
+    coalesce((select sum(e.xp) from public.xp_events e where e.user_id = auth.uid()
+      and e.created_at >= m.starts_at and e.created_at < m.starts_at + interval '7 days'), 0)::bigint,
+    other.display_name, other.pet,
+    coalesce((select sum(e.xp) from public.xp_events e where e.user_id = m.other_id
+      and e.created_at >= m.starts_at and e.created_at < m.starts_at + interval '7 days'), 0)::bigint
+  from mine m
+  join public.profiles me on me.id = auth.uid()
+  left join public.profiles other on other.id = m.other_id;
+$$;
+
+revoke execute on function public.open_duel_count(uuid) from public, anon, authenticated;
+revoke execute on function public.create_duel(), public.join_duel(text), public.cancel_duel(uuid), public.my_duels()
+  from public, anon;
+grant execute on function public.create_duel(), public.join_duel(text), public.cancel_duel(uuid), public.my_duels()
+  to authenticated;

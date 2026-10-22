@@ -4,12 +4,15 @@ import type {
   CompleteLessonRequest,
   CreateGroupRequest,
   DeleteAccountRequest,
+  DuelResponse,
+  DuelsResponse,
   GroupLeaderboardResponse,
   GroupMembersResponse,
   GroupResponse,
   GroupsResponse,
   HealthResponse,
   ItemStates,
+  JoinDuelRequest,
   JoinGroupRequest,
   LeaderboardResponse,
   LoginRequest,
@@ -144,6 +147,11 @@ const restApi = {
   /** Works signed out too; with a token the learner's groups are marked (`isMine`). */
   groupLeaderboard: (period: Period) =>
     request<GroupLeaderboardResponse>('GET', `/groups/leaderboard?period=${period}`),
+  /** Head-to-head duels (shared/duels.ts): the learner's duels, opening one, accepting one and withdrawing one. */
+  duels: () => request<DuelsResponse>('GET', '/duels', undefined, true),
+  createDuel: () => request<DuelResponse>('POST', '/duels', {}, true),
+  joinDuel: (code: string) => request<DuelResponse>('POST', '/duels/join', { code } satisfies JoinDuelRequest, true),
+  cancelDuel: (id: string) => request<void>('DELETE', `/duels/${encodeURIComponent(id)}`, undefined, true),
   /** Shares the learner's pet with their groups; null stops sharing. */
   setPet: (pet: PetBadge | null) => request<void>('PUT', '/me/pet', { pet } satisfies SetPetRequest, true),
   /** Tokens are stateless – signing out only forgets the stored one (see clearAuth). */

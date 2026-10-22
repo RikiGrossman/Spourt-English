@@ -210,6 +210,7 @@ export const PET_ACCESSORY_ICONS: readonly string[] = [
   '👑',
   '🎗️',
   '🎖️',
+  '🥇',
 ];
 
 /** The last stage (src/lib/pet.ts STAGES). */
