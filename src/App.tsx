@@ -22,7 +22,7 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { useAccount } from './lib/account';
 import { identify, setAnalyticsEnabled, track } from './lib/analytics';
 import { PREMIUM_ON_SALE, subscriptionText, syncBillingUser } from './lib/billing';
-import { CALLS_ENABLED, getCallStatus } from './lib/call-api';
+import { CALLS_ENABLED, CALLS_LOCKED, getCallStatus } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
 import { canListen } from './lib/listen';
@@ -666,7 +666,10 @@ function Screens() {
             premium={premium}
             subscription={premium ? subscriptionText(callStatus) : ''}
             onPremium={
-              CALLS_ENABLED && PREMIUM_ON_SALE ? () => setScreen({ name: 'premium', back: 'profile' }) : undefined
+              // Premium is the calls, so it isn't offered while the call tab is locked.
+              CALLS_ENABLED && PREMIUM_ON_SALE && !CALLS_LOCKED
+                ? () => setScreen({ name: 'premium', back: 'profile' })
+                : undefined
             }
             syncStatus={account.status}
             settings={settings}
@@ -696,20 +699,25 @@ function Screens() {
         )}
       </main>
       <nav className="bottom-nav" aria-label="ניווט ראשי">
-        {TABS.map((tab) => (
-          <button
-            key={tab.name}
-            type="button"
-            className={screen.name === tab.name ? 'active' : ''}
-            aria-current={screen.name === tab.name ? 'page' : undefined}
-            onClick={() => {
-              setIntro(null);
-              setScreen({ name: tab.name });
-            }}
-          >
-            <span aria-hidden="true">{tab.icon}</span> <span>{tab.label}</span>
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const locked = tab.name === 'call' && CALLS_LOCKED;
+          return (
+            <button
+              key={tab.name}
+              type="button"
+              className={screen.name === tab.name ? 'active' : locked ? 'locked' : ''}
+              aria-current={screen.name === tab.name ? 'page' : undefined}
+              disabled={locked}
+              title={locked ? 'בפיתוח – בקרוב' : undefined}
+              onClick={() => {
+                setIntro(null);
+                setScreen({ name: tab.name });
+              }}
+            >
+              <span aria-hidden="true">{locked ? '🔒' : tab.icon}</span> <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </nav>
       {intro && screen.name === 'path' && (
         <UnitIntro unit={intro.unit} trigger={intro.trigger} onConfirm={confirmIntro} onClose={closeIntro} />
