@@ -2,12 +2,19 @@ import type {
   ApiError,
   AuthResponse,
   CompleteLessonRequest,
+  CreateGroupRequest,
   DeleteAccountRequest,
+  GroupLeaderboardResponse,
+  GroupMembersResponse,
+  GroupResponse,
+  GroupsResponse,
   HealthResponse,
   ItemStates,
+  JoinGroupRequest,
   LeaderboardResponse,
   LoginRequest,
   MeResponse,
+  Period,
   Progress,
   ProgressResponse,
   PutSrsRequest,
@@ -122,7 +129,19 @@ const restApi = {
   /** Forgets the whole review state (progress reset). */
   deleteSrs: () => request<void>('DELETE', '/srs', undefined, true),
   /** Works signed out too; with a token the server marks the learner's own row (`isMe`). */
-  leaderboard: () => request<LeaderboardResponse>('GET', '/leaderboard'),
+  leaderboard: (period?: Period) =>
+    request<LeaderboardResponse>('GET', period ? `/leaderboard?period=${period}` : '/leaderboard'),
+  /** Groups (shared/groups.ts): the learner's groups, creating, joining, members and leaving. */
+  groups: () => request<GroupsResponse>('GET', '/groups', undefined, true),
+  createGroup: (name: string) => request<GroupResponse>('POST', '/groups', { name } satisfies CreateGroupRequest, true),
+  joinGroup: (code: string) =>
+    request<GroupResponse>('POST', '/groups/join', { code } satisfies JoinGroupRequest, true),
+  groupMembers: (id: string, period: Period) =>
+    request<GroupMembersResponse>('GET', `/groups/${encodeURIComponent(id)}/members?period=${period}`, undefined, true),
+  leaveGroup: (id: string) => request<void>('DELETE', `/groups/${encodeURIComponent(id)}/membership`, undefined, true),
+  /** Works signed out too; with a token the learner's groups are marked (`isMine`). */
+  groupLeaderboard: (period: Period) =>
+    request<GroupLeaderboardResponse>('GET', `/groups/leaderboard?period=${period}`),
   /** Tokens are stateless – signing out only forgets the stored one (see clearAuth). */
   signOut: async () => {},
 };

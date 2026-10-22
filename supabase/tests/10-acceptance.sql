@@ -235,4 +235,88 @@ do $$ declare n int; b uuid := '00000000-0000-4000-8000-00000000000b'; begin
   if n <> 1 then raise exception 'delete_my_account removed another learner''s progress'; end if;
 end $$;
 
+-- Groups (shared/groups.ts): no direct table access; create, join with a messy code, member-only
+-- boards, XP counted from joining, ownership passing on and empty groups removed.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-4000-8000-0000000000c1', 'c1@example.com', '{"display_name":"Group C1"}'),
+  ('00000000-0000-4000-8000-0000000000c2', 'c2@example.com', '{"display_name":"Group C2"}'),
+  ('00000000-0000-4000-8000-0000000000c3', 'c3@example.com', '{"display_name":"Group C3"}')
+on conflict do nothing;
+-- Old XP from before anyone joined a group.
+insert into public.xp_events (user_id, xp, created_at)
+values ('00000000-0000-4000-8000-0000000000c1', 40, now() - interval '400 days');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c1', false);
+do $$ begin
+  perform * from public.groups;
+  raise exception 'groups: a learner could read the table directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.create_group(' x ');
+  raise exception 'groups: a one-letter name was accepted';
+exception when raise_exception then
+  if sqlerrm <> 'invalid_name' then raise; end if;
+end $$;
+create temporary table if not exists test_group (id uuid, code text);
+grant all on test_group to authenticated;
+insert into test_group (id) select public.create_group('  The   Family ');
+insert into public.xp_events (xp, lesson) values (15, true);
+reset role;
+update test_group set code = (select invite_code from public.groups where id = test_group.id);
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c2', false);
+do $$ declare gid uuid; begin
+  select public.join_group(lower(substr(code, 1, 3)) || ' - ' || substr(code, 4)) into gid from test_group;
+  if gid is distinct from (select id from test_group) then raise exception 'join_group failed: %', gid; end if;
+end $$;
+do $$ begin
+  perform public.join_group((select code from test_group));
+  raise exception 'join_group: joined twice';
+exception when raise_exception then
+  if sqlerrm <> 'already_member' then raise; end if;
+end $$;
+insert into public.xp_events (xp, lesson) values (10, true);
+do $$ declare r record; n int; begin
+  select * into strict r from public.my_groups(now() - interval '1 day', now() + interval '1 day');
+  if r.name <> 'The Family' or r.member_count <> 2 or r.is_owner or r.xp <> 25 or r.lessons <> 2 or r.active_days <> 2 then
+    raise exception 'my_groups failed: %', r;
+  end if;
+  select count(*) into n from public.group_member_stats((select id from test_group), '-infinity', null);
+  if n <> 2 then raise exception 'group_member_stats failed: % rows', n; end if;
+  select total_xp into n from public.group_totals('-infinity', null) where is_mine;
+  if n <> 25 then raise exception 'group_totals failed: % (old XP from before joining must not count)', n; end if;
+  select xp into n from public.xp_leaderboard(now() - interval '1 day', null) where is_me;
+  if n <> 10 then raise exception 'xp_leaderboard failed: %', n; end if;
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c3', false);
+do $$ begin
+  perform public.group_member_stats((select id from test_group), '-infinity', null);
+  raise exception 'group_member_stats: a stranger saw the members';
+exception when raise_exception then
+  if sqlerrm <> 'not_member' then raise; end if;
+end $$;
+-- The owner leaves: C2 owns the group; C2 leaves too: the group is gone.
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c1', false);
+select public.leave_group((select id from test_group));
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000c2', false);
+do $$ declare r record; begin
+  select * into strict r from public.my_groups(now() - interval '1 day', now() + interval '1 day');
+  if not r.is_owner or r.member_count <> 1 then raise exception 'ownership did not pass on: %', r; end if;
+end $$;
+select public.leave_group((select id from test_group));
+reset role;
+do $$ begin
+  if exists (select 1 from public.groups) then raise exception 'an empty group was kept'; end if;
+end $$;
+set role anon;
+select set_config('request.jwt.claim.sub', '', false);
+do $$ begin
+  perform public.create_group('Guests');
+  raise exception 'create_group: anon was allowed to call it';
+exception when insufficient_privilege then null;
+end $$;
+select count(*) from public.group_totals(now() - interval '7 days', null);
+reset role;
+
 select 'supabase acceptance: all checks passed' as result;

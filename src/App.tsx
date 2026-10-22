@@ -9,7 +9,7 @@ import { CallPicker } from './components/call/CallPicker';
 import { CallScreen } from './components/call/CallScreen';
 import { CallSummary, type CallResult } from './components/call/CallSummary';
 import { LearningPath } from './components/LearningPath';
-import { Leaderboard } from './components/Leaderboard';
+import { League, type LeagueView } from './components/League';
 import { LessonComplete } from './components/LessonComplete';
 import { LessonScreen, type LessonResult } from './components/LessonScreen';
 import { Onboarding } from './components/Onboarding';
@@ -26,6 +26,7 @@ import { CALLS_ENABLED, CALLS_LOCKED, getCallStatus } from './lib/call-api';
 import { ACCOUNTS_ENABLED } from './lib/config';
 import { generateExercises, withoutSpeaking } from './lib/exercises';
 import { canListen } from './lib/listen';
+import { takeJoinCode, useGroups } from './lib/groups';
 import { needsOnboarding, reachesGoal, setDailyGoal } from './lib/goals';
 import { loadIntroSeen, markIntroSeen, shouldAutoShowIntro } from './lib/intro-seen';
 import { completePractice } from './lib/practice';
@@ -33,6 +34,7 @@ import {
   applyStreakFreeze,
   avatarEmoji,
   buy,
+  earn,
   chooseAvatar,
   earn,
   openChest,
@@ -104,7 +106,8 @@ type Tab = 'path' | 'arcade' | 'shop' | 'league' | 'call' | 'profile' | 'pet';
 type AuthFrom = 'prompt' | 'profile' | 'onboarding';
 
 type Screen =
-  | { name: Tab }
+  /** `view` opens the league tab on a given board (e.g. "my groups" after an invite link). */
+  | { name: Tab; view?: LeagueView }
   /** An arcade game; `round` remounts it for "another round". */
   | { name: 'game'; game: GameId; round: number }
   | { name: 'game-done'; game: GameId; score: number; record: boolean; rewards: Reward[] }
@@ -183,6 +186,8 @@ function Screens() {
   const [frozeDays, setFrozeDays] = useState(0);
   const [screen, setScreen] = useState<Screen>({ name: 'path' });
   const [intro, setIntro] = useState<IntroState | null>(null);
+  /** An invite code from a `?join=` link, until the learner joins (or signs in to join). */
+  const [joinCode, setJoinCode] = useState<string | null>(null);
   /** Premium and today's call count, as last heard from the server (the call tab refreshes it). */
   const [callStatus, setCallStatus] = useState<CallStatusResponse | null>(null);
   const streak = visibleStreak(progress);
@@ -268,14 +273,30 @@ function Screens() {
     void syncBillingUser(userId);
   }, [userId]);
   const premium = account.user !== null && callStatus?.premium === true;
+  const groups = useGroups(ACCOUNTS_ENABLED ? userId : null);
+
+  // A shared invite link opens "my groups" with the code filled in.
+  useEffect(() => {
+    const code = ACCOUNTS_ENABLED ? takeJoinCode() : null;
+    if (!code) return;
+    setJoinCode(code);
+    setScreen({ name: 'league', view: 'mine' });
+  }, []);
+
+  // Group standings change as everyone learns: refresh when the league opens or a lesson is done.
+  const { refresh: refreshGroups } = groups;
+  useEffect(() => {
+    if (screen.name === 'league' || screen.name === 'path') void refreshGroups();
+  }, [screen.name, refreshGroups]);
 
   function signedIn(res: AuthResponse, mode: AuthMode, from: AuthFrom, back: Tab | 'onboarding') {
     account.signIn(res);
     saveSignupPrompt(retire(loadSignupPrompt()));
     if (mode === 'register') track({ name: 'signup_complete', props: { from } });
     identify();
-    // Signing in from the call tab goes back to the characters.
-    setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
+    // Signing in from the call tab goes back to the characters; with an invite link, back to joining.
+    if (joinCode) setScreen({ name: 'league', view: 'mine' });
+    else setScreen({ name: from === 'prompt' ? 'path' : back === 'call' ? 'call' : 'profile' });
   }
 
   /** The pet's part in a finished lesson or review: it grows, advances today's challenge and reacts. */
@@ -764,7 +785,20 @@ function Screens() {
             onUnitTest={startUnitTest}
           />
         )}
-        {screen.name === 'league' && <Leaderboard user={account.user} onSignIn={goAuth} />}
+        {screen.name === 'league' && (
+          <League
+            user={account.user}
+            groups={groups}
+            initialView={screen.view}
+            onSignIn={goAuth}
+            onGems={(amount) => {
+              sounds.gem();
+              updateGems((s) => earn(s, amount));
+            }}
+            joinCode={joinCode}
+            onJoinCodeUsed={() => setJoinCode(null)}
+          />
+        )}
         {screen.name === 'call' && (
           <CallPicker
             user={account.user}
@@ -834,6 +868,11 @@ function Screens() {
               }}
             >
               <span aria-hidden="true">{locked ? '🔒' : tab.icon}</span> <span>{tab.label}</span>
+              {tab.name === 'league' && groups.unread > 0 && screen.name !== 'league' && (
+                <span className="badge nav-badge" aria-label={`${groups.unread} התראות קבוצה חדשות`}>
+                  {groups.unread}
+                </span>
+              )}
             </button>
           );
         })}

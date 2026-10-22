@@ -128,12 +128,103 @@ describe('cloud backend', () => {
     const res = await api.completeLesson(first.id, { xp: 999, accuracy: 100 });
     expect(res.progress.completed[first.id]).toBe(1);
     // XP is clamped like the Express server does.
-    expect(db.xp_events).toEqual([{ user_id: 'u1', xp: 50 }]);
+    expect(db.xp_events).toEqual([{ user_id: 'u1', xp: 50, lesson: true }]);
   });
 
   it('maps the leaderboard rows', async () => {
     const { api } = fakeSupabase({ signedIn: true });
     expect((await api.leaderboard()).entries).toEqual([{ rank: 1, displayName: 'דנה', weeklyXp: 25, isMe: true }]);
+  });
+});
+
+describe('cloud groups', () => {
+  /** A signed-in client whose RPCs answer from `answers` (an Error-like object fails the call). */
+  function groupsApi(answers: Record<string, unknown>) {
+    const calls: { name: string; args: Record<string, unknown> }[] = [];
+    const client = {
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } }, error: null }) },
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        calls.push({ name, args });
+        const answer = answers[name];
+        return answer && typeof answer === 'object' && 'message' in answer
+          ? { data: null, error: answer }
+          : { data: answer ?? null, error: null };
+      },
+    };
+    return { calls, api: createCloudApi(async () => client as unknown as SupabaseClient) };
+  }
+
+  const myGroup = {
+    id: 'g1',
+    name: 'המשפחה',
+    invite_code: 'ABC234',
+    member_count: 2,
+    is_owner: true,
+    joined_at: '2026-10-01T00:00:00Z',
+    xp: '45',
+    lessons: '3',
+    active_days: '2',
+  };
+  const totals = [
+    { id: 'g1', name: 'המשפחה', member_count: 2, total_xp: '45', is_mine: true },
+    { id: 'g2', name: 'הכיתה', member_count: 10, total_xp: '600', is_mine: false },
+  ];
+
+  it('builds the group summaries with this week, rank and challenges', async () => {
+    const { api, calls } = groupsApi({ my_groups: [myGroup], group_totals: totals });
+    const [g] = (await api.groups()).groups;
+    expect(g).toMatchObject({ id: 'g1', inviteCode: 'ABC234', weekXp: 45, weekScore: 15, weekRank: 2 });
+    expect(g.challenges.find((c) => c.kind === 'lessons')?.progress).toBe(3);
+    expect(calls[0].args).toEqual({ week_start: expect.any(String), week_end: expect.any(String) });
+  });
+
+  it('creates and joins after checking the input, and maps the errors to Hebrew', async () => {
+    const { api, calls } = groupsApi({
+      create_group: 'g1',
+      join_group: { message: 'group_full' },
+      my_groups: [myGroup],
+      group_totals: totals,
+    });
+    await expect(api.createGroup(' x ')).rejects.toMatchObject({ code: 'invalid_name', status: 400 });
+    expect((await api.createGroup('  המשפחה ')).group.id).toBe('g1');
+    expect(calls.find((c) => c.name === 'create_group')?.args).toEqual({ group_name: 'המשפחה' });
+    await expect(api.joinGroup('bad')).rejects.toMatchObject({ code: 'invalid_code' });
+    await expect(api.joinGroup('abc-234')).rejects.toMatchObject({
+      code: 'group_full',
+      status: 409,
+      message: expect.stringContaining('הקבוצה מלאה'),
+    });
+    expect(calls.find((c) => c.name === 'join_group')?.args).toEqual({ code: 'ABC234' });
+  });
+
+  it('ranks the group board and last period winners, and the personal board by period', async () => {
+    const { api, calls } = groupsApi({
+      group_totals: totals,
+      xp_leaderboard: [{ rank: 1, display_name: 'דנה', xp: '70', is_me: true }],
+      group_member_stats: [
+        { display_name: 'יוסי', xp: '5', is_me: false, is_owner: false, joined_at: '2026-10-02T00:00:00Z' },
+        { display_name: 'דנה', xp: '40', is_me: true, is_owner: true, joined_at: '2026-10-01T00:00:00Z' },
+      ],
+    });
+    const board = await api.groupLeaderboard('month');
+    expect(board.entries.map((e) => [e.rank, e.name, e.score])).toEqual([
+      [1, 'הכיתה', 60],
+      [2, 'המשפחה', 15],
+    ]);
+    expect(board.previousWinners).toHaveLength(2);
+    expect(board.endsAt).toEqual(expect.any(Number));
+    const all = await api.groupLeaderboard('all');
+    expect(all).toMatchObject({ endsAt: null, previousWinners: [] });
+    expect(calls.filter((c) => c.name === 'group_totals').at(-1)?.args).toEqual({
+      since: new Date(0).toISOString(),
+      until: null,
+    });
+
+    expect((await api.leaderboard('week')).entries).toEqual([
+      { rank: 1, displayName: 'דנה', weeklyXp: 70, isMe: true },
+    ]);
+    const members = await api.groupMembers('g1', 'week');
+    expect(members.members.map((m) => m.displayName)).toEqual(['דנה', 'יוסי']);
   });
 });
 
