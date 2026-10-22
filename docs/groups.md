@@ -81,5 +81,5 @@
 ## פריסה
 
 - **Express:** מיגרציה מספר 5 ב־`server/src/db.ts` רצה אוטומטית בהפעלה.
-- **Supabase:** מריצים שוב את כל [`supabase/schema.sql`](../supabase/schema.sql) ב־SQL Editor (סעיף 7 – קבוצות). **קודם ה־SQL ורק אחר כך האתר וה־APK**, אחרת לשונית הקבוצות תחזיר שגיאה. שיעורים ימשיכו להירשם גם לפני ההרצה.
+- **Supabase:** אוטומטי. התהליך **Supabase** ב־GitHub Actions (`.github/workflows/supabase.yml`) מריץ את [`supabase/schema.sql`](../supabase/schema.sql) בכל מיזוג ל־`main` שמשנה את `supabase/`, כולל סעיף 7 – קבוצות. אם הסוד `SUPABASE_ACCESS_TOKEN` חסר, התהליך מדלג ומזהיר, ואז מריצים את הקובץ ידנית ב־SQL Editor. בלי הטבלאות, לשונית הקבוצות מחזירה שגיאה; שיעורים ממשיכים להירשם.
 - ב־Supabase הכללים של סדר הדירוג רצים בלקוח (כמו הליגה הקיימת), והפונקציות ב־SQL מחזירות רק שמות תצוגה ושמות קבוצות.
