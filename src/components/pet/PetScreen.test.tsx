@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { adoptPet, growPet } from '../../lib/pet';
-import { DuelCard } from '../Duels';
+import { DuelCard, Duels } from '../Duels';
 import { MemberPet } from '../MyGroups';
 import { PetScreen } from './PetScreen';
 
@@ -89,5 +89,29 @@ describe('DuelCard', () => {
       />,
     );
     expect(html).toContain('אתם מובילים ב־15 XP');
+  });
+});
+
+describe('Duels notices', () => {
+  it('shows that a friend accepted the invite', () => {
+    const notice = { id: 'd1|accepted', duelId: 'd1', icon: '⚔️', text: 'יוסי קיבל/ה את ההזמנה שלכם', at: 2 };
+    const state = {
+      duels: [],
+      error: null,
+      claimed: [],
+      notices: [notice],
+      readAt: 1,
+      unclaimed: 0,
+      unread: 1,
+      refresh: async () => {},
+      markRead: () => {},
+      claim: () => null,
+    };
+    const user = { id: 'u1', email: 'a@b.co', displayName: 'דנה', createdAt: '2026-10-01T00:00:00Z' };
+    const html = renderToStaticMarkup(
+      <Duels user={user} state={state} onSignIn={noop} onPrize={noop} duelCode={null} onDuelCodeUsed={noop} />,
+    );
+    expect(html).toContain('יוסי קיבל/ה את ההזמנה שלכם');
+    expect(html).toContain('class="unread"');
   });
 });

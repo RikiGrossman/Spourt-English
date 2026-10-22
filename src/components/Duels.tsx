@@ -60,6 +60,8 @@ export function Duels({ user, state, onSignIn, onPrize, duelCode, onDuelCodeUsed
         בתיקו {DUEL_PRIZES.tie} 💎, ועל ההשתתפות {DUEL_PRIZES.lost} 💎.
       </p>
 
+      <DuelNotices state={state} />
+
       {state.duels === null && !state.error && (
         <ol className="board" aria-busy="true" aria-label="טוען תחרויות">
           <li className="board-row skeleton" />
@@ -293,6 +295,28 @@ export function DuelCard({
           {note}
         </p>
       )}
+    </section>
+  );
+}
+
+/** "A friend accepted your invite" notices; seeing them here marks them read. */
+function DuelNotices({ state }: { state: DuelsState }) {
+  const { markRead, notices } = state;
+  // Notices newer than this are highlighted while the view is open, also those that arrive meanwhile.
+  const [seenUntil] = useState(state.readAt);
+  const newest = notices[0]?.id;
+  useEffect(() => markRead(), [markRead, newest]);
+  if (notices.length === 0) return null;
+  return (
+    <section className="panel notices" aria-label="התראות תחרויות">
+      <h3>🔔 התראות</h3>
+      <ul>
+        {notices.slice(0, 5).map((n) => (
+          <li key={n.id} className={n.at > seenUntil ? 'unread' : ''}>
+            <span aria-hidden="true">{n.icon}</span> {n.text}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
